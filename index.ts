@@ -22,7 +22,7 @@ import {
   isWriteToolResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import type { ModularConfig } from "./src/shared/types.js";
+import type { GotchaItem, ModularConfig } from "./src/shared/types.js";
 import {
   DEFAULT_CONFIG,
   loadConfig,
@@ -466,13 +466,15 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   });
 
   // 4. Custom Tools for the Model
-  pi.registerTool({
+  const CompileParams = Type.Object({
+    folder: Type.String({ description: "Path to modular agent directory containing manifest.json" }),
+  });
+
+  pi.registerTool<typeof CompileParams, { ok: boolean; compiledPath?: string; modularRoot?: string }>({
     name: "lotusscript_compile",
     label: "Compile Modular LotusScript",
     description: "Recompile modular LotusScript folder into single <AgentName>_compiled.lss file and run optional LSP diagnostics.",
-    parameters: Type.Object({
-      folder: Type.String({ description: "Path to modular agent directory containing manifest.json" }),
-    }),
+    parameters: CompileParams,
     async execute(_toolCallId: string, params: { folder: string }) {
       const modularRoot = findModularRoot(params.folder);
       if (!modularRoot) {
@@ -499,19 +501,21 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       return {
         content: [{ type: "text", text: `Compiled: ${compiledPath}${lspReport}` }],
-        details: { compiledPath, modularRoot },
+        details: { ok: true, compiledPath, modularRoot },
       };
     },
   });
 
-  pi.registerTool({
+  const DecompileParams = Type.Object({
+    path: Type.String({ description: "Path to .lss or .dxl file to decompile" }),
+    outputDir: Type.Optional(Type.String({ description: "Optional custom output directory (defaults to folder alongside source file)" })),
+  });
+
+  pi.registerTool<typeof DecompileParams, { ok: boolean; outDir?: string }>({
     name: "lotusscript_decompile",
     label: "Decompile LotusScript Monolith",
     description: "Decompiles monolithic LotusScript (.lss) or Domino agent DXL (.dxl) into modular files with manifest.json and main.lss in a folder named after the script.",
-    parameters: Type.Object({
-      path: Type.String({ description: "Path to .lss or .dxl file to decompile" }),
-      outputDir: Type.Optional(Type.String({ description: "Optional custom output directory (defaults to folder alongside source file)" })),
-    }),
+    parameters: DecompileParams,
     async execute(_toolCallId: string, params: { path: string; outputDir?: string }) {
       const resolved = path.resolve(params.path);
       if (!fs.existsSync(resolved)) {
@@ -537,21 +541,26 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       return {
         content: [{ type: "text", text: `Decompiled to: ${outDir}\nFiles: manifest.json, main.lss, 00_options.lss, 01_declarations.lss, procedures, 99_initialize.lss` }],
-        details: { outDir },
+        details: { ok: true, outDir },
       };
     },
   });
 
-  pi.registerTool({
+  const GotchasParams = Type.Object({
+    action: Type.Optional(Type.String({ description: "'search', 'summary', or 'add'" })),
+    query: Type.Optional(Type.String({ description: "Keyword to search (e.g. 'shell', 'forall', 'const', 'computewithform', 'variant')" })),
+    title: Type.Optional(Type.String({ description: "Gotcha title (required for action='add')" })),
+    body: Type.Optional(Type.String({ description: "Gotcha markdown description (required for action='add')" })),
+  });
+
+  pi.registerTool<
+    typeof GotchasParams,
+    { ok?: boolean; created?: GotchaItem; hits?: GotchaItem[] }
+  >({
     name: "lotusscript_gotchas",
     label: "Search or Add LotusScript Gotchas",
     description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or record a newly discovered gotcha into the shared registry (~/.pi/lotusscript/gotchas.md) across all projects.",
-    parameters: Type.Object({
-      action: Type.Optional(Type.String({ description: "'search', 'summary', or 'add'" })),
-      query: Type.Optional(Type.String({ description: "Keyword to search (e.g. 'shell', 'forall', 'const', 'computewithform', 'variant')" })),
-      title: Type.Optional(Type.String({ description: "Gotcha title (required for action='add')" })),
-      body: Type.Optional(Type.String({ description: "Gotcha markdown description (required for action='add')" })),
-    }),
+    parameters: GotchasParams,
     async execute(_toolCallId: string, params: { action?: string; query?: string; title?: string; body?: string }) {
       const act = (params.action || "search").toLowerCase();
 
@@ -565,7 +574,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         const created = addGotcha(params.title, params.body);
         return {
           content: [{ type: "text", text: `Gotcha successfully added to central repository: ${created.title}` }],
-          details: { created },
+          details: { ok: true, created },
         };
       }
 
@@ -580,7 +589,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       if (hits.length === 0) {
         return {
           content: [{ type: "text", text: `No gotchas found matching: "${params.query}"` }],
-          details: { hits: [] },
+          details: { ok: true, hits: [] },
         };
       }
 
@@ -590,7 +599,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       return {
         content: [{ type: "text", text: formatted }],
-        details: { hits },
+        details: { ok: true, hits },
       };
     },
   });

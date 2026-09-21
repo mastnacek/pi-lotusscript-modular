@@ -3,3 +3,5 @@ dist/
 temp_modular_test/
 *.log
 .DS_Store
+docs/
+
