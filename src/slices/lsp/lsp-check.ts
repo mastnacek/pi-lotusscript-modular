@@ -1,15 +1,32 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-
-export interface LspCheckResult {
-  ok: boolean;
-  diagnostics: string;
-  errorCount: number;
-  warningCount: number;
-}
+import type { LspCheckResult } from "../../shared/types.js";
 
 const DEFAULT_SERVER_JS = "D:/01_programovani/RESOURCES-NOTES/agent-lsp-mcp/server.js";
+
+interface RpcResponse {
+  id?: number;
+  result?: {
+    content?: Array<{ text?: string }>;
+  };
+  error?: {
+    message?: string;
+  };
+}
+
+interface InitializeParams {
+  protocolVersion: string;
+  capabilities: Record<string, never>;
+  clientInfo: { name: string; version: string };
+}
+
+interface ToolCallParams {
+  name: string;
+  arguments: { path: string };
+}
+
+type RpcParams = InitializeParams | ToolCallParams;
 
 /**
  * Run LotusScript LSP diagnostics check on a given file.
@@ -76,16 +93,6 @@ export async function checkLotusScriptDiagnostics(
       const pending = new Map<number, (val: RpcResponse) => void>();
       let nextId = 1;
 
-      interface RpcResponse {
-        id?: number;
-        result?: {
-          content?: Array<{ text?: string }>;
-        };
-        error?: {
-          message?: string;
-        };
-      }
-
       if (proc.stdout) {
         proc.stdout.on("data", (chunk: Buffer) => {
           buf += chunk.toString();
@@ -121,19 +128,6 @@ export async function checkLotusScriptDiagnostics(
         }
       });
 
-      interface InitializeParams {
-        protocolVersion: string;
-        capabilities: Record<string, never>;
-        clientInfo: { name: string; version: string };
-      }
-
-      interface ToolCallParams {
-        name: string;
-        arguments: { path: string };
-      }
-
-      type RpcParams = InitializeParams | ToolCallParams;
-
       const rpc = (method: string, params: RpcParams) => {
         const id = nextId++;
         return new Promise<RpcResponse>((res) => {
@@ -154,7 +148,6 @@ export async function checkLotusScriptDiagnostics(
             JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized", params: {} }) + "\n"
           );
 
-          // Give server a small tick
           await new Promise((r) => setTimeout(r, 100));
 
           const res = await rpc("tools/call", {
@@ -178,7 +171,6 @@ export async function checkLotusScriptDiagnostics(
               else if (/\bWARN(?:ING)?\b/i.test(l)) warningCount++;
             }
             if (errorCount === 0 && warningCount === 0 && rawText.length > 0) {
-              // Any unexpected output treated as error
               errorCount = 1;
             }
           }

@@ -1,96 +1,91 @@
-import fs from "node:fs";
+/**
+ * pi-lotusscript-modular — composition root.
+ *
+ * Composition root only: wires slices and translates Pi events into slice calls.
+ * All parsing logic lives in `src/slices/parser`;
+ * all LSP logic lives in `src/slices/lsp`;
+ * all gotchas live in `src/slices/gotchas`;
+ * all settings and completions live in `src/slices/settings`.
+ */
+
 import path from "node:path";
+import fs from "node:fs";
 import type {
   ExtensionAPI,
-  ExtensionContext,
   ExtensionCommandContext,
+  ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  isToolCallEventType,
-  isReadToolResult,
   isEditToolResult,
+  isReadToolResult,
+  isToolCallEventType,
   isWriteToolResult,
-  CONFIG_DIR_NAME,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
+import type { ModularConfig } from "./src/shared/types.js";
 import {
-  AgentParser,
+  DEFAULT_CONFIG,
+  loadConfig,
+  projectConfigPath,
+  saveConfig,
+} from "./src/shared/config.js";
+import {
   findModularRoot,
   getExistingModularDir,
-  isMonolithicLss,
   isMonolithicDxl,
-} from "./src/agent-parser.ts";
-import { checkLotusScriptDiagnostics } from "./src/lsp-check.ts";
-
-export interface ModularLotusScriptConfig {
-  enableLsp: boolean;
-  autoDecompileOnRead: boolean;
-  autoRecompileOnSave: boolean;
-  keepTimestampInCompiledName: boolean;
-  overwriteSourceLss: boolean;
-  enforceKbPrompt: boolean;
-}
-
-const DEFAULT_CONFIG: ModularLotusScriptConfig = {
-  enableLsp: false,
-  autoDecompileOnRead: true,
-  autoRecompileOnSave: true,
-  keepTimestampInCompiledName: false,
-  overwriteSourceLss: true,
-  enforceKbPrompt: true,
-};
+  isMonolithicLss,
+} from "./src/shared/paths.js";
+import { AgentParser } from "./src/slices/parser/index.js";
+import { checkLotusScriptDiagnostics } from "./src/slices/lsp/index.js";
+import {
+  addGotcha,
+  getGotchasSummary,
+  searchGotchas,
+} from "./src/slices/gotchas/index.js";
+import {
+  completeLsArguments,
+  findSetting,
+  formatValue,
+  parseValue,
+  SETTING_SPECS,
+} from "./src/slices/settings/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
-  let config: ModularLotusScriptConfig = { ...DEFAULT_CONFIG };
-  let configFilePath = "";
+  let config: ModularConfig = { ...DEFAULT_CONFIG };
+  let activeCwd = process.cwd();
 
-  function loadConfig(cwd: string): void {
-    configFilePath = path.join(cwd, CONFIG_DIR_NAME, "lotusscript-modular.json");
-    if (fs.existsSync(configFilePath)) {
-      try {
-        const raw = fs.readFileSync(configFilePath, "utf-8");
-        const parsed = JSON.parse(raw) as Partial<ModularLotusScriptConfig>;
-        config = { ...DEFAULT_CONFIG, ...parsed };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[LotusScript Modular] Failed to load config: ${msg}`);
-      }
-    } else {
-      saveConfig();
-    }
+  function syncConfig(cwd: string): void {
+    activeCwd = cwd;
+    config = loadConfig(cwd);
   }
 
-  function saveConfig(): void {
-    if (!configFilePath) return;
-    try {
-      const dir = path.dirname(configFilePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(configFilePath, JSON.stringify(config, null, 2), "utf-8");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[LotusScript Modular] Failed to save config: ${msg}`);
-    }
+  function updateConfig(newConfig: ModularConfig): void {
+    config = newConfig;
+    saveConfig(activeCwd, config);
   }
 
   pi.on("session_start", (_event, ctx: ExtensionContext) => {
-    loadConfig(ctx.cwd);
+    syncConfig(ctx.cwd);
   });
 
-  // Inject mandatory LotusScript knowledge base rule into system prompt
+  // Prompt injection: enforce KB query + inject gotchas reminder
   pi.on("before_agent_start", (event) => {
-    if (!config.enforceKbPrompt) return;
-    if (event.systemPromptOptions?.promptGuidelines) {
+    if (!event.systemPromptOptions?.promptGuidelines) return;
+
+    if (config.enforceKbPrompt) {
       event.systemPromptOptions.promptGuidelines.push(
-        "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing, editing, or refactoring LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict (e.g. Variant vs Integer, flat scoping, Option Declare)."
+        "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict."
+      );
+    }
+
+    if (config.injectGotchasSummary) {
+      event.systemPromptOptions.promptGuidelines.push(
+        `LOTUSSCRIPT GOTCHAS: 40+ known LotusScript traps are registered in the global plugin. Top gotchas include: built-in keywords as names (Shell/Mid/Format), ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects. Use tool 'lotusscript_gotchas' to check specific gotchas.`
       );
     }
   });
 
-  // 1. Tool Call Interception (Auto-decompile on Read)
-  const autoDecompiledMap = new Set<string>();
-
+  // 1. Tool Call Interception (Auto-decompile on Read or redirect to existing modular dir)
   pi.on("tool_call", (event) => {
     if (!config.autoDecompileOnRead) return;
 
@@ -101,7 +96,6 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       const resolved = path.resolve(targetPath);
       if (!fs.existsSync(resolved)) return;
 
-      // If modular directory already exists, seamlessly redirect read to main.lss
       const existingDir = getExistingModularDir(resolved);
       if (existingDir) {
         event.input.path = path.join(existingDir, "main.lss");
@@ -111,9 +105,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       if (isMonolithicLss(resolved)) {
         try {
           const outDir = AgentParser.decompileLss(resolved);
-          const mainPath = path.join(outDir, "main.lss");
-          event.input.path = mainPath;
-          autoDecompiledMap.add(path.resolve(mainPath));
+          event.input.path = path.join(outDir, "main.lss");
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
           console.error(`[LotusScript Modular] Auto-decompile LSS failed: ${msg}`);
@@ -122,9 +114,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         try {
           const outDir = AgentParser.decompileDxl(resolved);
           if (outDir) {
-            const mainPath = path.join(outDir, "main.lss");
-            event.input.path = mainPath;
-            autoDecompiledMap.add(path.resolve(mainPath));
+            event.input.path = path.join(outDir, "main.lss");
           }
         } catch (err: unknown) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -134,7 +124,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
   });
 
-  // 2. Tool Result Interception (Provide context on Read, Auto-recompile & LSP on Edit/Write)
+  // 2. Tool Result Interception (Context injection on Read, Auto-recompile on Edit/Write)
   pi.on("tool_result", async (event) => {
     // A) If reading main.lss of a modular agent
     if (isReadToolResult(event)) {
@@ -145,6 +135,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         const isMain = path.basename(resolved).toLowerCase() === "main.lss";
 
         if (modularRoot && isMain) {
+          const gotchasBanner = config.injectGotchasSummary
+            ? `\n\n${getGotchasSummary(8)}`
+            : "";
+
           const notice = [
             "",
             "---",
@@ -153,12 +147,13 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "- Virtual imports (%pi-import) shown above are assembled in manifest order.",
             "- IMPORTANT: Inspect '01_declarations.lss' first to check global variables, types, and classes.",
             "- Edit individual 'sub_*.lss' / 'func_*.lss' files. Edits automatically sync the manifest and recompile.",
-            `  (LSP validation is currently ${config.enableLsp ? "ENABLED" : "DISABLED (toggle with /ls-lsp on)"})`,
-            `  (Overwrite original .lss on compile: ${config.overwriteSourceLss ? "ENABLED" : "DISABLED"})`,
+            `  (LSP validation: ${config.enableLsp ? "ENABLED" : "DISABLED"})`,
+            `  (Overwrite original .lss: ${config.overwriteSourceLss ? "ENABLED" : "DISABLED"})`,
             "",
             "🚨 MANDATORY KB CHECK (AGENTS.md):",
-            "  Before writing or editing any LotusScript code, you MUST query the 'lotus-notes' knowledge base collection:",
+            "  Query 'lotus-notes' MCP collection before writing code:",
             "  mcp__knowledge_base -> tool: 'kb_search', args: { collection: 'lotus-notes', query: '<API or topic>' }",
+            gotchasBanner,
             "---",
           ].join("\n");
 
@@ -180,11 +175,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       const modularRoot = findModularRoot(resolved);
       if (!modularRoot) return;
 
-      // Avoid re-compiling when editing the compiled file itself
       if (resolved.toLowerCase().endsWith("_compiled.lss")) return;
 
       try {
-        // Sync and recompile (with optional .lss overwrite)
         const compiledPath = AgentParser.compileAgent(modularRoot, {
           keepTimestamp: config.keepTimestampInCompiledName,
           overwriteSourceLss: config.overwriteSourceLss,
@@ -199,7 +192,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             lspNotice = `\n⚠️ LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
           }
         } else {
-          lspNotice = `\n(LSP validation disabled — toggle with /ls-lsp on)`;
+          lspNotice = `\n(LSP validation disabled — toggle with /ls lsp on)`;
         }
 
         const overwriteNotice = config.overwriteSourceLss
@@ -227,113 +220,183 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
   });
 
-  // 3. Custom Commands
-  pi.registerCommand("ls-lsp", {
-    description: "Toggle LotusScript LSP check on recompile (on/off)",
+  // 3. Unified `/ls` Command with Lazy Menus
+  pi.registerCommand("ls", {
+    description: "Správa modulárních LotusScript agentů, LSP a Gotchas báze",
+    getArgumentCompletions: (prefix: string) => {
+      return completeLsArguments(prefix, config);
+    },
     handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const arg = (args || "").trim().toLowerCase();
-      if (arg === "on" || arg === "true" || arg === "1") {
-        config.enableLsp = true;
-      } else if (arg === "off" || arg === "false" || arg === "0") {
-        config.enableLsp = false;
-      } else {
-        config.enableLsp = !config.enableLsp;
-      }
-      saveConfig();
-      const statusText = config.enableLsp ? "ENABLED" : "DISABLED";
-      ctx.ui.notify(`LotusScript LSP validation is now ${statusText}`, "info");
-    },
-  });
+      const parts = (args || "").trim().split(/\s+/).filter(Boolean);
+      const sub = (parts[0] || "help").toLowerCase();
 
-  pi.registerCommand("ls-status", {
-    description: "Show LotusScript Modular extension configuration",
-    handler: async (_args: string, ctx: ExtensionCommandContext) => {
-      const summary = [
-        "LotusScript Modular Settings:",
-        `- LSP Validation: ${config.enableLsp ? "ENABLED" : "DISABLED"}`,
-        `- Overwrite .lss source: ${config.overwriteSourceLss ? "ENABLED" : "DISABLED"}`,
-        `- Auto-decompile on read: ${config.autoDecompileOnRead}`,
-        `- Auto-recompile on save: ${config.autoRecompileOnSave}`,
-        `- Enforce lotus-notes KB prompt: ${config.enforceKbPrompt}`,
-        `- Keep timestamped compiled files: ${config.keepTimestampInCompiledName}`,
-        `- Config file: ${configFilePath}`,
-      ].join("\n");
-      ctx.ui.notify(summary, "info");
-    },
-  });
+      switch (sub) {
+        case "status": {
+          const cfgPath = projectConfigPath(ctx.cwd);
+          const lines = [
+            "⚙️ [LotusScript Modular — Stav konfigurace]:",
+            `- LSP kontrola: ${config.enableLsp ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Přepisovat .lss zdroják: ${config.overwriteSourceLss ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Auto-dekompilace při čtení: ${config.autoDecompileOnRead ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Auto-rekompilace při uložení: ${config.autoRecompileOnSave ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Vynucovat lotus-notes KB prompt: ${config.enforceKbPrompt ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Vkládat gotchas souhrn: ${config.injectGotchasSummary ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Zachovat timestamp v názvu: ${config.keepTimestampInCompiledName ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Konfigurační soubor: ${cfgPath}`,
+          ];
+          ctx.ui.notify(lines.join("\n"), "info");
+          break;
+        }
 
-  pi.registerCommand("ls-overwrite", {
-    description: "Toggle overwriting original .lss source on recompile (on/off)",
-    handler: (args: string, ctx: ExtensionCommandContext) => {
-      const arg = (args || "").trim().toLowerCase();
-      if (arg === "on" || arg === "true" || arg === "1") {
-        config.overwriteSourceLss = true;
-      } else if (arg === "off" || arg === "false" || arg === "0") {
-        config.overwriteSourceLss = false;
-      } else {
-        config.overwriteSourceLss = !config.overwriteSourceLss;
-      }
-      saveConfig();
-      const statusText = config.overwriteSourceLss ? "ENABLED" : "DISABLED";
-      ctx.ui.notify(`Overwriting original .lss file is now ${statusText}`, "info");
-    },
-  });
+        case "lsp": {
+          const val = (parts[1] || "").toLowerCase();
+          if (val === "on") config.enableLsp = true;
+          else if (val === "off") config.enableLsp = false;
+          else config.enableLsp = !config.enableLsp;
+          updateConfig(config);
+          ctx.ui.notify(`LSP kontrola syntaxe je nyní ${config.enableLsp ? "ZAPNUTA" : "VYPNUTA"}.`, "info");
+          break;
+        }
 
-  pi.registerCommand("ls-compile", {
-    description: "Recompile a modular agent folder into <Agent>_compiled.lss",
-    handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const target = (args || "").trim() || ctx.cwd;
-      const modularRoot = findModularRoot(target);
-      if (!modularRoot) {
-        ctx.ui.notify(`Not a modular LotusScript directory: ${target}`, "error");
-        return;
-      }
-      try {
-        const compiled = AgentParser.compileAgent(modularRoot, {
-          keepTimestamp: config.keepTimestampInCompiledName,
-          overwriteSourceLss: config.overwriteSourceLss,
-        });
-        if (config.enableLsp) {
-          const lspResult = await checkLotusScriptDiagnostics(compiled);
-          if (lspResult.ok) {
-            ctx.ui.notify(`Compiled ${path.basename(compiled)} (LSP clean)`, "info");
+        case "overwrite": {
+          const val = (parts[1] || "").toLowerCase();
+          if (val === "on") config.overwriteSourceLss = true;
+          else if (val === "off") config.overwriteSourceLss = false;
+          else config.overwriteSourceLss = !config.overwriteSourceLss;
+          updateConfig(config);
+          ctx.ui.notify(`Přepisování původního .lss souboru je nyní ${config.overwriteSourceLss ? "ZAPNUTO" : "VYPNUTO"}.`, "info");
+          break;
+        }
+
+        case "config": {
+          const action = (parts[1] || "").toLowerCase();
+          if (action === "get") {
+            const key = parts[2];
+            if (!key) {
+              ctx.ui.notify("Použití: /ls config get <klíč>", "warning");
+              return;
+            }
+            const spec = findSetting(key);
+            if (!spec) {
+              ctx.ui.notify(`Neznámé nastavení: ${key}`, "error");
+              return;
+            }
+            ctx.ui.notify(`${key} = ${formatValue(config[spec.key])} (${spec.description})`, "info");
+          } else if (action === "set") {
+            const key = parts[2];
+            const val = parts[3];
+            if (!key || val === undefined) {
+              ctx.ui.notify("Použití: /ls config set <klíč> <hodnota>", "warning");
+              return;
+            }
+            const spec = findSetting(key);
+            if (!spec) {
+              ctx.ui.notify(`Neznámé nastavení: ${key}`, "error");
+              return;
+            }
+            const parsed = parseValue(spec, val);
+            if (!parsed.ok) {
+              ctx.ui.notify(parsed.error, "error");
+              return;
+            }
+            (config as any)[spec.key] = parsed.value;
+            updateConfig(config);
+            ctx.ui.notify(`Uloženo: ${key} = ${formatValue(parsed.value)}`, "info");
           } else {
-            ctx.ui.notify(`Compiled with LSP diagnostics: ${lspResult.diagnostics}`, "warning");
+            ctx.ui.notify("Použití: /ls config [get|set] ...", "warning");
           }
-        } else {
-          ctx.ui.notify(`Compiled ${path.basename(compiled)}`, "info");
+          break;
         }
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        ctx.ui.notify(`Compilation error: ${msg}`, "error");
-      }
-    },
-  });
 
-  pi.registerCommand("ls-decompile", {
-    description: "Decompile monolithic .lss or .dxl file into modular folder",
-    handler: async (args: string, ctx: ExtensionCommandContext) => {
-      const target = (args || "").trim();
-      if (!target) {
-        ctx.ui.notify("Usage: /ls-decompile <path-to-file>", "warning");
-        return;
-      }
-      const resolved = path.resolve(target);
-      if (!fs.existsSync(resolved)) {
-        ctx.ui.notify(`File not found: ${resolved}`, "error");
-        return;
-      }
-      try {
-        let outDir = "";
-        if (resolved.toLowerCase().endsWith(".dxl")) {
-          outDir = AgentParser.decompileDxl(resolved) || "";
-        } else {
-          outDir = AgentParser.decompileLss(resolved);
+        case "compile": {
+          const target = parts[1] || ctx.cwd;
+          const root = findModularRoot(target);
+          if (!root) {
+            ctx.ui.notify(`Není modulární složka LotusScriptu: ${target}`, "error");
+            return;
+          }
+          try {
+            const compiled = AgentParser.compileAgent(root, {
+              keepTimestamp: config.keepTimestampInCompiledName,
+              overwriteSourceLss: config.overwriteSourceLss,
+            });
+            if (config.enableLsp) {
+              const lspRes = await checkLotusScriptDiagnostics(compiled);
+              if (lspRes.ok) {
+                ctx.ui.notify(`Sestaveno ${path.basename(compiled)} (LSP čisté)`, "info");
+              } else {
+                ctx.ui.notify(`Sestaveno s LSP chybami:\n${lspRes.diagnostics}`, "warning");
+              }
+            } else {
+              ctx.ui.notify(`Sestaveno: ${compiled}`, "info");
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.ui.notify(`Chyba kompilace: ${msg}`, "error");
+          }
+          break;
         }
-        ctx.ui.notify(`Decompiled to ${outDir}`, "info");
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        ctx.ui.notify(`Decompile error: ${msg}`, "error");
+
+        case "decompile": {
+          const target = parts[1];
+          if (!target) {
+            ctx.ui.notify("Použití: /ls decompile <cesta k souboru .lss nebo .dxl>", "warning");
+            return;
+          }
+          const resolved = path.resolve(target);
+          if (!fs.existsSync(resolved)) {
+            ctx.ui.notify(`Soubor nenalezen: ${resolved}`, "error");
+            return;
+          }
+          try {
+            let outDir = "";
+            if (resolved.toLowerCase().endsWith(".dxl")) {
+              outDir = AgentParser.decompileDxl(resolved) || "";
+            } else {
+              outDir = AgentParser.decompileLss(resolved);
+            }
+            ctx.ui.notify(`Dekompilováno do: ${outDir}`, "info");
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.ui.notify(`Chyba dekompilace: ${msg}`, "error");
+          }
+          break;
+        }
+
+        case "gotchas": {
+          const query = parts.slice(1).join(" ").trim();
+          if (!query || query === "summary") {
+            ctx.ui.notify(getGotchasSummary(12), "info");
+          } else {
+            const hits = searchGotchas(query, 3);
+            if (hits.length === 0) {
+              ctx.ui.notify(`Žádné gotchas nenalezeny pro výraz: "${query}"`, "warning");
+            } else {
+              const formatted = hits
+                .map((h, i) => `=== [${i + 1}] ${h.title} ===\n${h.body.slice(0, 450)}...`)
+                .join("\n\n");
+              ctx.ui.notify(formatted, "info");
+            }
+          }
+          break;
+        }
+
+        case "help":
+        default: {
+          const help = [
+            "📖 [Příkazy /ls — LotusScript Modular]:",
+            "  /ls status                 — Zobrazit konfiguraci pluginu",
+            "  /ls config get <klíč>      — Vypsat hodnotu nastavení",
+            "  /ls config set <klíč> <v>  — Nastavit hodnotu (true/false)",
+            "  /ls lsp [on|off]           — Zapnout/vypnout LSP kontrolu",
+            "  /ls overwrite [on|off]     — Zapnout/vypnout přepis .lss souboru",
+            "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
+            "  /ls decompile <soubor>     — Rozložit monolit .lss/.dxl",
+            "  /ls gotchas [dotaz]        — Prohledat centrální bázi 40+ gotchas",
+          ].join("\n");
+          ctx.ui.notify(help, "info");
+          break;
+        }
       }
     },
   });
@@ -416,18 +479,54 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "lotusscript_lsp_toggle",
-    label: "Toggle LotusScript LSP Check",
-    description: "Toggle LotusScript LSP validation on or off in configuration.",
+    name: "lotusscript_gotchas",
+    label: "Search or Add LotusScript Gotchas",
+    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or add a newly discovered gotcha to the central plugin registry.",
     parameters: Type.Object({
-      enabled: Type.Boolean({ description: "True to enable LSP verification, false to disable." }),
+      action: Type.Optional(Type.String({ description: "'search', 'summary', or 'add'" })),
+      query: Type.Optional(Type.String({ description: "Keyword to search (e.g. 'shell', 'forall', 'const', 'computewithform', 'variant')" })),
+      title: Type.Optional(Type.String({ description: "Gotcha title (required for action='add')" })),
+      body: Type.Optional(Type.String({ description: "Gotcha markdown description (required for action='add')" })),
     }),
-    async execute(_toolCallId: string, params: { enabled: boolean }) {
-      config.enableLsp = params.enabled;
-      saveConfig();
+    async execute(_toolCallId: string, params: { action?: string; query?: string; title?: string; body?: string }) {
+      const act = (params.action || "search").toLowerCase();
+
+      if (act === "add") {
+        if (!params.title || !params.body) {
+          return {
+            content: [{ type: "text", text: "Error: both 'title' and 'body' are required to add a gotcha." }],
+            details: { ok: false },
+          };
+        }
+        const created = addGotcha(params.title, params.body);
+        return {
+          content: [{ type: "text", text: `Gotcha successfully added to central repository: ${created.title}` }],
+          details: { created },
+        };
+      }
+
+      if (act === "summary" || (!params.query && act === "search")) {
+        return {
+          content: [{ type: "text", text: getGotchasSummary(15) }],
+          details: { ok: true },
+        };
+      }
+
+      const hits = searchGotchas(params.query || "", 5);
+      if (hits.length === 0) {
+        return {
+          content: [{ type: "text", text: `No gotchas found matching: "${params.query}"` }],
+          details: { hits: [] },
+        };
+      }
+
+      const formatted = hits
+        .map((h, i) => `### [${i + 1}] ${h.title}\n\n${h.body}`)
+        .join("\n\n---\n\n");
+
       return {
-        content: [{ type: "text", text: `LotusScript LSP check is now ${config.enableLsp ? "ENABLED" : "DISABLED"}.` }],
-        details: { enableLsp: config.enableLsp },
+        content: [{ type: "text", text: formatted }],
+        details: { hits },
       };
     },
   });
