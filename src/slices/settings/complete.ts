@@ -13,6 +13,8 @@ export const LS_SUBCOMMANDS: readonly Suggestion[] = [
   { value: "lsp", description: "Přepnout LotusScript LSP kontrolu: on | off", space: true },
   { value: "overwrite", description: "Přepnout přepisování .lss souboru: on | off", space: true },
   { value: "compile", description: "Sestavit modulární složku do _compiled.lss", space: true },
+  { value: "pack", description: "Sestavit do .lss a smazat modulární složku", space: true },
+  { value: "lint", description: "Zkontrolovat délku procedur (max 300 řádků) a komentáře", space: true },
   { value: "decompile", description: "Rozložit monolitický .lss nebo .dxl do podsložky", space: true },
   { value: "gotchas", description: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)", space: true },
   { value: "help", description: "Zobrazit nápovědu příkazů" },
@@ -30,6 +32,7 @@ const TOGGLE_VALUES: readonly Suggestion[] = [
 
 const GOTCHAS_TOPICS: readonly Suggestion[] = [
   { value: "summary", description: "Zobrazit souhrn klíčových chyb" },
+  { value: "add", description: "Přidat novou gotchu se schvalovacím dialogem", space: true },
   { value: "shell", description: "Shell jako název proměnné (vyhrazené slovo)" },
   { value: "forall", description: "ForAll a alias proměnná" },
   { value: "const", description: "Deklarace Const bez As Type" },
@@ -80,7 +83,7 @@ export function completeLsArguments(
     return filter("", LS_SUBCOMMANDS, trimmed);
   }
 
-  const [sub, ...rest] = trimmed.split(/\s+/);
+  const [sub] = trimmed.split(/\s+/);
   if (!sub) return null;
 
   const afterSub = trimmed.slice(sub.length).trimStart();
@@ -98,7 +101,7 @@ export function completeLsArguments(
       return filter("config ", CONFIG_ACTIONS, afterSub);
     }
 
-    const [action, ...argsRest] = afterSub.split(/\s+/);
+    const [action] = afterSub.split(/\s+/);
     if (!action) return null;
 
     const afterAction = afterSub.slice(action.length).trimStart();
@@ -111,7 +114,7 @@ export function completeLsArguments(
       if (!afterAction.includes(" ")) {
         return completeKeys("config set ", current, afterAction);
       }
-      const [key, ...valRest] = afterAction.split(/\s+/);
+      const [key] = afterAction.split(/\s+/);
       if (!key) return null;
       const afterKey = afterAction.slice(key.length).trimStart();
       return completeValues(`config set ${key} `, key, afterKey);

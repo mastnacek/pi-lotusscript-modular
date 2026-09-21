@@ -1,6 +1,6 @@
 import type { ModularConfig } from "../../shared/types.js";
 
-export type SettingKind = "boolean";
+export type SettingKind = "boolean" | "number";
 
 export interface SettingSpec {
   key: keyof ModularConfig;
@@ -82,6 +82,38 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
       false: "Vypnuto — pouze stabilní <Nazev>_compiled.lss",
     },
   },
+  {
+    key: "cleanupOnSettled",
+    kind: "boolean",
+    description: "Po dokončení práce agenta sestavit výsledný .lss a smazat dočasnou dekompilovanou složku",
+    valueHelp: {
+      true: "Zapnuto — automaticky uklidit a smazat dekompilovanou složku po dokončení úkolu",
+      false: "Vypnuto — ponechat dekompilovanou složku na disku",
+    },
+  },
+  {
+    key: "checkProcedureLimits",
+    kind: "boolean",
+    description: "Kontrolovat maximální délku procedur (sub/funkcí) a přítomnost komentářů",
+    valueHelp: {
+      true: "Zapnuto — hlídat limit řádků a komentáře",
+      false: "Vypnuto — nekontrolovat",
+    },
+  },
+  {
+    key: "maxProcedureLines",
+    kind: "number",
+    description: "Maximální povolený počet řádků na jednu proceduru / funkci (výchozí: 300)",
+  },
+  {
+    key: "enforceCzechComments",
+    kind: "boolean",
+    description: "Vynucovat stručné české komentáře s popisem účelu u každé procedury",
+    valueHelp: {
+      true: "Zapnuto — vyžadovat český popis u procedur",
+      false: "Vypnuto — nepovinné",
+    },
+  },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {
@@ -91,7 +123,7 @@ export function findSetting(key: string): SettingSpec | undefined {
 export function parseValue(
   spec: SettingSpec,
   raw: string
-): { ok: true; value: boolean } | { ok: false; error: string } {
+): { ok: true; value: boolean | number } | { ok: false; error: string } {
   const norm = raw.trim().toLowerCase();
   if (spec.kind === "boolean") {
     if (norm === "true" || norm === "on" || norm === "1" || norm === "yes" || norm === "ano") {
@@ -103,6 +135,16 @@ export function parseValue(
     return {
       ok: false,
       error: `Hodnota pro '${spec.key}' musí být 'true' nebo 'false' (zadáno: '${raw}')`,
+    };
+  }
+  if (spec.kind === "number") {
+    const num = parseInt(norm, 10);
+    if (!Number.isNaN(num) && num > 0) {
+      return { ok: true, value: num };
+    }
+    return {
+      ok: false,
+      error: `Hodnota pro '${spec.key}' musí být kladné celé číslo (zadáno: '${raw}')`,
     };
   }
   return { ok: false, error: `Neznámý typ nastavení: ${spec.kind}` };

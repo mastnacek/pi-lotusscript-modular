@@ -7,7 +7,8 @@ import {
 } from "../src/shared/paths.js";
 import { AgentParser } from "../src/slices/parser/index.js";
 import { checkLotusScriptDiagnostics } from "../src/slices/lsp/index.js";
-import { getAllGotchas, searchGotchas } from "../src/slices/gotchas/index.js";
+import { getAllGotchas, searchGotchas, GotchaReviewComponent, promptGotchaReview } from "../src/slices/gotchas/index.js";
+import { lintModularFolder, ProcedureLimitComponent } from "../src/slices/linter/index.js";
 import { completeLsArguments } from "../src/slices/settings/index.js";
 import { DEFAULT_CONFIG } from "../src/shared/config.js";
 import lotusscriptModularExtension from "../index.js";
@@ -156,7 +157,7 @@ End Function
   const monolith2Path = path.join(testDir, "Monolith2.lss");
   fs.writeFileSync(monolith2Path, monolithCode, "utf-8");
 
-  let toolCallHandler: ((e: any) => void) | null = null;
+  let toolCallHandler: any = null;
   const mockPi: any = {
     on: (evt: string, handler: any) => {
       if (evt === "tool_call") toolCallHandler = handler;
@@ -192,6 +193,373 @@ End Function
   console.log("15. Redirect existing modular dir on custom tool (read_all):", redirectedExisting ? "PASS" : "FAIL");
   if (!redirectedExisting) {
     throw new Error(`Custom tool input.path was not redirected to existing modular dir: ${mockEvent2.input.path}`);
+  }
+
+  // --------------------------------------------------
+  // 4. Test Gotcha Review Modal & Approval Gate
+  // --------------------------------------------------
+  const mockTheme: any = {
+    fg: (_color: string, text: string) => text,
+    bg: (_color: string, text: string) => text,
+  };
+
+  // 16. Component rendering and layout
+  let modalResult: any = null;
+  const sampleTitle = "Shell keyword collision in Notes 9.0.1";
+  const sampleBody = "Never use Shell as variable name.\nIt is a built-in OS command function.\nDim Shell As String fails compiler.";
+  const comp = new GotchaReviewComponent(mockTheme, sampleTitle, sampleBody, (res) => {
+    modalResult = res;
+  });
+
+  const lines = comp.render(80);
+  const renderedText = lines.join("\n");
+  const hasEmojiAndTitle = renderedText.includes("🪷") && renderedText.includes("💡") && renderedText.includes("Shell keyword collision");
+  const hasActions = renderedText.includes("💾 [Uložit gotchu]") && renderedText.includes("❌ [Zrušit návrh]") && renderedText.includes("✏️ [Přepsat]");
+  console.log("16. Gotcha review modal layout & emoji rendering:", (hasEmojiAndTitle && hasActions) ? "PASS" : "FAIL");
+  if (!hasEmojiAndTitle || !hasActions) {
+    throw new Error("GotchaReviewComponent did not render required emojis, title, or actions");
+  }
+
+  // 17. Component keyboard navigation & input
+  // Test 17a: Escape key cancels
+  comp.handleInput("\x1b"); // Escape
+  console.log("17a. Gotcha modal Escape key cancels:", modalResult?.action === "cancel" ? "PASS" : "FAIL");
+  if (modalResult?.action !== "cancel") throw new Error("Escape key did not cancel modal");
+
+  // Test 17b: 's' key approves/saves
+  modalResult = null;
+  comp.handleInput("s");
+  console.log("17b. Gotcha modal 's' shortcut saves:", modalResult?.action === "save" ? "PASS" : "FAIL");
+  if (modalResult?.action !== "save") throw new Error("'s' key did not save");
+
+  // Test 17c: Navigate down to rewrite, type instructions, Enter
+  modalResult = null;
+  comp.handleInput("\x1b[B"); // Down
+  comp.handleInput("\x1b[B"); // Down (now on index 2: Rewrite)
+  const typing = "Add 64-bit Domino notes";
+  for (const char of typing) {
+    comp.handleInput(char);
+  }
+  comp.handleInput("\r"); // Enter
+  console.log("17c. Gotcha modal inline rewrite instructions:", (modalResult?.action === "rewrite" && modalResult?.instructions === typing) ? "PASS" : "FAIL");
+  if (modalResult?.action !== "rewrite" || modalResult?.instructions !== typing) {
+    throw new Error(`Expected rewrite with '${typing}', got: ${JSON.stringify(modalResult)}`);
+  }
+
+  // 18. promptGotchaReview in non-UI environment
+  const nonUiCtx: any = { hasUI: false };
+  const nonUiReview = await promptGotchaReview(nonUiCtx, sampleTitle, sampleBody);
+  console.log("18. promptGotchaReview without UI defaults to cancel:", nonUiReview.action === "cancel" ? "PASS" : "FAIL");
+  if (nonUiReview.action !== "cancel") throw new Error("Expected non-UI review to cancel automatically");
+
+  // 19. Tool registration & approval gate handling
+  let registeredGotchasTool: any = null;
+  const toolRegistryPi: any = {
+    on: () => {},
+    registerCommand: () => {},
+    registerTool: (def: any) => {
+      if (def.name === "lotusscript_gotchas") {
+        registeredGotchasTool = def;
+      }
+    },
+  };
+  lotusscriptModularExtension(toolRegistryPi);
+
+  if (!registeredGotchasTool) throw new Error("lotusscript_gotchas tool was not registered");
+
+  // 19a. Non-UI tool execution rejects auto-saving
+  const toolNoUiRes = await registeredGotchasTool.execute(
+    "call_1",
+    { action: "add", title: sampleTitle, body: sampleBody },
+    undefined,
+    undefined,
+    { hasUI: false }
+  );
+  console.log("19a. Tool rejects auto-save when no UI:", (!toolNoUiRes.details?.ok && toolNoUiRes.details?.reason === "no_ui") ? "PASS" : "FAIL");
+  if (toolNoUiRes.details?.ok || toolNoUiRes.details?.reason !== "no_ui") {
+    throw new Error("Tool permitted auto-saving without UI");
+  }
+
+  // 19b. UI execution with rewrite request
+  const mockUiWithRewrite: any = {
+    hasUI: true,
+    ui: {
+      custom: async () => {
+        return { action: "rewrite", instructions: "Uprav příklad kódu" };
+      },
+      notify: () => {},
+    },
+  };
+  const toolRewriteRes = await registeredGotchasTool.execute(
+    "call_2",
+    { action: "add", title: sampleTitle, body: sampleBody },
+    undefined,
+    undefined,
+    mockUiWithRewrite
+  );
+  const rewriteOk = !toolRewriteRes.details?.ok && toolRewriteRes.details?.rewriteRequested && toolRewriteRes.details?.instructions === "Uprav příklad kódu";
+  console.log("19b. Tool handles rewrite request from modal:", rewriteOk ? "PASS" : "FAIL");
+  if (!rewriteOk) throw new Error(`Rewrite flow failed: ${JSON.stringify(toolRewriteRes)}`);
+
+  // 19c. UI execution with user cancellation
+  const mockUiWithCancel: any = {
+    hasUI: true,
+    ui: {
+      custom: async () => ({ action: "cancel" }),
+      notify: () => {},
+    },
+  };
+  const toolCancelRes = await registeredGotchasTool.execute(
+    "call_3",
+    { action: "add", title: sampleTitle, body: sampleBody },
+    undefined,
+    undefined,
+    mockUiWithCancel
+  );
+  const cancelOk = !toolCancelRes.details?.ok && toolCancelRes.details?.reason === "rejected_by_user";
+  console.log("19c. Tool handles user cancellation from modal:", cancelOk ? "PASS" : "FAIL");
+  if (!cancelOk) throw new Error("Cancellation flow failed");
+
+  // --------------------------------------------------
+  // 5. Test Ephemeral Modularization & Cleanup on Settled
+  // --------------------------------------------------
+  // 20. compileAgent with deleteModularDir for .lss
+  const ephemeralLssPath = path.join(testDir, "EphemeralScript.lss");
+  fs.writeFileSync(ephemeralLssPath, monolithCode, "utf-8");
+  const ephDir = AgentParser.decompileLss(ephemeralLssPath);
+  if (!fs.existsSync(ephDir)) throw new Error("Failed to decompile EphemeralScript");
+
+  const ephResult = AgentParser.compileAgent(ephDir, {
+    overwriteSourceLss: true,
+    deleteModularDir: true,
+  });
+
+  const ephDeleted = !fs.existsSync(ephDir);
+  const ephFileUpdated = fs.existsSync(ephemeralLssPath) && fs.readFileSync(ephemeralLssPath, "utf-8").includes("ProcessNotes");
+  console.log("20. Ephemeral .lss compiles, overwrites source and deletes modular folder:", (ephDeleted && ephFileUpdated && ephResult === ephemeralLssPath) ? "PASS" : "FAIL");
+  if (!ephDeleted || !ephFileUpdated) {
+    throw new Error("Ephemeral .lss compilation failed to delete folder or overwrite source");
+  }
+
+  // 21. compileAgent with createLssForDxl & deleteModularDir for .dxl
+  const sampleDxl = `<?xml version="1.0" encoding="UTF-8"?>
+<agent name="SampleDxlAgent">
+<code event="initialize"><lotusscript>
+Option Public
+Option Declare
+Sub Initialize
+    Print "Hello from DXL"
+End Sub
+</lotusscript></code>
+</agent>`;
+  const dxlPath = path.join(testDir, "SampleDxlAgent.dxl");
+  fs.writeFileSync(dxlPath, sampleDxl, "utf-8");
+  const dxlOutDir = AgentParser.decompileDxl(dxlPath);
+  if (!dxlOutDir || !fs.existsSync(dxlOutDir)) throw new Error("Failed to decompile SampleDxlAgent");
+
+  const expectedNewLss = path.join(testDir, "SampleDxlAgent.lss");
+  const dxlCompiledResult = AgentParser.compileAgent(dxlOutDir, {
+    createLssForDxl: true,
+    deleteModularDir: true,
+  });
+
+  const dxlFolderDeleted = !fs.existsSync(dxlOutDir);
+  const dxlNewLssExists = fs.existsSync(expectedNewLss) && fs.readFileSync(expectedNewLss, "utf-8").includes("Hello from DXL");
+  console.log("21. Ephemeral .dxl compiles to new standalone .lss and deletes modular folder:", (dxlFolderDeleted && dxlNewLssExists && dxlCompiledResult === expectedNewLss) ? "PASS" : "FAIL");
+  if (!dxlFolderDeleted || !dxlNewLssExists) {
+    throw new Error("Ephemeral .dxl compilation failed to create .lss or delete folder");
+  }
+
+  // 22. agent_settled lifecycle hook cleans up modified modular folders
+  let agentSettledHandler: any = null;
+  let extToolCallHandler: any = null;
+  let extToolResultHandler: any = null;
+
+  const lifecycleMockPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "agent_settled") agentSettledHandler = handler;
+      if (evt === "tool_call") extToolCallHandler = handler;
+      if (evt === "tool_result") extToolResultHandler = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(lifecycleMockPi);
+
+  if (!agentSettledHandler || !extToolCallHandler || !extToolResultHandler) {
+    throw new Error("Lifecycle handlers failed to register");
+  }
+
+  const liveLss = path.join(testDir, "LiveAgent.lss");
+  fs.writeFileSync(liveLss, monolithCode, "utf-8");
+
+  // Simulate reading file -> decompiles
+  const readEvt: any = { toolName: "read", input: { path: liveLss } };
+  extToolCallHandler(readEvt);
+  const liveModularDir = path.join(testDir, "LiveAgent");
+  if (!fs.existsSync(liveModularDir)) throw new Error("Failed to auto-decompile LiveAgent");
+
+  // Simulate editing a procedure inside the modular folder
+  const subClick = path.join(liveModularDir, "sub_ProcessNotes.lss");
+  const editEvt: any = {
+    toolName: "edit",
+    input: { path: subClick },
+    content: [{ type: "text", text: "Edited" }],
+    isError: false,
+  };
+  await extToolResultHandler(editEvt);
+
+  // Trigger agent_settled
+  await agentSettledHandler({}, { hasUI: false, cwd: testDir });
+
+  const liveFolderDeleted = !fs.existsSync(liveModularDir);
+  const liveLssUpdated = fs.existsSync(liveLss) && fs.readFileSync(liveLss, "utf-8").includes("ProcessNotes");
+  console.log("22. agent_settled automatically cleans up modified modular folders:", (liveFolderDeleted && liveLssUpdated) ? "PASS" : "FAIL");
+  if (!liveFolderDeleted || !liveLssUpdated) {
+    throw new Error("agent_settled hook failed to clean up modular directory");
+  }
+
+  // --------------------------------------------------
+  // 6. Test Procedure Line-Limit & Comment Linter
+  // --------------------------------------------------
+  // 23. Test lintProcedureFile & lintModularFolder
+  const lintDir = path.join(testDir, "LintTestDir");
+  fs.mkdirSync(lintDir, { recursive: true });
+
+  const shortProcLines = [
+    "' @script-member-of: LintTest",
+    "' @procedure: ShortHelper",
+    "' Účel: Krátká pomocná funkce pro formátování textu.",
+    "Function ShortHelper() As String",
+    '    ShortHelper = "OK"',
+    "End Function",
+  ];
+  fs.writeFileSync(path.join(lintDir, "func_ShortHelper.lss"), shortProcLines.join("\n"), "utf-8");
+
+  // Create procedure with 320 lines (exceeding 300 limit)
+  const longProcLines = [
+    "' @script-member-of: LintTest",
+    "' @procedure: MassiveSub",
+    "Sub MassiveSub()",
+  ];
+  for (let i = 0; i < 320; i++) {
+    longProcLines.push(`    Print "Statement line ${i}"`);
+  }
+  longProcLines.push("End Sub");
+  fs.writeFileSync(path.join(lintDir, "sub_MassiveSub.lss"), longProcLines.join("\n"), "utf-8");
+
+  const lintRes = lintModularFolder(lintDir, 300, true);
+  console.log("23a. Lint flags procedure exceeding 300 lines:", (lintRes.exceededProcedures.length === 1 && lintRes.exceededProcedures[0]?.fileName === "sub_MassiveSub.lss") ? "PASS" : "FAIL");
+  if (lintRes.exceededProcedures.length !== 1 || lintRes.exceededProcedures[0]?.fileName !== "sub_MassiveSub.lss") {
+    throw new Error("Linter failed to detect 320-line procedure");
+  }
+
+  console.log("23b. Lint flags missing doc comment on MassiveSub:", (lintRes.missingCommentProcedures.length === 1 && lintRes.missingCommentProcedures[0]?.fileName === "sub_MassiveSub.lss") ? "PASS" : "FAIL");
+  if (lintRes.missingCommentProcedures.length !== 1) {
+    throw new Error("Linter failed to detect missing Czech doc comment");
+  }
+
+  // 24. ProcedureLimitComponent layout & rendering
+  let procReviewResult: any = null;
+  const procComp = new ProcedureLimitComponent(mockTheme, lintRes.exceededProcedures[0]!, (res) => {
+    procReviewResult = res;
+  });
+
+  const procLines = procComp.render(80);
+  const procText = procLines.join("\n");
+  const hasLimitEmoji = procText.includes("🪷") && procText.includes("📏") && procText.includes("32 KB");
+  const hasLimitActions = procText.includes("✅ [Povolit výjimku]") && procText.includes("✂️ [Odmítnout a rozdělit]") && procText.includes("✏️ [Pokyny k rozdělení]");
+  console.log("24. Procedure limit modal layout & emoji rendering:", (hasLimitEmoji && hasLimitActions) ? "PASS" : "FAIL");
+  if (!hasLimitEmoji || !hasLimitActions) {
+    throw new Error("ProcedureLimitComponent did not render required UI elements");
+  }
+
+  // 25. ProcedureLimitComponent keyboard navigation
+  // 25a. Escape rejects
+  procComp.handleInput("\x1b");
+  console.log("25a. Escape key rejects line limit excess:", procReviewResult?.action === "reject" ? "PASS" : "FAIL");
+  if (procReviewResult?.action !== "reject") throw new Error("Escape failed to reject");
+
+  // 25b. 'p' key approves exception
+  procReviewResult = null;
+  procComp.handleInput("p");
+  console.log("25b. 'p' key approves procedure exception:", procReviewResult?.action === "approve" ? "PASS" : "FAIL");
+  if (procReviewResult?.action !== "approve") throw new Error("'p' key failed to approve");
+
+  // 25c. Navigate to split instructions, type directions, Enter
+  procReviewResult = null;
+  procComp.handleInput("\x1b[B"); // Down
+  procComp.handleInput("\x1b[B"); // Down (now on index 2: Split instructions)
+  const splitNotes = "Vyčleň HTTP volání a JSON parsing do func_Fetch.lss";
+  for (const c of splitNotes) {
+    procComp.handleInput(c);
+  }
+  procComp.handleInput("\r"); // Enter
+  console.log("25c. Split instructions captured from modal:", (procReviewResult?.action === "split_instructions" && procReviewResult?.instructions === splitNotes) ? "PASS" : "FAIL");
+  if (procReviewResult?.action !== "split_instructions" || procReviewResult?.instructions !== splitNotes) {
+    throw new Error("Failed to capture split instructions");
+  }
+
+  // 26. Integration test: End-to-end tool_result linter check
+  let lintPiToolResultHandler: any = null;
+  const lintTestPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_result") lintPiToolResultHandler = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(lintTestPi);
+
+  // Setup modular directory with long procedure
+  const agentWithLongProc = path.join(testDir, "AgentWithLongProc");
+  fs.mkdirSync(agentWithLongProc, { recursive: true });
+  fs.writeFileSync(path.join(agentWithLongProc, "00_options.lss"), "Option Public\nOption Declare\n", "utf-8");
+  fs.writeFileSync(path.join(agentWithLongProc, "01_declarations.lss"), "' Declarations\n", "utf-8");
+  fs.writeFileSync(path.join(agentWithLongProc, "main.lss"), "' main.lss\n", "utf-8");
+  fs.writeFileSync(path.join(agentWithLongProc, "manifest.json"), JSON.stringify({
+    formatVersion: "1.0",
+    agentName: "AgentWithLongProc",
+    decompileTimestamp: new Date().toISOString(),
+    compilationOrder: ["00_options.lss", "01_declarations.lss", "sub_MassiveSub.lss"],
+  }, null, 2), "utf-8");
+  fs.writeFileSync(path.join(agentWithLongProc, "sub_MassiveSub.lss"), longProcLines.join("\n"), "utf-8");
+
+  // Simulate edit tool result where user REJECTS in modal
+  // We mock ui.custom to return reject
+  const mockContextReject: any = {
+    hasUI: true,
+    cwd: testDir,
+    ui: {
+      custom: async () => ({ action: "reject" }),
+      notify: () => {},
+    },
+  };
+  // We need latestUiContext set on extension, so we can trigger session_start
+  let sessionStartHandler: any = null;
+  const lintMockPi2: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "session_start") sessionStartHandler = handler;
+      if (evt === "tool_result") lintPiToolResultHandler = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(lintMockPi2);
+  sessionStartHandler({}, mockContextReject);
+
+  const editLongProcEvt: any = {
+    toolName: "edit",
+    input: { path: path.join(agentWithLongProc, "sub_MassiveSub.lss") },
+    content: [{ type: "text", text: "Modified line" }],
+    isError: false,
+  };
+
+  const lintBlockResult = await lintPiToolResultHandler(editLongProcEvt);
+  const wasBlocked = lintBlockResult?.isError === true && lintBlockResult?.content?.[1]?.text?.includes("překračuje limit 300 řádků");
+  console.log("26. Tool result halts and instructs AI to split when user rejects excess:", wasBlocked ? "PASS" : "FAIL");
+  if (!wasBlocked) {
+    throw new Error(`Expected tool_result to halt with split guidance, got: ${JSON.stringify(lintBlockResult)}`);
   }
 
   // Cleanup

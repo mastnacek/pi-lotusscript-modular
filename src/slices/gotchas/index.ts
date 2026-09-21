@@ -5,3 +5,9 @@ export {
   addGotcha,
   getEffectiveGotchasPath,
 } from "./catalogue.js";
+export {
+  GotchaReviewComponent,
+  promptGotchaReview,
+  type GotchaReviewResult,
+} from "./review-modal.js";
+

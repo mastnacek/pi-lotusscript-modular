@@ -46,19 +46,21 @@ A modular agent folder contains:
    - Edit `01_declarations.lss`.
    - Check all procedures that reference the modified variable or type.
 
-## 3. Recompiling & Automation via Pi Extension
+## 3. Recompiling & Automation via Pi Extension (Ephemeral Modularization)
 
-The project includes the `.pi/extensions/lotusscript-modular` extension which automates the workflow:
-1. **Auto-Decompile on Read:** Reading a monolithic `.lss` or `.dxl` automatically splits it into `<ScriptName>/` folder and redirects reading to `main.lss`.
-2. **Auto-Manifest Sync & Recompile on Edit:** When editing or adding any `sub_*.lss` / `func_*.lss` / `01_declarations.lss`, the extension automatically reconciles `manifest.json` and updates `<AgentName>_compiled.lss`.
-3. **Optional LSP Validation:**
-   - Toggle with `/ls-lsp on` or `/ls-lsp off` (or tool `lotusscript_lsp_toggle`).
-   - When enabled, runs LotusScript LSP diagnostics directly against the compiled artifact.
-4. **Manual compilation (fallback):**
-   ```bash
-   just compile-agent "<path-to-modular-folder>"
-   ```
-   Or via tool `lotusscript_compile` or command `/ls-compile <folder>`.
+The extension automates the full ephemeral modularization lifecycle:
+1. **Auto-Decompile on Read:** Reading a monolithic `.lss` or `.dxl` automatically splits it into a temporary `<ScriptName>/` folder and redirects reading to `main.lss`.
+2. **Auto-Manifest Sync & Incremental Recompile on Edit:** When editing `sub_*.lss` / `func_*.lss` / `01_declarations.lss`, the extension automatically reconciles `manifest.json` and syncs the code.
+3. **Automatic Cleanup on Completion (`cleanupOnSettled`):** Once the agent finishes modifications (`agent_settled`):
+   - For `.lss` files: overwrites the source `.lss` file with the final compiled code.
+   - For `.dxl` files: creates `<AgentName>.lss` alongside the `.dxl` file.
+   - Completely deletes the temporary modular folder, leaving no clutter.
+4. **Manual Pack & Clean (fallback / on-demand):**
+   - Command: `/ls pack [složka]`
+   - Tool: `lotusscript_compile(folder: "...", clean: true)`
+   - Assembles final `.lss` file, verifies LSP, and deletes modular folder.
+5. **Interactive Gotchas Approval:**
+   - Proposing gotchas via `lotusscript_gotchas(action: "add")` displays an interactive modal window with Save, Cancel, and Rewrite options before writing anything to disk.
 
 ## 4. Pasting into Domino Designer 9.0.1
 

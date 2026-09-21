@@ -14,12 +14,37 @@ export interface ModularConfig {
   keepTimestampInCompiledName: boolean;
   /** Overwrite original .lss file with recompiled code (never touches .dxl) */
   overwriteSourceLss: boolean;
+  /** Automatically clean up and delete decompiled folder when agent finishes modifications */
+  cleanupOnSettled: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base */
   enforceKbPrompt: boolean;
   /** Automatically inject top LotusScript gotchas into system prompt */
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */
   enforceGotchaCapture: boolean;
+  /** Enforce checking procedure line limits and comments */
+  checkProcedureLimits: boolean;
+  /** Maximum lines allowed per individual subroutine or function */
+  maxProcedureLines: number;
+  /** Enforce concise Czech documentation comments on procedures */
+  enforceCzechComments: boolean;
+}
+
+export interface ProcedureLintItem {
+  fileName: string;
+  procedureName: string;
+  lineCount: number;
+  maxLines: number;
+  isExceeded: boolean;
+  hasDocComment: boolean;
+  commentNotice?: string;
+}
+
+export interface FolderLintResult {
+  ok: boolean;
+  exceededProcedures: ProcedureLintItem[];
+  missingCommentProcedures: ProcedureLintItem[];
+  allItems: ProcedureLintItem[];
 }
 
 export interface CodeBlock {

@@ -41,14 +41,18 @@ import {
   addGotcha,
   getEffectiveGotchasPath,
   getGotchasSummary,
+  promptGotchaReview,
   searchGotchas,
 } from "./src/slices/gotchas/index.js";
+import {
+  lintModularFolder,
+  promptProcedureLineReview,
+} from "./src/slices/linter/index.js";
 import {
   completeLsArguments,
   findSetting,
   formatValue,
   parseValue,
-  SETTING_SPECS,
 } from "./src/slices/settings/index.js";
 
 const MUTATING_TOOL_NAMES = new Set([
@@ -62,9 +66,71 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   let config: ModularConfig = { ...DEFAULT_CONFIG };
   let activeCwd = process.cwd();
   let latestUiContext: ExtensionContext | null = null;
+  const readModularDirs = new Set<string>();
+  const modifiedModularDirs = new Set<string>();
+  const approvedLineExceptions = new Set<string>();
+
+  async function verifyProcedureLimits(
+    folder: string,
+    ctx?: ExtensionContext
+  ): Promise<{ ok: boolean; message?: string; splitInstructions?: string; warnings: string[] }> {
+    const warnings: string[] = [];
+    if (!config.checkProcedureLimits) return { ok: true, warnings };
+
+    const lint = lintModularFolder(
+      folder,
+      config.maxProcedureLines,
+      config.enforceCzechComments
+    );
+
+    for (const item of lint.exceededProcedures) {
+      const key = `${path.resolve(folder)}:${item.fileName}`;
+      if (approvedLineExceptions.has(key)) continue;
+
+      const effectiveCtx = ctx ?? latestUiContext;
+      if (!effectiveCtx || !effectiveCtx.hasUI) {
+        return {
+          ok: false,
+          warnings,
+          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (limit je ${item.maxLines}). V neinteraktivním režimu nelze schválit výjimku. Rozdělte proceduru na menší dílčí funkce/subroutiny.`,
+        };
+      }
+
+      const review = await promptProcedureLineReview(effectiveCtx, item);
+
+      if (review.action === "approve") {
+        approvedLineExceptions.add(key);
+        effectiveCtx.ui.notify(
+          `✓ Schválena výjimka délky pro ${item.fileName} (${item.lineCount} řádků)`,
+          "info"
+        );
+      } else if (review.action === "split_instructions") {
+        return {
+          ok: false,
+          warnings,
+          splitInstructions: review.instructions,
+          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (limit ${item.maxLines}). Uživatel požaduje rozdělení s instrukcemi: "${review.instructions}"`,
+        };
+      } else {
+        return {
+          ok: false,
+          warnings,
+          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (překračuje limit ${item.maxLines} řádků). Uživatel zamítl výjimku a požaduje rozdělení na menší subroutiny/funkce podle zásad LotusScriptu (vyhněte se 32 KB limitu procedury).`,
+        };
+      }
+    }
+
+    if (config.enforceCzechComments && lint.missingCommentProcedures.length > 0) {
+      for (const m of lint.missingCommentProcedures) {
+        warnings.push(`Procedura '${m.fileName}' postrádá stručný český komentář s popisem účelu (' Účel: ...).`);
+      }
+    }
+
+    return { ok: true, warnings };
+  }
 
   function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
-    if (!latestUiContext || !latestUiContext.hasUI) return;
+    if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
 
     if (state === "compiling") {
@@ -121,6 +187,50 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     renderStatusline("idle");
   });
 
+  pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
+    renderStatusline("idle");
+    if (!config.cleanupOnSettled) return;
+
+    for (const modDir of modifiedModularDirs) {
+      if (fs.existsSync(modDir)) {
+        try {
+          const limitCheck = await verifyProcedureLimits(modDir, ctx);
+          if (!limitCheck.ok) {
+            continue;
+          }
+          const finalLss = AgentParser.compileAgent(modDir, {
+            overwriteSourceLss: config.overwriteSourceLss,
+            createLssForDxl: true,
+            deleteModularDir: true,
+          });
+          if (ctx.hasUI) {
+            ctx.ui.notify(
+              `🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} sestaven a dočasná složka smazána.`,
+              "info"
+            );
+          }
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[LotusScript Modular] Chyba při úklidu ${modDir}: ${msg}`);
+        }
+      }
+    }
+
+    for (const modDir of readModularDirs) {
+      if (!modifiedModularDirs.has(modDir) && fs.existsSync(modDir)) {
+        try {
+          fs.rmSync(modDir, { recursive: true, force: true });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[LotusScript Modular] Chyba při mazání read-only složky ${modDir}: ${msg}`);
+        }
+      }
+    }
+
+    modifiedModularDirs.clear();
+    readModularDirs.clear();
+  });
+
   // Prompt injection: enforce KB query + inject gotchas reminder
   pi.on("before_agent_start", (event) => {
     if (!event.systemPromptOptions?.promptGuidelines) return;
@@ -139,12 +249,18 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
     if (config.enforceGotchaCapture) {
       event.systemPromptOptions.promptGuidelines.push(
-        "MANDATORY GOTCHA RECORDING: When working with LotusScript / Domino 9.0.1, if you encounter or resolve an unexpected language quirk, compiler trap, or runtime error, you MUST record it to the shared gotchas registry using tool 'lotusscript_gotchas(action: \"add\", title: \"...\", body: \"...\")' before concluding your turn."
+        "MANDATORY GOTCHA RECORDING & USER APPROVAL: When working with LotusScript / Domino 9.0.1, if you encounter or resolve an unexpected language quirk, compiler trap, or runtime error, you MUST propose recording it using tool 'lotusscript_gotchas(action: \"add\", title: \"...\", body: \"...\")'. The user will review it in an interactive modal window to approve, cancel, or request rewrites. If the user provides rewrite instructions, regenerate the proposal according to their instructions and call the tool again."
+      );
+    }
+
+    if (config.checkProcedureLimits) {
+      event.systemPromptOptions.promptGuidelines.push(
+        `LOTUSSCRIPT PROCEDURE LIMITS & COMMENTS: Individual subroutines and functions MUST NOT exceed ${config.maxProcedureLines} lines for maintainability and to avoid the hard LotusScript 32 KB bytecode/data procedure limit (compiler halts with 'Script structure too large' if exceeded). Decompose complex logic into smaller subroutines/functions. Each procedure MUST have a concise Czech comment explaining its purpose (' Účel: ...). If a procedure exceeds ${config.maxProcedureLines} lines, an interactive approval modal is shown to the user to either approve a slight excess or reject and require splitting.`
       );
     }
 
     event.systemPromptOptions.promptGuidelines.push(
-      "LOTUSSCRIPT MODULAR AGENTS: When reading, inspecting, or analyzing LotusScript (.lss) or Domino agent DXL (.dxl) files, prefer file-reading tools (e.g. read, read_all, ctx_execute_file). Monolithic scripts are automatically decompiled into modular folders (manifest.json, main.lss, sub_*.lss, func_*.lss). Once decompiled, always edit the individual modular files, which automatically sync and recompile."
+      "LOTUSSCRIPT MODULAR AGENTS (EPHEMERAL WORKFLOW): When reading LotusScript (.lss) or Domino agent DXL (.dxl) files, the extension temporarily decompiles them into modular folders (manifest.json, main.lss, sub_*.lss, func_*.lss) for fine-grained editing. Always edit the individual modular files. Once you finish your modifications, the extension automatically compiles the final code into the standalone .lss file (or creates <name>.lss for .dxl) and completely deletes the temporary modular folder."
     );
   });
 
@@ -170,6 +286,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
     const existingDir = getExistingModularDir(resolved);
     if (existingDir) {
+      readModularDirs.add(existingDir);
       input[pathKey] = path.join(existingDir, "main.lss");
       return;
     }
@@ -177,6 +294,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (isMonolithicLss(resolved)) {
       try {
         const outDir = AgentParser.decompileLss(resolved);
+        readModularDirs.add(outDir);
         input[pathKey] = path.join(outDir, "main.lss");
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -186,6 +304,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       try {
         const outDir = AgentParser.decompileDxl(resolved);
         if (outDir) {
+          readModularDirs.add(outDir);
           input[pathKey] = path.join(outDir, "main.lss");
         }
       } catch (err: unknown) {
@@ -258,12 +377,41 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       if (resolved.toLowerCase().endsWith("_compiled.lss")) return;
 
+      modifiedModularDirs.add(modularRoot);
+      readModularDirs.add(modularRoot);
+
+      // Verify procedure line limits and comments
+      const limitCheck = await verifyProcedureLimits(modularRoot, latestUiContext ?? undefined);
+      if (!limitCheck.ok) {
+        renderStatusline("error");
+        const instructionsNotice = limitCheck.splitInstructions
+          ? `\nPokyny uživatele pro rozdělení procedury:\n"${limitCheck.splitInstructions}"\n`
+          : "";
+        const errorText = [
+          "",
+          "---",
+          "⚠️ [LotusScript Lint Error: Překročen limit délky procedury]",
+          limitCheck.message,
+          instructionsNotice,
+          "Povinný krok pro AI:",
+          `- Rozdělte logiku této procedury do menších dílčích souborů 'sub_*.lss' nebo 'func_*.lss'.`,
+          `- Aktualizujte volání v původním kódu tak, aby žádná procedura nepřesahovala limit ${config.maxProcedureLines} řádků.`,
+          "---",
+        ].filter(Boolean).join("\n");
+
+        return {
+          content: [...event.content, { type: "text", text: errorText }],
+          isError: true,
+        };
+      }
+
       try {
         renderStatusline("compiling");
 
         const compiledPath = AgentParser.compileAgent(modularRoot, {
           keepTimestamp: config.keepTimestampInCompiledName,
           overwriteSourceLss: config.overwriteSourceLss,
+          createLssForDxl: true,
         });
 
         let lspNotice = "";
@@ -282,18 +430,26 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         }
 
         const overwriteNotice = config.overwriteSourceLss
-          ? " (original .lss overwritten & synced)"
+          ? " (zdrojový .lss aktualizován)"
+          : "";
+
+        const cleanupNotice = config.cleanupOnSettled
+          ? "\nℹ️ (Dočasná modulární složka bude automaticky smazána po dokončení práce agenta)"
           : "";
 
         const gotchaNudge = config.enforceGotchaCapture
-          ? "\n💡 GOTCHA CHECK: If this fix resolved an unexpected LotusScript bug or compiler error, record it via 'lotusscript_gotchas(action: \"add\")'."
+          ? "\n💡 GOTCHA CHECK: If this fix resolved an unexpected LotusScript bug or compiler error, propose recording it via 'lotusscript_gotchas(action: \"add\")'. The user will review and approve it via modal window."
+          : "";
+
+        const commentWarnings = limitCheck.warnings.length > 0
+          ? `\nℹ️ [Komentáře]:\n${limitCheck.warnings.map((w) => `  - ${w}`).join("\n")}`
           : "";
 
         const recompileNotice = [
           "",
           "---",
           `🔨 [LotusScript Modular: Recompiled]`,
-          `- Artifact: ${compiledPath}${overwriteNotice}${lspNotice}${gotchaNudge}`,
+          `- Artifact: ${compiledPath}${overwriteNotice}${cleanupNotice}${lspNotice}${gotchaNudge}${commentWarnings}`,
           "---",
         ].join("\n");
 
@@ -328,6 +484,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "⚙️ [LotusScript Modular — Stav konfigurace]:",
             `- LSP kontrola: ${config.enableLsp ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Přepisovat .lss zdroják: ${config.overwriteSourceLss ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Uklízet složku po dokončení: ${config.cleanupOnSettled ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Kontrola limitů procedur: ${config.checkProcedureLimits ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Max řádků na proceduru: ${config.maxProcedureLines}`,
+            `- Vynucovat české komentáře: ${config.enforceCzechComments ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-dekompilace při čtení: ${config.autoDecompileOnRead ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-rekompilace při uložení: ${config.autoRecompileOnSave ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Vynucovat lotus-notes KB prompt: ${config.enforceKbPrompt ? "ZAPNUTO" : "VYPNUTO"}`,
@@ -401,6 +561,29 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           break;
         }
 
+        case "lint": {
+          const target = parts[1] || ctx.cwd;
+          const root = findModularRoot(target);
+          if (!root) {
+            ctx.ui.notify(`Není modulární složka LotusScriptu: ${target}`, "error");
+            return;
+          }
+          const res = lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
+          const lines = [
+            `🔍 [LotusScript Linter — ${path.basename(root)}]:`,
+            `- Celkem procedur: ${res.allItems.length}`,
+            `- Překračuje limit ${config.maxProcedureLines} řádků: ${res.exceededProcedures.length}`,
+            `- Chybějící český komentář: ${res.missingCommentProcedures.length}`,
+          ];
+          for (const item of res.allItems) {
+            const statusIcon = item.isExceeded ? "❌" : "✓";
+            const docIcon = item.hasDocComment ? "📝" : "⚠️ chybí popis";
+            lines.push(`  ${statusIcon} ${item.fileName} — ${item.lineCount} řádků [${docIcon}]`);
+          }
+          ctx.ui.notify(lines.join("\n"), res.ok ? "info" : "warning");
+          break;
+        }
+
         case "compile": {
           const target = parts[1] || ctx.cwd;
           const root = findModularRoot(target);
@@ -412,6 +595,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             const compiled = AgentParser.compileAgent(root, {
               keepTimestamp: config.keepTimestampInCompiledName,
               overwriteSourceLss: config.overwriteSourceLss,
+              createLssForDxl: true,
             });
             if (config.enableLsp) {
               const lspRes = await checkLotusScriptDiagnostics(compiled);
@@ -426,6 +610,37 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             ctx.ui.notify(`Chyba kompilace: ${msg}`, "error");
+          }
+          break;
+        }
+
+        case "pack":
+        case "clean": {
+          const target = parts[1] || ctx.cwd;
+          const root = findModularRoot(target);
+          if (!root) {
+            ctx.ui.notify(`Není modulární složka LotusScriptu: ${target}`, "error");
+            return;
+          }
+          try {
+            const finalLss = AgentParser.compileAgent(root, {
+              overwriteSourceLss: config.overwriteSourceLss,
+              createLssForDxl: true,
+              deleteModularDir: true,
+            });
+            if (config.enableLsp) {
+              const lspRes = await checkLotusScriptDiagnostics(finalLss);
+              if (lspRes.ok) {
+                ctx.ui.notify(`Sestaveno a uklizeno: ${path.basename(finalLss)} (LSP čisté)`, "info");
+              } else {
+                ctx.ui.notify(`Sestaveno s chybami LSP:\n${lspRes.diagnostics}`, "warning");
+              }
+            } else {
+              ctx.ui.notify(`Sestaveno do: ${finalLss} a modulární složka byla smazána.`, "info");
+            }
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.ui.notify(`Chyba při úklidu: ${msg}`, "error");
           }
           break;
         }
@@ -457,6 +672,28 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         }
 
         case "gotchas": {
+          const subAct = (parts[1] || "").toLowerCase();
+          if (subAct === "add") {
+            const title = parts.slice(2).join(" ").trim();
+            if (!title) {
+              ctx.ui.notify("Použití: /ls gotchas add <název gotchy>", "warning");
+              return;
+            }
+            const body = await ctx.ui.input("Zadejte popis / tělo gotchy:", "Popište problém a řešení...");
+            if (!body || !body.trim()) {
+              ctx.ui.notify("Zadání zrušeno.", "info");
+              return;
+            }
+            const review = await promptGotchaReview(ctx, title, body.trim());
+            if (review.action === "save") {
+              const created = addGotcha(title, body.trim());
+              ctx.ui.notify(`✓ Gotcha uložena do báze: ${created.title}`, "info");
+            } else {
+              ctx.ui.notify("Gotcha nebyla uložena (zrušeno uživatelem).", "warning");
+            }
+            break;
+          }
+
           const query = parts.slice(1).join(" ").trim();
           if (!query || query === "summary") {
             ctx.ui.notify(getGotchasSummary(12), "info");
@@ -484,6 +721,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "  /ls lsp [on|off]           — Zapnout/vypnout LSP kontrolu",
             "  /ls overwrite [on|off]     — Zapnout/vypnout přepis .lss souboru",
             "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
+            "  /ls lint [složka]          — Zkontrolovat délku procedur a komentáře",
+            "  /ls pack [složka]          — Sestavit do .lss a smazat modulární složku",
             "  /ls decompile <soubor>     — Rozložit monolit .lss/.dxl",
             "  /ls gotchas [dotaz]        — Prohledat centrální bázi 40+ gotchas",
           ].join("\n");
@@ -497,14 +736,15 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // 4. Custom Tools for the Model
   const CompileParams = Type.Object({
     folder: Type.String({ description: "Path to modular agent directory containing manifest.json" }),
+    clean: Type.Optional(Type.Boolean({ description: "Whether to delete the modular folder after compiling" })),
   });
 
   pi.registerTool<typeof CompileParams, { ok: boolean; compiledPath?: string; modularRoot?: string }>({
     name: "lotusscript_compile",
     label: "Compile Modular LotusScript",
-    description: "Recompile modular LotusScript folder into single <AgentName>_compiled.lss file and run optional LSP diagnostics.",
+    description: "Recompile modular LotusScript folder into single .lss file and run optional LSP diagnostics.",
     parameters: CompileParams,
-    async execute(_toolCallId: string, params: { folder: string }) {
+    async execute(_toolCallId: string, params: { folder: string; clean?: boolean }) {
       const modularRoot = findModularRoot(params.folder);
       if (!modularRoot) {
         return {
@@ -513,9 +753,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         };
       }
 
+      const shouldClean = params.clean ?? false;
       const compiledPath = AgentParser.compileAgent(modularRoot, {
         keepTimestamp: config.keepTimestampInCompiledName,
         overwriteSourceLss: config.overwriteSourceLss,
+        createLssForDxl: true,
+        deleteModularDir: shouldClean,
       });
 
       let lspReport = "";
@@ -528,8 +771,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         lspReport = "\n(LSP validation disabled)";
       }
 
+      const cleanNote = shouldClean ? "\n(Modular folder deleted)" : "";
       return {
-        content: [{ type: "text", text: `Compiled: ${compiledPath}${lspReport}` }],
+        content: [{ type: "text", text: `Compiled: ${compiledPath}${cleanNote}${lspReport}` }],
         details: { ok: true, compiledPath, modularRoot },
       };
     },
@@ -584,13 +828,27 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   pi.registerTool<
     typeof GotchasParams,
-    { ok?: boolean; created?: GotchaItem; hits?: GotchaItem[] }
+    {
+      ok?: boolean;
+      created?: GotchaItem;
+      hits?: GotchaItem[];
+      approved?: boolean;
+      rewriteRequested?: boolean;
+      instructions?: string;
+      reason?: string;
+    }
   >({
     name: "lotusscript_gotchas",
     label: "Search or Add LotusScript Gotchas",
-    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or record a newly discovered gotcha into the shared registry (~/.pi/lotusscript/gotchas.md) across all projects.",
+    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or propose adding a newly discovered gotcha to the shared registry (~/.pi/lotusscript/gotchas.md) with interactive user modal approval.",
     parameters: GotchasParams,
-    async execute(_toolCallId: string, params: { action?: string; query?: string; title?: string; body?: string }) {
+    async execute(
+      _toolCallId,
+      params,
+      _signal,
+      _onUpdate,
+      ctx
+    ) {
       const act = (params.action || "search").toLowerCase();
 
       if (act === "add") {
@@ -600,10 +858,71 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             details: { ok: false },
           };
         }
-        const created = addGotcha(params.title, params.body);
+
+        const effectiveCtx = ctx ?? latestUiContext;
+        if (!effectiveCtx || !effectiveCtx.hasUI) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "Error: Gotcha was not saved because manual user approval is required via interactive UI, but no UI is available in this session.",
+              },
+            ],
+            details: { ok: false, approved: false, reason: "no_ui" },
+          };
+        }
+
+        const review = await promptGotchaReview(effectiveCtx, params.title, params.body);
+
+        if (review.action === "save") {
+          const created = addGotcha(params.title, params.body);
+          effectiveCtx.ui.notify(`✓ Gotcha schválena a zapsána do centrální báze: ${created.title}`, "info");
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Gotcha successfully approved by user and added to central repository: ${created.title}`,
+              },
+            ],
+            details: { ok: true, created, approved: true },
+          };
+        }
+
+        if (review.action === "rewrite") {
+          effectiveCtx.ui.notify("Požadavek na přepsání gotchy předán AI...", "info");
+          return {
+            content: [
+              {
+                type: "text",
+                text: [
+                  `The user reviewed the proposed gotcha and requested changes before saving:`,
+                  ``,
+                  `User's rewrite instructions:`,
+                  `"${review.instructions}"`,
+                  ``,
+                  `Please revise the gotcha title and body according to the user's instructions, and then call lotusscript_gotchas(action: "add", title: "...", body: "...") again with the revised proposal for approval.`,
+                ].join("\n"),
+              },
+            ],
+            details: {
+              ok: false,
+              approved: false,
+              rewriteRequested: true,
+              instructions: review.instructions,
+            },
+          };
+        }
+
+        // review.action === "cancel" or dismissed
+        effectiveCtx.ui.notify("Gotcha nebyla uložena (zamítnuto uživatelem).", "warning");
         return {
-          content: [{ type: "text", text: `Gotcha successfully added to central repository: ${created.title}` }],
-          details: { ok: true, created },
+          content: [
+            {
+              type: "text",
+              text: `User rejected saving this gotcha proposal ("${params.title}"). It was NOT saved to the repository. Do not attempt to save this gotcha again unless explicitly requested by the user.`,
+            },
+          ],
+          details: { ok: false, approved: false, reason: "rejected_by_user" },
         };
       }
 

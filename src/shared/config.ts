@@ -9,16 +9,20 @@ export const DEFAULT_CONFIG: ModularConfig = {
   autoRecompileOnSave: true,
   keepTimestampInCompiledName: false,
   overwriteSourceLss: true,
+  cleanupOnSettled: true,
   enforceKbPrompt: true,
   injectGotchasSummary: true,
   enforceGotchaCapture: true,
+  checkProcedureLimits: true,
+  maxProcedureLines: 300,
+  enforceCzechComments: true,
 };
 
-export function projectConfigPath(cwd: string): string {
-  return path.join(cwd, CONFIG_DIR_NAME, "lotusscript-modular.json");
+export function projectConfigPath(cwd?: string): string {
+  return path.join(cwd || process.cwd(), CONFIG_DIR_NAME, "lotusscript-modular.json");
 }
 
-export function loadConfig(cwd: string): ModularConfig {
+export function loadConfig(cwd?: string): ModularConfig {
   const filePath = projectConfigPath(cwd);
   if (fs.existsSync(filePath)) {
     try {

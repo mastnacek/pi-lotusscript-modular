@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import type { AgentManifest, CodeBlock } from "../../shared/types.js";
 import {
   decodeXml,
@@ -451,12 +450,19 @@ export class AgentParser {
   }
 
   /**
-   * Recompile modular files into a single <AgentName>_compiled.lss file.
-   * If overwriteSourceLss is enabled, also updates the original .lss file.
+   * Recompile modular files into a single .lss file.
+   * If overwriteSourceLss is enabled, updates the original .lss file.
+   * If createLssForDxl is enabled, creates <AgentName>.lss alongside original .dxl.
+   * If deleteModularDir is enabled, removes the modular folder after compilation.
    */
   static compileAgent(
     targetDirOrFile: string,
-    options?: { keepTimestamp?: boolean; overwriteSourceLss?: boolean }
+    options?: {
+      keepTimestamp?: boolean;
+      overwriteSourceLss?: boolean;
+      createLssForDxl?: boolean;
+      deleteModularDir?: boolean;
+    }
   ): string {
     let agentDir = path.resolve(targetDirOrFile);
     if (fs.existsSync(agentDir) && fs.statSync(agentDir).isFile()) {
@@ -498,14 +504,33 @@ export class AgentParser {
     }
 
     const compiledContent = lines.join("\n");
-    fs.writeFileSync(canonicalOutPath, compiledContent, "utf-8");
 
-    if (options?.overwriteSourceLss && manifest.sourceDxl) {
+    let targetLssPath: string | null = null;
+    if (manifest.sourceDxl) {
       const resolvedSource = path.resolve(agentDir, manifest.sourceDxl);
-      if (resolvedSource.toLowerCase().endsWith(".lss") && fs.existsSync(resolvedSource)) {
-        fs.writeFileSync(resolvedSource, compiledContent, "utf-8");
+      if (resolvedSource.toLowerCase().endsWith(".lss")) {
+        if (options?.overwriteSourceLss || options?.deleteModularDir) {
+          targetLssPath = resolvedSource;
+        }
+      } else if (resolvedSource.toLowerCase().endsWith(".dxl")) {
+        if (options?.createLssForDxl || options?.deleteModularDir) {
+          targetLssPath = resolvedSource.replace(/\.dxl$/i, ".lss");
+        }
       }
+    } else if (options?.deleteModularDir) {
+      targetLssPath = path.join(path.dirname(agentDir), `${safeName}.lss`);
     }
+
+    if (targetLssPath) {
+      fs.writeFileSync(targetLssPath, compiledContent, "utf-8");
+    }
+
+    if (options?.deleteModularDir) {
+      fs.rmSync(agentDir, { recursive: true, force: true });
+      return targetLssPath || canonicalOutPath;
+    }
+
+    fs.writeFileSync(canonicalOutPath, compiledContent, "utf-8");
 
     if (options?.keepTimestamp) {
       const timestamp = getTimestamp();
