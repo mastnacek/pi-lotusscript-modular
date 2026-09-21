@@ -17,8 +17,6 @@ import type {
 } from "@earendil-works/pi-coding-agent";
 import {
   isEditToolResult,
-  isReadToolResult,
-  isToolCallEventType,
   isWriteToolResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -69,6 +67,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const readModularDirs = new Set<string>();
   const modifiedModularDirs = new Set<string>();
   const approvedLineExceptions = new Set<string>();
+  const rejectedLineSignatures = new Map<string, string>();
+
+  /** Cheap content signature used to avoid re-prompting for unchanged files. */
+  function procedureSignature(filePath: string): string {
+    try {
+      const st = fs.statSync(filePath);
+      return `${st.mtimeMs}:${st.size}`;
+    } catch {
+      return "missing";
+    }
+  }
 
   async function verifyProcedureLimits(
     folder: string,
@@ -87,12 +96,26 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       const key = `${path.resolve(folder)}:${item.fileName}`;
       if (approvedLineExceptions.has(key)) continue;
 
+      const filePath = path.join(folder, item.fileName);
+      const signature = procedureSignature(filePath);
+
+      // Already rejected for this exact content revision — do NOT re-open the
+      // modal (prevents modal spam / infinite prompting on every unrelated
+      // edit in the same folder). The AI still receives the split directive.
+      if (rejectedLineSignatures.get(key) === signature) {
+        return {
+          ok: false,
+          warnings,
+          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user already rejected the exception for this revision. Split it into smaller subroutines/functions in 'sub_*.lss' or 'func_*.lss' files.`,
+        };
+      }
+
       const effectiveCtx = ctx ?? latestUiContext;
       if (!effectiveCtx || !effectiveCtx.hasUI) {
         return {
           ok: false,
           warnings,
-          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (limit je ${item.maxLines}). V neinteraktivním režimu nelze schválit výjimku. Rozdělte proceduru na menší dílčí funkce/subroutiny.`,
+          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. Approving an exception requires an interactive UI, which is unavailable. Split the procedure into smaller subroutines/functions.`,
         };
       }
 
@@ -100,29 +123,32 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       if (review.action === "approve") {
         approvedLineExceptions.add(key);
+        rejectedLineSignatures.delete(key);
         effectiveCtx.ui.notify(
           `✓ Schválena výjimka délky pro ${item.fileName} (${item.lineCount} řádků)`,
           "info"
         );
       } else if (review.action === "split_instructions") {
+        rejectedLineSignatures.set(key, signature);
         return {
           ok: false,
           warnings,
           splitInstructions: review.instructions,
-          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (limit ${item.maxLines}). Uživatel požaduje rozdělení s instrukcemi: "${review.instructions}"`,
+          message: `Procedure '${item.fileName}' has ${item.lineCount} lines (limit ${item.maxLines}). The user rejected the exception and provided splitting instructions: "${review.instructions}"`,
         };
       } else {
+        rejectedLineSignatures.set(key, signature);
         return {
           ok: false,
           warnings,
-          message: `Procedura '${item.fileName}' má ${item.lineCount} řádků (překračuje limit ${item.maxLines} řádků). Uživatel zamítl výjimku a požaduje rozdělení na menší subroutiny/funkce podle zásad LotusScriptu (vyhněte se 32 KB limitu procedury).`,
+          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user rejected the exception and requests splitting it into smaller subroutines/functions according to LotusScript principles (avoiding the 32 KB procedure limit).`,
         };
       }
     }
 
     if (config.enforceCzechComments && lint.missingCommentProcedures.length > 0) {
       for (const m of lint.missingCommentProcedures) {
-        warnings.push(`Procedura '${m.fileName}' postrádá stručný český komentář s popisem účelu (' Účel: ...).`);
+        warnings.push(`Procedure '${m.fileName}' lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`);
       }
     }
 
@@ -385,17 +411,18 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       if (!limitCheck.ok) {
         renderStatusline("error");
         const instructionsNotice = limitCheck.splitInstructions
-          ? `\nPokyny uživatele pro rozdělení procedury:\n"${limitCheck.splitInstructions}"\n`
+          ? `\nUser's splitting instructions:\n"${limitCheck.splitInstructions}"\n`
           : "";
         const errorText = [
           "",
           "---",
-          "⚠️ [LotusScript Lint Error: Překročen limit délky procedury]",
+          "⚠️ [LotusScript Lint Error: Procedure length limit exceeded]",
           limitCheck.message,
           instructionsNotice,
-          "Povinný krok pro AI:",
-          `- Rozdělte logiku této procedury do menších dílčích souborů 'sub_*.lss' nebo 'func_*.lss'.`,
-          `- Aktualizujte volání v původním kódu tak, aby žádná procedura nepřesahovala limit ${config.maxProcedureLines} řádků.`,
+          "Mandatory step for AI:",
+          `- Split the logic of this procedure into smaller 'sub_*.lss' or 'func_*.lss' files.`,
+          `- Update calls in the original code so that no procedure exceeds the ${config.maxProcedureLines}-line limit.`,
+          `- Do NOT retry the same oversized procedure unchanged; it will be rejected again.`,
           "---",
         ].filter(Boolean).join("\n");
 
@@ -442,7 +469,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           : "";
 
         const commentWarnings = limitCheck.warnings.length > 0
-          ? `\nℹ️ [Komentáře]:\n${limitCheck.warnings.map((w) => `  - ${w}`).join("\n")}`
+          ? `\nℹ️ [Comments]:\n${limitCheck.warnings.map((w) => `  - ${w}`).join("\n")}`
           : "";
 
         const recompileNotice = [

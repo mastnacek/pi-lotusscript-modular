@@ -2,9 +2,11 @@ import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import {
   CURSOR_MARKER,
   type Focusable,
+  Key,
   matchesKey,
   truncateToWidth,
   visibleWidth,
+  wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { ProcedureLintItem } from "../../shared/types.js";
 
@@ -13,24 +15,53 @@ export type ProcedureReviewResult =
   | { action: "reject" }
   | { action: "split_instructions"; instructions: string };
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 /**
  * TUI Overlay modal component for reviewing procedure line limit excess.
+ *
+ * Sizes itself to the real terminal (via `termCols` / `termRows`), word-wraps
+ * all content instead of truncating, and scrolls when the content is taller
+ * than the available viewport so the full text is always readable.
  */
 export class ProcedureLimitComponent implements Focusable {
-  readonly width = 76;
-
   /** Focusable interface for hardware cursor tracking and IME support */
   focused = true;
 
   private selected = 0; // 0 = approve exception, 1 = reject/split, 2 = split instructions
   private instructionsText = "";
   private instructionsCursor = 0;
+  private scrollOffset = 0;
+
+  private readonly termCols: number;
+  private readonly termRows: number;
 
   constructor(
     private readonly theme: Theme,
     private readonly item: ProcedureLintItem,
-    private readonly done: (result: ProcedureReviewResult) => void
-  ) {}
+    private readonly done: (result: ProcedureReviewResult) => void,
+    termCols = 100,
+    termRows = 40
+  ) {
+    this.termCols = termCols;
+    this.termRows = termRows;
+  }
+
+  // ---------------------------------------------------------------- input ---
+
+  private handleScroll(data: string): boolean {
+    if (matchesKey(data, Key.pageUp) || matchesKey(data, "ctrl+u")) {
+      this.scrollOffset = Math.max(0, this.scrollOffset - 5);
+      return true;
+    }
+    if (matchesKey(data, Key.pageDown) || matchesKey(data, "ctrl+d")) {
+      this.scrollOffset += 5;
+      return true;
+    }
+    return false;
+  }
 
   private handleNavigation(data: string): boolean {
     if (matchesKey(data, "escape")) {
@@ -131,6 +162,7 @@ export class ProcedureLimitComponent implements Focusable {
   }
 
   handleInput(data: string): void {
+    if (this.handleScroll(data)) return;
     if (this.handleNavigation(data)) return;
     if (this.handleQuickKeys(data)) return;
     if (this.selected === 2) {
@@ -138,55 +170,29 @@ export class ProcedureLimitComponent implements Focusable {
     }
   }
 
+  // --------------------------------------------------------------- render ---
+
   private padRow(content: string, innerW: number): string {
     let c = content;
-    const vis = visibleWidth(c);
-    if (vis > innerW) {
+    if (visibleWidth(c) > innerW) {
       c = truncateToWidth(c, innerW);
     }
-    const visAfter = visibleWidth(c);
-    const padding = " ".repeat(Math.max(0, innerW - visAfter));
+    const padding = " ".repeat(Math.max(0, innerW - visibleWidth(c)));
     return this.theme.fg("border", "│") + c + padding + this.theme.fg("border", "│");
   }
 
-  private renderHeader(innerW: number): string[] {
-    const th = this.theme;
-    return [
-      th.fg("border", `╭${"─".repeat(innerW)}╮`),
-      this.padRow(
-        ` ${th.fg("accent", "🪷 LotusScript Linter")} ${th.fg("dim", "·")} ${th.fg("warning", "Překročení limitu délky procedury 📏")}`,
-        innerW
-      ),
-      th.fg("border", `├${"─".repeat(innerW)}┤`),
-    ];
-  }
-
-  private renderStats(innerW: number): string[] {
-    const th = this.theme;
-    const diff = this.item.lineCount - this.item.maxLines;
-    const rows: string[] = [
-      this.padRow(` ${th.fg("dim", "📌 Procedura:")} ${th.fg("accent", this.item.fileName)} ${th.fg("dim", `(${this.item.procedureName})`)}`, innerW),
-      this.padRow(
-        ` ${th.fg("dim", "📊 Počet řádků:")} ${th.fg("warning", String(this.item.lineCount))} ${th.fg("dim", `/ limit:`)} ${this.item.maxLines} ${th.fg("error", `(+${diff} řádků nad limit)`)}`,
-        innerW
-      ),
-      this.padRow(
-        ` ${th.fg("dim", "⚠️  Riziko:")} ${th.fg("warning", "LotusScript 32 KB bytecode limit procedury ('Script structure too large')")}`,
-        innerW
-      ),
-    ];
-
-    if (this.item.commentNotice) {
-      rows.push(
-        this.padRow(
-          ` ${th.fg("dim", "ℹ️  Komentáře:")} ${th.fg("dim", this.item.commentNotice)}`,
-          innerW
-        )
-      );
+  /** Word-wraps a logical row, preserving its leading indent on continuations. */
+  private pushWrapped(rows: string[], text: string, innerW: number): void {
+    if (text.trim() === "") {
+      rows.push("");
+      return;
     }
-
-    rows.push(th.fg("border", `├${"─".repeat(innerW)}┤`));
-    return rows;
+    const lead = /^ */.exec(text)?.[0] ?? "";
+    const indent = lead.length > 0 ? lead : " ";
+    const avail = Math.max(10, innerW - indent.length);
+    for (const line of wrapTextWithAnsi(text.slice(indent.length), avail)) {
+      rows.push(indent + line);
+    }
   }
 
   private renderInputDisplay(): string {
@@ -210,45 +216,125 @@ export class ProcedureLimitComponent implements Focusable {
       : `Pokyny: ${this.instructionsText}`;
   }
 
-  private renderActions(innerW: number): string[] {
+  private buildBody(innerW: number): { rows: string[]; actionRows: number[] } {
     const th = this.theme;
-    const is0 = this.selected === 0;
-    const is1 = this.selected === 1;
-    const is2 = this.selected === 2;
+    const rows: string[] = [];
+    const actionRows: number[] = [];
+    const diff = this.item.lineCount - this.item.maxLines;
 
-    const row0 = `${is0 ? "  ▶ " : "    "}${is0 ? th.fg("accent", "✅ [Povolit výjimku]") : th.fg("text", "✅ [Povolit výjimku]")} ${th.fg("dim", "— schválit mírné překročení a pokračovat")}`;
-    const row1 = `${is1 ? "  ▶ " : "    "}${is1 ? th.fg("accent", "✂️ [Odmítnout a rozdělit]") : th.fg("text", "✂️ [Odmítnout a rozdělit]")} ${th.fg("dim", "— vrátit AI pokyn k rozdělení na menší sub/funkce")}`;
-    const row2 = `${is2 ? "  ▶ " : "    "}${is2 ? th.fg("accent", "✏️ [Pokyny k rozdělení]") : th.fg("text", "✏️ [Pokyny k rozdělení]")} ${this.renderInputDisplay()}`;
+    this.pushWrapped(
+      rows,
+      ` ${th.fg("dim", "📌 Procedura:")} ${th.fg("accent", this.item.fileName)} ${th.fg("dim", `(${this.item.procedureName})`)}`,
+      innerW
+    );
+    this.pushWrapped(
+      rows,
+      ` ${th.fg("dim", "📊 Počet řádků:")} ${th.fg("warning", String(this.item.lineCount))} ${th.fg("dim", "/ limit:")} ${this.item.maxLines} ${th.fg("error", `(+${diff} řádků nad limit)`)}`,
+      innerW
+    );
+    this.pushWrapped(
+      rows,
+      ` ${th.fg("dim", "⚠️  Riziko:")} ${th.fg("warning", "LotusScript 32 KB bytecode limit procedury ('Script structure too large')")}`,
+      innerW
+    );
+    if (this.item.commentNotice) {
+      this.pushWrapped(
+        rows,
+        ` ${th.fg("dim", "ℹ️  Komentáře:")} ${th.fg("dim", this.item.commentNotice)}`,
+        innerW
+      );
+    }
 
-    return [
-      this.padRow(` ${th.fg("dim", "🎯 Zvolte akci (vyberte šipkami ↑ / ↓ a potvrďte klávesou Enter):")}`, innerW),
-      this.padRow("", innerW),
-      this.padRow(row0, innerW),
-      this.padRow(row1, innerW),
-      this.padRow(row2, innerW),
-      this.padRow("", innerW),
-    ];
+    rows.push(th.fg("dim", "─".repeat(innerW)));
+    this.pushWrapped(
+      rows,
+      ` ${th.fg("dim", "🎯 Zvolte akci (šipkami ↑ / ↓, potvrďte Enter):")}`,
+      innerW
+    );
+    this.pushWrapped(rows, "", innerW);
+
+    actionRows[0] = rows.length;
+    this.pushWrapped(
+      rows,
+      `${this.selected === 0 ? "  ▶ " : "    "}${this.selected === 0 ? th.fg("accent", "✅ [Povolit výjimku]") : th.fg("text", "✅ [Povolit výjimku]")} ${th.fg("dim", "— schválit mírné překročení a pokračovat")}`,
+      innerW
+    );
+
+    actionRows[1] = rows.length;
+    this.pushWrapped(
+      rows,
+      `${this.selected === 1 ? "  ▶ " : "    "}${this.selected === 1 ? th.fg("accent", "✂️ [Odmítnout a rozdělit]") : th.fg("text", "✂️ [Odmítnout a rozdělit]")} ${th.fg("dim", "— vrátit AI pokyn k rozdělení na menší sub/funkce")}`,
+      innerW
+    );
+
+    actionRows[2] = rows.length;
+    this.pushWrapped(
+      rows,
+      `${this.selected === 2 ? "  ▶ " : "    "}${this.selected === 2 ? th.fg("accent", "✏️ [Pokyny k rozdělení]") : th.fg("text", "✏️ [Pokyny k rozdělení]")} ${this.renderInputDisplay()}`,
+      innerW
+    );
+
+    return { rows, actionRows };
   }
 
-  private renderFooter(innerW: number): string[] {
+  render(width: number): string[] {
     const th = this.theme;
-    return [
+
+    // Fit the real terminal, keep a readable cap, never smaller than usable.
+    const maxInner = Math.max(30, Math.min(this.termCols - 4, 106));
+    const innerW = clamp(width - 2, 30, maxInner);
+
+    const top = th.fg("border", `╭${"─".repeat(innerW)}╮`);
+    const bottom = th.fg("border", `╰${"─".repeat(innerW)}╯`);
+    const sep = th.fg("border", `├${"─".repeat(innerW)}┤`);
+
+    const header = [
+      top,
       this.padRow(
-        ` ${th.fg("dim", "💡 ↑↓ navigace • Enter potvrdit • Esc zamítnout • psaním zadáváte pokyny")}`,
+        ` ${th.fg("accent", "🪷 LotusScript Linter")} ${th.fg("dim", "·")} ${th.fg("warning", "Překročení limitu délky procedury 📏")}`,
         innerW
       ),
-      th.fg("border", `╰${"─".repeat(innerW)}╯`),
+      sep,
     ];
-  }
+    const footer = [
+      this.padRow(
+        ` ${th.fg("dim", "💡 ↑↓ akce • Enter potvrdit • Esc zamítnout • PageUp/PageDown posun")}`,
+        innerW
+      ),
+      bottom,
+    ];
 
-  render(_width: number): string[] {
-    const innerW = this.width - 2;
-    return [
-      ...this.renderHeader(innerW),
-      ...this.renderStats(innerW),
-      ...this.renderActions(innerW),
-      ...this.renderFooter(innerW),
-    ];
+    const body = this.buildBody(innerW);
+    const maxTotal = Math.max(12, Math.floor(this.termRows * 0.9));
+    const bodyCap = Math.max(4, maxTotal - header.length - footer.length);
+
+    let visibleRows = body.rows;
+    let indicator: string | null = null;
+
+    if (body.rows.length > bodyCap) {
+      const cap = Math.max(3, bodyCap - 1);
+      const selRow = body.actionRows[this.selected] ?? 0;
+      if (selRow < this.scrollOffset) this.scrollOffset = selRow;
+      if (selRow >= this.scrollOffset + cap) this.scrollOffset = selRow - cap + 1;
+      this.scrollOffset = clamp(this.scrollOffset, 0, Math.max(0, body.rows.length - cap));
+
+      visibleRows = body.rows.slice(this.scrollOffset, this.scrollOffset + cap);
+      const above = this.scrollOffset;
+      const below = body.rows.length - (this.scrollOffset + cap);
+      const parts: string[] = [];
+      if (above > 0) parts.push(`▲ ${above}`);
+      if (below > 0) parts.push(`▼ ${below}`);
+      indicator = this.padRow(
+        ` ${th.fg("dim", `… ${parts.join(" · ")} řádků (PageUp/PageDown) …`)}`,
+        innerW
+      );
+    }
+
+    const out = [...header];
+    for (const row of visibleRows) out.push(this.padRow(row, innerW));
+    if (indicator) out.push(indicator);
+    out.push(...footer);
+    return out;
   }
 
   invalidate(): void {}
@@ -267,9 +353,18 @@ export async function promptProcedureLineReview(
   }
 
   const result = await ctx.ui.custom<ProcedureReviewResult | undefined>(
-    (_tui, theme, _keybindings, done) =>
-      new ProcedureLimitComponent(theme, item, done),
-    { overlay: true }
+    (tui, theme, _keybindings, done) =>
+      new ProcedureLimitComponent(
+        theme,
+        item,
+        done,
+        tui.terminal.columns,
+        tui.terminal.rows
+      ),
+    {
+      overlay: true,
+      overlayOptions: { width: "90%", maxHeight: "90%", margin: 1 },
+    }
   );
 
   if (!result || result.action === "reject") {

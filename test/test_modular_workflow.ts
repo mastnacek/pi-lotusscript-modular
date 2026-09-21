@@ -556,10 +556,68 @@ End Sub
   };
 
   const lintBlockResult = await lintPiToolResultHandler(editLongProcEvt);
-  const wasBlocked = lintBlockResult?.isError === true && lintBlockResult?.content?.[1]?.text?.includes("překračuje limit 300 řádků");
+  const wasBlocked = lintBlockResult?.isError === true && lintBlockResult?.content?.[1]?.text?.includes("exceeding the 300-line limit");
   console.log("26. Tool result halts and instructs AI to split when user rejects excess:", wasBlocked ? "PASS" : "FAIL");
   if (!wasBlocked) {
     throw new Error(`Expected tool_result to halt with split guidance, got: ${JSON.stringify(lintBlockResult)}`);
+  }
+
+  // 27. Anti-loop gate: re-editing an UNCHANGED over-limit file must not reopen the modal.
+  let modalOpenCount = 0;
+  const loopProbeCtx: any = {
+    hasUI: true,
+    cwd: testDir,
+    ui: {
+      custom: async () => {
+        modalOpenCount++;
+        return { action: "reject" };
+      },
+      notify: () => {},
+    },
+  };
+  let loopSessionStart: any = null;
+  let loopToolResult: any = null;
+  const loopPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "session_start") loopSessionStart = handler;
+      if (evt === "tool_result") loopToolResult = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(loopPi);
+  loopSessionStart({}, loopProbeCtx);
+
+  const loopEvt = () => ({
+    toolName: "edit",
+    input: { path: path.join(agentWithLongProc, "sub_MassiveSub.lss") },
+    content: [{ type: "text", text: "touch" }],
+    isError: false,
+  });
+
+  const firstLoopRes = await loopToolResult(loopEvt());
+  const secondLoopRes = await loopToolResult(loopEvt());
+  const thirdLoopRes = await loopToolResult(loopEvt());
+
+  const gateWorked =
+    modalOpenCount === 1 &&
+    firstLoopRes?.isError === true &&
+    secondLoopRes?.isError === true &&
+    thirdLoopRes?.isError === true &&
+    thirdLoopRes?.content?.[1]?.text?.includes("already rejected the exception for this revision");
+  console.log("27. Modal opens once; unchanged re-edits do not re-prompt (no loop):", gateWorked ? "PASS" : "FAIL");
+  if (!gateWorked) {
+    throw new Error(`Anti-loop gate failed. modalOpenCount=${modalOpenCount}, third=${JSON.stringify(thirdLoopRes)}`);
+  }
+
+  // 28. Modal remains readable: wrapped content respects width, and optional terminal sizing works.
+  const sizedComp = new ProcedureLimitComponent(mockTheme, lintRes.exceededProcedures[0]!, () => {}, 120, 30);
+  const sizedLines = sizedComp.render(120);
+  const widthOk = sizedLines.every((l) => l.length < 400);
+  const hasWrappedRisk = sizedLines.join("\n").includes("Script structure too large");
+  console.log("28. Modal sizes to terminal and wraps long text:", (widthOk && hasWrappedRisk) ? "PASS" : "FAIL");
+  if (!widthOk || !hasWrappedRisk) {
+    throw new Error("Modal did not wrap/scale correctly");
   }
 
   // Cleanup
