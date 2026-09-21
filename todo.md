@@ -165,8 +165,9 @@ _Filled after each phase is implemented and tested._
 | 2 | ✅ | ✅ | Instant-failure guards + outside-root advisory; tests 35–39 |
 | 3 | ✅ | ✅ | Pre-flight gotchas + debrief handoff; tests 40–43 |
 | 4 | ✅ | ✅ | Recurring-failure gotcha drafting; tests 44–47 |
+| 5 | ✅ | ✅ | JEV semantic evaluation (OpenRouter Decisions API) + comment style parser; tests 48–54 |
 
-**Final verification:** `npm test` — **47 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief and recurring-failure detection.
+**Final verification:** `npm test` — **54 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief, recurring-failure detection, comment style scanner (new vs old style), JEV Decisions API payload & response parsing, and scorecard integration.
 
 **New config keys:** `enableScorecard`, `enforceGradingRubric`, `injectPreflightGotchas`, `autoDraftRecurringGotchas` — all default `true`, all settable via `/ls config set <key> <value>` and listed in `/ls status`.
 

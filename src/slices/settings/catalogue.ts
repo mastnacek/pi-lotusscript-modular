@@ -1,6 +1,6 @@
 import type { ModularConfig } from "../../shared/types.js";
 
-export type SettingKind = "boolean" | "number";
+export type SettingKind = "boolean" | "number" | "string";
 
 export interface SettingSpec {
   key: keyof ModularConfig;
@@ -150,6 +150,25 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
       false: "Vypnuto — opakované chyby se neevidují",
     },
   },
+  {
+    key: "useJevEvaluation",
+    kind: "boolean",
+    description: "Sémantické hodnocení procedur a komentářů modelem JEV (OpenRouter)",
+    valueHelp: {
+      true: "Zapnuto — posuzovat styl komentářů (nový vs starý) a rizika gotchas modelem JEV",
+      false: "Vypnuto — pouze deterministický linter a scorecard",
+    },
+  },
+  {
+    key: "jevModel",
+    kind: "string",
+    description: "Model JEV na OpenRouteru pro Decisions API (výchozí: typesafe/jev-1.13)",
+  },
+  {
+    key: "openrouterApiKey",
+    kind: "string",
+    description: "Vlastní API klíč pro OpenRouter (pokud není nastaven v OPENROUTER_API_KEY)",
+  },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {
@@ -159,7 +178,7 @@ export function findSetting(key: string): SettingSpec | undefined {
 export function parseValue(
   spec: SettingSpec,
   raw: string
-): { ok: true; value: boolean | number } | { ok: false; error: string } {
+): { ok: true; value: boolean | number | string } | { ok: false; error: string } {
   const norm = raw.trim().toLowerCase();
   if (spec.kind === "boolean") {
     if (norm === "true" || norm === "on" || norm === "1" || norm === "yes" || norm === "ano") {
@@ -182,6 +201,13 @@ export function parseValue(
       ok: false,
       error: `Hodnota pro '${spec.key}' musí být kladné celé číslo (zadáno: '${raw}')`,
     };
+  }
+  if (spec.kind === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+      return { ok: false, error: `Hodnota pro '${spec.key}' nesmí být prázdná` };
+    }
+    return { ok: true, value: trimmed };
   }
   return { ok: false, error: `Neznámý typ nastavení: ${spec.kind}` };
 }

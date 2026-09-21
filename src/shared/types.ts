@@ -36,6 +36,51 @@ export interface ModularConfig {
   injectPreflightGotchas: boolean;
   /** Auto-draft a gotcha when the same LSP diagnostic recurs across compile cycles */
   autoDraftRecurringGotchas: boolean;
+  /** Evaluate procedures with JEV model on OpenRouter for semantic comment & gotcha analysis */
+  useJevEvaluation: boolean;
+  /** Custom OpenRouter API key override (falls back to process.env.OPENROUTER_API_KEY or ~/.pi/agent/auth.json) */
+  openrouterApiKey?: string;
+  /** JEV model identifier on OpenRouter */
+  jevModel: string;
+}
+
+export type CommentStyle = "new" | "old" | "mixed" | "none";
+
+export interface CommentAnalysis {
+  style: CommentStyle;
+  hasCzechPurpose: boolean;
+  purposeText?: string;
+  hasSyntheticHeader: boolean;
+  hasLegacyBlock: boolean;
+  legacyMarkers: string[];
+  totalLines: number;
+  commentLines: number;
+  comments: string[];
+}
+
+export interface JevProcedureEval {
+  fileName: string;
+  procedureName: string;
+  commentStyle: CommentStyle;
+  styleCompliant: boolean;
+  purposeQualityScore: number; // 0..2
+  gotchaRiskScore: number; // 0..2 (0 = safe, 1 = warning, 2 = danger)
+  summary: string;
+  modelUsed: string;
+  costUsd?: number;
+}
+
+export interface JevFolderEvalResult {
+  ok: boolean;
+  newStyleCount: number;
+  oldStyleCount: number;
+  mixedStyleCount: number;
+  uncommentedCount: number;
+  procedures: JevProcedureEval[];
+  averageQuality: number;
+  maxGotchaRisk: number;
+  totalCostUsd: number;
+  summary: string;
 }
 
 export interface ScorecardItem {
@@ -65,6 +110,7 @@ export interface ScorecardInput {
   enforceCzechComments: boolean;
   manifestSynced: boolean;
   artifact: "written" | "pending";
+  jev?: JevFolderEvalResult | null;
 }
 
 export interface ProcedureLintItem {
@@ -75,6 +121,7 @@ export interface ProcedureLintItem {
   isExceeded: boolean;
   hasDocComment: boolean;
   commentNotice?: string;
+  commentStyle?: CommentStyle;
 }
 
 export interface FolderLintResult {

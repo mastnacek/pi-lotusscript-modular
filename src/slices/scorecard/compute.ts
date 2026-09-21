@@ -94,6 +94,21 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     weight: 2,
   });
 
+  // DoD 6 (Optional) — JEV semantic review (new style comments & runtime risk)
+  if (input.jev) {
+    const isClean = input.jev.ok;
+    const riskLevels = ["low", "medium", "high"];
+    const riskLabel = riskLevels[input.jev.maxGotchaRisk] ?? "high";
+    const styleLabel = `JEV semantic review (${input.jev.newStyleCount} new, ${input.jev.oldStyleCount} old style, risk: ${riskLabel})`;
+    items.push({
+      id: "jev-semantic",
+      label: styleLabel,
+      ok: isClean,
+      weight: 2,
+      detail: input.jev.summary ? condense(input.jev.summary, 1) : undefined,
+    });
+  }
+
   const scored = items.filter((i) => !i.pending);
   const score = scored.filter((i) => i.ok).reduce((s, i) => s + i.weight, 0);
   const max = scored.reduce((s, i) => s + i.weight, 0);
@@ -150,6 +165,10 @@ export function buildGradingRubric(config: ModularConfig): string {
     ? "3. The compiled artifact reports 0 LSP errors."
     : "3. (LSP validation is disabled by config.)";
 
+  const jevRule = config.useJevEvaluation
+    ? "6b. Comments are in the new style with verified Czech purpose (' Účel: ...) assessed by JEV."
+    : undefined;
+
   return [
     "LOTUSSCRIPT DEFINITION OF DONE (per agent you touch):",
     `1. No procedure exceeds ${n} lines, unless the user approved an exception.`,
@@ -158,6 +177,7 @@ export function buildGradingRubric(config: ModularConfig): string {
     "4. manifest.json compilationOrder matches the files on disk.",
     "5. The final artifact is written: original .lss overwritten, or <Agent>.lss created for .dxl.",
     "6. Every newly discovered trap is proposed via lotusscript_gotchas(action: \"add\") and user-approved.",
+    ...(jevRule ? [jevRule] : []),
     "",
     "HOW YOU'RE GRADED (the plugin computes this — never self-report a score):",
     "  +2 per satisfied DoD item",

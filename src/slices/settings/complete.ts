@@ -16,6 +16,7 @@ export const LS_SUBCOMMANDS: readonly Suggestion[] = [
   { value: "pack", description: "Sestavit do .lss a smazat modulární složku", space: true },
   { value: "lint", description: "Zkontrolovat délku procedur (max 300 řádků) a komentáře", space: true },
   { value: "score", description: "Zobrazit scorecard a trend hodnocení agenta", space: true },
+  { value: "jev", description: "Sémantické hodnocení komentářů a rizik modelem JEV (OpenRouter)", space: true },
   { value: "decompile", description: "Rozložit monolitický .lss nebo .dxl do podsložky", space: true },
   { value: "gotchas", description: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)", space: true },
   { value: "help", description: "Zobrazit nápovědu příkazů" },
@@ -89,7 +90,7 @@ export function completeLsArguments(
 
   const afterSub = trimmed.slice(sub.length).trimStart();
 
-  if (sub === "lsp" || sub === "overwrite") {
+  if (sub === "lsp" || sub === "overwrite" || sub === "jev") {
     return filter(`${sub} `, TOGGLE_VALUES, afterSub);
   }
 

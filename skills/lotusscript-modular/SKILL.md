@@ -89,7 +89,7 @@ Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-5` per ove
 
 Instant failure conditions: editing `main.lss` or `*_compiled.lss` directly; writing outside the modular root; deleting a procedure file without updating `manifest.json`.
 
-Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka]` (per-procedure line counts and comment status).
+Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka]` (per-procedure line counts and comment status), `/ls jev [složka]` (semantic comment style & gotcha risk evaluation via JEV Decisions API).
 
 ## 3c. Self-improvement loop (pre-flight, debrief, recurring failures)
 

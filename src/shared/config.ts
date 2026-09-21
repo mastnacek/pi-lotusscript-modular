@@ -20,6 +20,8 @@ export const DEFAULT_CONFIG: ModularConfig = {
   enforceGradingRubric: true,
   injectPreflightGotchas: true,
   autoDraftRecurringGotchas: true,
+  useJevEvaluation: false,
+  jevModel: "typesafe/jev-1.13",
 };
 
 export function projectConfigPath(cwd?: string): string {

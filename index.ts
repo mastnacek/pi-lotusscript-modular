@@ -22,8 +22,10 @@ import {
 import { Type } from "typebox";
 import type {
   AgentScorecard,
+  CommentStyle,
   FolderLintResult,
   GotchaItem,
+  JevFolderEvalResult,
   LspCheckResult,
   ModularConfig,
 } from "./src/shared/types.js";
@@ -67,6 +69,9 @@ import {
   formatValue,
   parseValue,
 } from "./src/slices/settings/index.js";
+import {
+  evaluateFolderWithJev,
+} from "./src/slices/evaluator/index.js";
 
 const MUTATING_TOOL_NAMES = new Set([
   "edit",
@@ -119,6 +124,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       lsp: LspCheckResult | null;
       artifact: "written" | "pending";
       manifestSynced?: boolean;
+      jev?: JevFolderEvalResult | null;
     }
   ): AgentScorecard {
     return computeScorecard({
@@ -130,14 +136,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       enforceCzechComments: config.enforceCzechComments,
       manifestSynced: opts.manifestSynced ?? isManifestSynced(root),
       artifact: opts.artifact,
+      jev: opts.jev,
     });
   }
 
   /** Appends to session history and returns the previous scorecard (for the trend line). */
   function recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined {
+    latestScorecard = scorecard;
     const history = scoreHistory.get(root) ?? [];
     const previous = history.at(-1);
     scoreHistory.set(root, [...history, scorecard].slice(-20));
+    renderStatusline("clean");
     return previous;
   }
 
@@ -316,14 +325,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     return { ok: true, warnings, lint };
   }
 
+  let latestScorecard: AgentScorecard | undefined = undefined;
+
   function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
+    const scoreBadge = latestScorecard ? ` [${latestScorecard.score}/${latestScorecard.max}]` : "";
 
     if (state === "compiling") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("warning", "🪷 LS: compiling...")
+        theme.fg("warning", `🪷 LS${scoreBadge}: compiling...`)
       );
       return;
     }
@@ -331,7 +343,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (state === "clean") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("success", "🪷 LS: compiled ✓")
+        theme.fg("success", `🪷 LS${scoreBadge}: compiled ✓`)
       );
       return;
     }
@@ -339,16 +351,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (state === "error") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("error", "🪷 LS: LSP error ⚠")
+        theme.fg("error", `🪷 LS${scoreBadge}: LSP error ⚠`)
       );
       return;
     }
 
     // Default / idle state
-    const icon = theme.fg("accent", "🪷 LS");
+    const icon = theme.fg("accent", `🪷 LS${scoreBadge}`);
+    const jevFlag = config.useJevEvaluation ? " · JEV:on" : "";
     const flags = theme.fg(
       "dim",
-      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"})`
+      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"}${jevFlag})`
     );
     latestUiContext.ui.setStatus("lotusscript", icon + flags);
   }
@@ -392,6 +405,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             deleteModularDir: true,
           });
 
+          let finalScorecard: AgentScorecard | undefined = undefined;
           // Debrief: deterministic "note to self" carried into the next turn.
           if (config.enableScorecard) {
             const scorecard = buildScorecard(modDir, {
@@ -400,6 +414,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
               artifact: "written",
               manifestSynced: true,
             });
+            finalScorecard = scorecard;
             const previous = recordScorecard(modDir, scorecard);
             const unmet = scorecard.items.filter((i) => !i.ok && !i.pending);
             if (unmet.length > 0) {
@@ -416,8 +431,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           }
 
           if (ctx.hasUI) {
+            const scoreLabel = finalScorecard ? ` [skóre: ${finalScorecard.score}/${finalScorecard.max}]` : "";
             ctx.ui.notify(
-              `🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} sestaven a dočasná složka smazána.`,
+              `🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} sestaven${scoreLabel} a dočasná složka smazána.`,
               "info"
             );
           }
@@ -727,10 +743,23 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
         let scorecardBlock = "";
         if (config.enableScorecard) {
+          let jevRes: JevFolderEvalResult | null = null;
+          if (config.useJevEvaluation) {
+            try {
+              jevRes = await evaluateFolderWithJev(modularRoot, {
+                apiKey: config.openrouterApiKey,
+                jevModel: config.jevModel,
+                ctx,
+              });
+            } catch {
+              // Non-fatal fallback
+            }
+          }
           const scorecard = buildScorecard(modularRoot, {
             lint: limitCheck.lint,
             lsp: lspResult,
             artifact: "pending",
+            jev: jevRes,
           });
           const previous = recordScorecard(modularRoot, scorecard);
           scorecardBlock = formatScorecard(scorecard, previous);
@@ -835,6 +864,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             `- Vynucovat české komentáře: ${config.enforceCzechComments ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Scorecard (hodnocení): ${config.enableScorecard ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Rubrika Definition of Done: ${config.enforceGradingRubric ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Sémantické hodnocení JEV: ${config.useJevEvaluation ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- JEV model: ${config.jevModel}`,
             `- Předletová kontrola gotchas: ${config.injectPreflightGotchas ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-návrh gotchy z opakované chyby: ${config.autoDraftRecurringGotchas ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-dekompilace při čtení: ${config.autoDecompileOnRead ? "ZAPNUTO" : "VYPNUTO"}`,
@@ -950,14 +981,81 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           if (config.enableLsp && compiledName) {
             lspRes = await checkLotusScriptDiagnostics(path.join(root, compiledName));
           }
-          const sc = buildScorecard(root, { lint: lintRes, lsp: lspRes, artifact: "pending" });
+          let jevRes: JevFolderEvalResult | null = null;
+          if (config.useJevEvaluation) {
+            jevRes = await evaluateFolderWithJev(root, {
+              apiKey: config.openrouterApiKey,
+              jevModel: config.jevModel,
+              ctx,
+            });
+          }
+          const sc = buildScorecard(root, { lint: lintRes, lsp: lspRes, artifact: "pending", jev: jevRes });
           const history = scoreHistory.get(root) ?? [];
           const out = [formatScorecard(sc, history.at(-1))];
           if (history.length > 0) {
             const trend = history.map((h) => `${h.score}/${h.max}`).join(" → ");
             out.push("", `Historie (${history.length}): ${trend} → ${sc.score}/${sc.max}`);
           }
+          if (jevRes) {
+            out.push("", `🤖 JEV: ${jevRes.summary}`);
+          }
           ctx.ui.notify(out.join("\n"), "info");
+          break;
+        }
+
+        case "jev": {
+          const arg1 = (parts[1] || "").toLowerCase();
+          if (arg1 === "on") {
+            config.useJevEvaluation = true;
+            updateConfig(config);
+            ctx.ui.notify("Sémantické hodnocení JEV je nyní ZAPNUTO.", "info");
+            return;
+          }
+          if (arg1 === "off") {
+            config.useJevEvaluation = false;
+            updateConfig(config);
+            ctx.ui.notify("Sémantické hodnocení JEV je nyní VYPNUTO.", "info");
+            return;
+          }
+
+          const target = parts[1] || ctx.cwd;
+          const root = findModularRoot(target);
+          if (!root) {
+            ctx.ui.notify(`Není modulární složka LotusScriptu: ${target}`, "error");
+            return;
+          }
+
+          ctx.ui.notify(`Spouštím sémantické posouzení JEV pro: ${path.basename(root)}...`, "info");
+          const jevRes = await evaluateFolderWithJev(root, {
+            apiKey: config.openrouterApiKey,
+            jevModel: config.jevModel,
+            ctx,
+          });
+
+          const lines = [
+            `🤖 [JEV Sémantické hodnocení — ${path.basename(root)}]:`,
+            `- Model: ${config.jevModel}`,
+            `- Souhrn: ${jevRes.summary}`,
+            `- Celkem procedur: ${jevRes.procedures.length}`,
+            "",
+          ];
+
+          const styleIcons: Record<CommentStyle, string> = {
+            new: "✅",
+            mixed: "⚠️",
+            old: "❌",
+            none: "❌",
+          };
+          const riskIcons = ["🟢", "🟡", "🔴"];
+
+          for (const p of jevRes.procedures) {
+            const styleIcon = styleIcons[p.commentStyle] ?? "❓";
+            const riskIcon = riskIcons[p.gotchaRiskScore] ?? "🔴";
+            lines.push(`  ${styleIcon} ${p.procedureName} (${p.fileName}) [${p.commentStyle.toUpperCase()}] ${riskIcon}`);
+            lines.push(`     ${p.summary}`);
+          }
+
+          ctx.ui.notify(lines.join("\n"), jevRes.ok ? "info" : "warning");
           break;
         }
 
@@ -1119,6 +1217,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
             "  /ls lint [složka]          — Zkontrolovat délku procedur a komentáře",
             "  /ls score [složka]         — Zobrazit scorecard a trend agenta",
+            "  /ls jev [on|off|složka]    — Sémantické hodnocení JEV (nový vs starý styl, rizika)",
             "  /ls pack [složka]          — Sestavit do .lss a smazat modulární složku",
             "  /ls decompile <soubor>     — Rozložit monolit .lss/.dxl",
             "  /ls gotchas [dotaz]        — Prohledat centrální bázi 40+ gotchas",
