@@ -54,6 +54,44 @@ import {
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   let config: ModularConfig = { ...DEFAULT_CONFIG };
   let activeCwd = process.cwd();
+  let latestUiContext: ExtensionContext | null = null;
+
+  function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
+    if (!latestUiContext || !latestUiContext.hasUI) return;
+    const theme = latestUiContext.ui.theme;
+
+    if (state === "compiling") {
+      latestUiContext.ui.setStatus(
+        "lotusscript",
+        theme.fg("warning", "🪷 LS: compiling...")
+      );
+      return;
+    }
+
+    if (state === "clean") {
+      latestUiContext.ui.setStatus(
+        "lotusscript",
+        theme.fg("success", "🪷 LS: compiled ✓")
+      );
+      return;
+    }
+
+    if (state === "error") {
+      latestUiContext.ui.setStatus(
+        "lotusscript",
+        theme.fg("error", "🪷 LS: LSP error ⚠")
+      );
+      return;
+    }
+
+    // Default / idle state
+    const icon = theme.fg("accent", "🪷 LS");
+    const flags = theme.fg(
+      "dim",
+      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"})`
+    );
+    latestUiContext.ui.setStatus("lotusscript", icon + flags);
+  }
 
   function syncConfig(cwd: string): void {
     activeCwd = cwd;
@@ -63,10 +101,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   function updateConfig(newConfig: ModularConfig): void {
     config = newConfig;
     saveConfig(activeCwd, config);
+    renderStatusline("idle");
   }
 
   pi.on("session_start", (_event, ctx: ExtensionContext) => {
+    latestUiContext = ctx;
     syncConfig(ctx.cwd);
+    renderStatusline("idle");
+  });
+
+  pi.on("turn_end", () => {
+    renderStatusline("idle");
   });
 
   // Prompt injection: enforce KB query + inject gotchas reminder
@@ -185,6 +230,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       if (resolved.toLowerCase().endsWith("_compiled.lss")) return;
 
       try {
+        renderStatusline("compiling");
+
         const compiledPath = AgentParser.compileAgent(modularRoot, {
           keepTimestamp: config.keepTimestampInCompiledName,
           overwriteSourceLss: config.overwriteSourceLss,
@@ -195,11 +242,14 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           const lspResult = await checkLotusScriptDiagnostics(compiledPath);
           if (lspResult.ok) {
             lspNotice = `\n✓ LSP Diagnostics: 0 errors (clean)`;
+            renderStatusline("clean");
           } else {
             lspNotice = `\n⚠️ LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
+            renderStatusline("error");
           }
         } else {
           lspNotice = `\n(LSP validation disabled — toggle with /ls lsp on)`;
+          renderStatusline("clean");
         }
 
         const overwriteNotice = config.overwriteSourceLss
@@ -222,6 +272,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           content: [...event.content, { type: "text", text: recompileNotice }],
         };
       } catch (err: unknown) {
+        renderStatusline("error");
         const msg = err instanceof Error ? err.message : String(err);
         const errorNotice = `\n\n⚠️ [LotusScript Modular: Recompile Failed]: ${msg}`;
         return {

@@ -1,53 +1,53 @@
 # LotusScript Gotchas
 
-Časté chyby a jak se jim vyhnout.
+Common traps and how to avoid them in IBM Notes/Domino 9.0.1.
 
 ---
 
-## `Shell` je vestavěná funkce — nelze ji použít jako název proměnné
+## `Shell` is a built-in function — cannot be used as variable name
 
-Compile error: `Unexpected: shell; Expected: Identifier`. `Shell` je vestavěná
-LotusScript funkce (spuštění programu), takže `Dim shell` selže už při kompilaci.
-Stejně tak nejdou další built-iny (`Dir`, `Format`, `Mid`, `Left`, `Right`...).
+Compile error: `Unexpected: shell; Expected: Identifier`. `Shell` is a built-in
+LotusScript function (for executing external programs), so `Dim shell` fails at compilation.
+The same restriction applies to other built-in functions (`Dir`, `Format`, `Mid`, `Left`, `Right`, etc.).
 
-**Pozor i na méně známé string built-iny** — platí i pro názvy vlastních
-`Function`/`Sub`, ne jen proměnných. Chyba: `Unexpected: StrRight; Expected: Identifier`.
-Vestavěné jsou mj. `StrLeft`, `StrRight`, `StrLeftBack`, `StrRightBack`, `StrToken`,
-`StrConv`, `StrCompare`. Vlastní funkci pojmenuj jinak (např. `NazevZCesty` místo
-`StrRight`).
+**Beware of less obvious string built-ins** — this also applies to your own
+`Function`/`Sub` names, not just variables. Error: `Unexpected: StrRight; Expected: Identifier`.
+Built-ins include `StrLeft`, `StrRight`, `StrLeftBack`, `StrRightBack`, `StrToken`,
+`StrConv`, `StrCompare`. Name custom procedures differently (e.g. `ExtractPathFileName` instead
+of `StrRight`).
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Dim shell As Variant
 Set shell = CreateObject("WScript.Shell")   ' Unexpected: shell
 
-' SPRÁVNĚ:
+' CORRECT:
 Dim wsh As Variant
 Set wsh = CreateObject("WScript.Shell")
 ```
 
 ---
 
-## ForAll - NEDEKLARUJ alias
+## ForAll - DO NOT declare loop alias variable
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Dim item As Variant
 ForAll item In doc.Items
 
-' SPRÁVNĚ:
-ForAll item In doc.Items   ' alias se vytvoří automaticky
+' CORRECT:
+ForAll item In doc.Items   ' Alias is declared automatically by compiler
 ```
 
 ---
 
-## Const - BEZ "As Type"
+## Const - WITHOUT "As Type"
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Const X As Integer = 5
 
-' SPRÁVNĚ:
+' CORRECT:
 Const X% = 5      ' % = Integer
 Const S$ = "text" ' $ = String
 Const L& = 100    ' & = Long
@@ -55,130 +55,126 @@ Const L& = 100    ' & = Long
 
 ---
 
-## Option Public/Declare - duplicita
+## Option Public/Declare - duplicate occurrences
 
 Error: "Option can be specified only once in a module"
 
 ```lotusscript
-' ŠPATNĚ: Option už je v (Globals) → (Options), a ty ji přidáš znovu
+' WRONG: Option is already defined in (Globals) -> (Options), and you add it again
 Option Public
 Option Declare
 Sub Click(Source As Button)
    ...
 End Sub
 
-' SPRÁVNĚ: Zkontroluj (Globals) - pokud tam jsou, NEPŘIDÁVEJ
+' CORRECT: Check (Globals) - if already present, DO NOT re-add
 Sub Click(Source As Button)
    ...
 End Sub
 ```
 
-| Kde | Option Public/Declare |
-|-----|----------------------|
-| Samostatný `.lss` soubor | ✅ Přidej |
-| Agent/Form/Button event | ⚠️ Zkontroluj (Globals) |
+| Location | Option Public/Declare |
+|---|---|
+| Standalone `.lss` file | Recommended |
+| Agent/Form/Button event | Check (Globals) |
 
 ---
 
-## Otevření DB bez přístupu - přeskoč a jeď dál
+## Opening DB without access - skip safely
 
-Záleží JAK databázi získáš - dva různé scénáře:
+Depends on HOW you obtain the database — two distinct scenarios:
 
-### Scénář 1: `New NotesDatabase(server, file)` — konstruktor
+### Scenario 1: `New NotesDatabase(server, file)` constructor
 
-Konstruktor se SÁM pokusí otevřít DB. Pokud selže, `IsOpen` vrátí `False`.
-**Error handling NENÍ potřeba** (viz IBM dokumentace IsOpen).
+The constructor automatically attempts to open the database. If it fails, `IsOpen` returns `False`.
+**Error handling is NOT required** (per IBM `IsOpen` documentation).
 
 ```lotusscript
-' SPRÁVNĚ: konstruktor + IsOpen = bezpečné bez error handleru
+' CORRECT: constructor + IsOpen = safe without error handler
 Dim db As New NotesDatabase("server/ORG", "mail\user.nsf")
 If db.IsOpen Then
-   ' DB je otevřená, pracuj s ní
+   ' DB is open, process documents
 Else
-   ' DB se nepodařilo otevřít (ACL, neexistuje...)
+   ' DB could not be opened (ACL denied, file does not exist, etc.)
 End If
 ```
 
-### Scénář 2: `NotesDbDirectory` iterace
+### Scenario 2: `NotesDbDirectory` iteration
 
-`GetFirstDatabase` / `GetNextDatabase` DB **neotevírají**!
-Ale nemusíš volat `Open()` — vytvoř NOVÝ objekt konstruktorem.
+`GetFirstDatabase` / `GetNextDatabase` DO NOT open the database!
+However, you do not need to call `Open()` — instantiate a NEW object via constructor.
 
-#### Doporučený postup: konstruktor (čistý, bez error handleru)
-
-Viz `hledat-vsude.lss`
+#### Recommended pattern: constructor (clean, no error handler required)
 
 ```lotusscript
 Set currentDb = dbDir.GetFirstDatabase(DATABASE)
 While Not (currentDb Is Nothing)
-   ' Vytvor novy objekt konstruktorem - bezpecne otevre
+   ' Create new object via constructor - opens safely
    Dim tempDb As New NotesDatabase(server, currentDb.FilePath)
    If tempDb.IsOpen Then
-      ' bezpečně pracuj s tempDb
+      ' Safely work with tempDb
    End If
    Set currentDb = dbDir.GetNextDatabase
 Wend
 ```
 
-#### Alternativa: Inline Resume Next (starší přístup)
-
-Viz `seznam-db.lss`
+#### Alternative: Inline Resume Next (legacy approach)
 
 ```lotusscript
 On Error Resume Next
 Call db.Open("", "")
 If Err = 0 Then
-   ' OK - pracuj s db
+   ' OK - work with db
 Else
-   ' přeskoč - nemáš přístup (Err = chybový kód)
+   ' Skip - no access (Err contains error code)
 End If
-On Error GoTo 0   ' DŮLEŽITÉ: vrať error handling zpět!
+On Error GoTo 0   ' IMPORTANT: restore error handling!
 ```
 
-**Pozor:** Nezapomeň `On Error GoTo 0` po bloku, jinak se ztlumí
-všechny chyby v celém zbytku scriptu!
+**Warning:** Do not forget `On Error GoTo 0` after the block, otherwise all errors
+in the remainder of the script will be silenced!
 
-### Chybové kódy
+### Error Codes
 
-| Situace | Chybový kód |
-|---------|-------------|
-| Nemáš ACL přístup | 4005 / 4060 |
-| DB neexistuje | 4005 |
-| DB je poškozená | 4000 |
+| Situation | Error Code |
+|---|---|
+| ACL access denied | 4005 / 4060 |
+| Database does not exist | 4005 |
+| Database corrupted | 4000 |
 
-### Shrnutí
+### Summary
 
-| Jak získáš DB | Otevře se sama? | Error handling? |
-|---------------|-----------------|-----------------|
-| `New NotesDatabase(srv, file)` | ✅ Ano (konstruktor) | ❌ Nepotřeba — `IsOpen` stačí |
-| `dbDir.GetFirstDatabase` | ❌ Ne | ✅ Nutný při `Open()` |
-| `db.OpenByReplicaID(srv, rid)` | ✅ Ano | ❌ Nepotřeba — `IsOpen` stačí |
+| How DB is obtained | Opens automatically? | Error handler required? |
+|---|---|---|
+| `New NotesDatabase(srv, file)` | Yes (constructor) | No — `IsOpen` is sufficient |
+| `dbDir.GetFirstDatabase` | No | Required if calling `Open()` |
+| `db.OpenByReplicaID(srv, rid)` | Yes | No — `IsOpen` is sufficient |
 
 ---
 
-## Empty nelze přiřadit s Option Declare
+## Empty cannot be assigned when Option Declare is active
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Dim folderRefs As Variant
 folderRefs = Empty   ' Compile error: "Empty not declared"
 
-' SPRÁVNĚ:
+' CORRECT:
 Dim folderRefs As Variant
-' folderRefs je automaticky Empty po Dim - nemusíš přiřazovat
-If IsEmpty(folderRefs) Then Print "je prazdny"
+' folderRefs is automatically Empty after Dim - no need to assign
+If IsEmpty(folderRefs) Then Print "is empty"
 ```
 
 ---
 
-## doc.Created / LastModified / LastAccessed vrací Variant, NE NotesDateTime
+## doc.Created / LastModified / LastAccessed return Variant DATE, NOT NotesDateTime
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Function FormatDT(dt As NotesDateTime) As String  ' Type mismatch!
 Print FormatDT(doc.Created)
 
-' SPRÁVNĚ: doc.Created vrací Variant of type DATE
+' CORRECT: doc.Created returns a Variant of subtype DATE
 Dim dateVar As Variant
 dateVar = doc.Created
 If Not IsEmpty(dateVar) Then
@@ -186,932 +182,426 @@ If Not IsEmpty(dateVar) Then
 End If
 ```
 
-Pozor: `NotesItem.DateTimeValue` vrací `NotesDateTime` - to je OK. Ale `NotesDocument.Created/LastModified/LastAccessed` vrací `Variant of DATE`!
+**Note:** `NotesItem.DateTimeValue` returns a `NotesDateTime` object — that is fine.
+However, `NotesDocument.Created / LastModified / LastAccessed` return a `Variant (Date)`!
 
 ---
 
-## Vestavěné konstanty - nedeklarovat znovu
+## Built-in constants — do not re-declare
 
-Notes má předdefinované konstanty, které s `Option Declare` NESMÍŠ deklarovat:
+Notes provides pre-defined constants. When `Option Declare` is on, you MUST NOT redeclare them:
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Const EMBED_ATTACHMENT% = 1454   ' "Name already declared"
 
-' SPRÁVNĚ:
-' EMBED_ATTACHMENT (1454) je vestavěná konstanta - prostě ji použij
+' CORRECT:
+' EMBED_ATTACHMENT (1454) is a built-in constant - simply use it directly
 If eObj.Type = EMBED_ATTACHMENT Then ...
 ```
 
-Další vestavěné: `EMBED_OBJECT`, `EMBED_OBJECTLINK`, `DATABASE`, `TEMPLATE`, `REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE`
+Other built-ins include: `EMBED_OBJECT`, `EMBED_OBJECTLINK`, `DATABASE`, `TEMPLATE`,
+`REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE`.
 
 ---
 
-## Workflow aplikace - datumová pole VŽDY s časem
+## Workflow applications — date fields MUST include time
 
-Když ukládáš datum akce (schválení, odeslání, přiřazení...), **vždy ukládej i čas**. Jinak přijdeš o klíčový údaj — kdo jak dlouho co dělal.
+When storing the timestamp of an action (approval, dispatch, assignment), **always store the time alongside the date**. Otherwise, audit duration tracking is lost.
 
 ```lotusscript
-' ŠPATNĚ: jen datum bez času — ztráta informace o délce zpracování
-doc.ReplaceItemValue "ApprovedDate", Date$   ' vrátí jen "11.02.2026"
+' WRONG: date only without time — duration information lost
+doc.ReplaceItemValue "ApprovedDate", Date$   ' Returns only date e.g. "11.02.2026"
 
-' SPRÁVNĚ: datum + čas — víš přesně kdy se to stalo
-doc.ReplaceItemValue "ApprovedDate", Now     ' vrátí "11.02.2026 20:53:14"
+' CORRECT: date + time — exact audit trail
+doc.ReplaceItemValue "ApprovedDate", Now     ' Returns "11.02.2026 20:53:14"
 
-' SPRÁVNĚ alternativa: přes NotesDateTime (doporučeno pro přenositelnost)
+' CORRECT alternative: via NotesDateTime (recommended for portability)
 Dim dtNow As New NotesDateTime("")
 Call dtNow.SetNow
 Set doc.ReplaceItemValue("ApprovedDate", dtNow)
 ```
 
-**Proč:** Bez času nevíš, jestli schválení trvalo 5 minut nebo 8 hodin. U workflow auditů a SLA je to kritické.
-
-| Funkce | Vrací |
-|--------|-------|
-| `Date$` | jen datum (`"11.02.2026"`) |
-| `Time$` | jen čas (`"20:53:14"`) |
-| `Now` | datum + čas (`11.02.2026 20:53:14`) |
-| `NotesDateTime.SetNow` | plný timestamp (doporučeno) |
+| Function | Return Value |
+|---|---|
+| `Date$` | Date only (`"11.02.2026"`) |
+| `Time$` | Time only (`"20:53:14"`) |
+| `Now` | Date + Time (`11.02.2026 20:53:14`) |
+| `NotesDateTime.SetNow` | Full Notes date/time object |
 
 ---
 
-## CDate neexistuje - v LotusScriptu je to CDat
+## CDate does not exist — in LotusScript it is CDat
 
-`CDate` je VBA/VBScript syntax. LotusScript má `CDat` (bez "e").
+`CDate` is VBA/VBScript syntax. LotusScript uses `CDat` (without the "e").
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Dim d As Variant
 d = CDate("01.01.2026")   ' "Variable not declared: CDATE"
 
-' SPRÁVNĚ:
+' CORRECT:
 Dim d As Variant
 d = CDat("01.01.2026")    ' OK
 ```
 
-| VBA/VBScript | LotusScript |
-|-------------|-------------|
-| `CDate()` | `CDat()` |
-| `CBool()` | `CBool()` (stejné) |
-| `CInt()` | `CInt()` (stejné) |
-
 ---
 
-## Split() vrací Variant, ne String() — "Illegal reference to array"
+## Split() returns Variant, not String() — "Illegal reference to array"
 
-`Split()` v LotusScriptu vrací `Variant` (obsahující pole stringů). Přiřadit ho do `Dim x() As String` nejde.
+In LotusScript, `Split()` returns a `Variant` wrapping an array of strings. Assigning it to `Dim x() As String` fails.
 
 ```lotusscript
-' ŠPATNĚ:
+' WRONG:
 Dim keys() As String
 keys = Split(keyNames, ",")   ' "Illegal reference to array"
 
-' SPRÁVNĚ:
+' CORRECT:
 Dim keys As Variant
-keys = Split(keyNames, ",")   ' OK - Variant pojme pole ze Split
-Print keys(0)                  ' funguje
-Print UBound(keys)             ' funguje
+keys = Split(keyNames, ",")
+If IsArray(keys) Then
+    Dim i As Long
+    For i = LBound(keys) To UBound(keys)
+        Print keys(i)
+    Next
+End If
 ```
-
-| Funkce | Vrací | Přiřadit do |
-|--------|-------|-------------|
-| `Split()` | `Variant` (pole stringů) | `Dim x As Variant` |
-| `Join()` | `String` | `Dim s As String` |
 
 ---
 
-## EmbeddedObjects vrací EMPTY, ne prázdné pole — ForAll spadne
+## EmbeddedObjects returns EMPTY, not empty array — ForAll will crash
 
-`rtitem.EmbeddedObjects` vrátí `EMPTY` (ne prázdné pole) když richtext nemá žádné přílohy. `ForAll` na `EMPTY` vyhodí runtime error.
+`rtitem.EmbeddedObjects` returns `EMPTY` (not an empty array) when the richtext item has no attachments. Running `ForAll` over `EMPTY` throws a runtime error.
 
 ```lotusscript
-' ŠPATNĚ: spadne pokud body nemá přílohy
+' WRONG: crashes if body has no attachments
 ForAll o In rtitem.EmbeddedObjects
     count = count + 1
 End ForAll
 
-' SPRÁVNĚ: nejdřív ověř že je to pole
-If IsArray(rtitem.EmbeddedObjects) Then
+' CORRECT: guard with IsEmpty before looping
+If Not IsEmpty(rtitem.EmbeddedObjects) Then
     ForAll o In rtitem.EmbeddedObjects
-        count = count + 1
+        If o.Type = EMBED_ATTACHMENT Then count = count + 1
     End ForAll
 End If
 ```
 
 ---
 
-## GetFirstItem("Body") - RICHTEXT vs TEXT → Type mismatch na AppendRTItem
+## GetFirstItem("Body") - RICHTEXT vs TEXT -> Type mismatch on AppendRTItem
 
-`GetFirstItem` vrátí `NotesRichTextItem` jen pokud je položka skutečně RICHTEXT.
-Emaily z agentů (SendErrorEmail) mají Body jako plain TEXT → `GetFirstItem` vrátí `NotesItem`.
-Volání `AppendRTItem` s `NotesItem` parametrem vyhodí **Chyba #13: Type mismatch**.
-
-```lotusscript
-' ŠPATNĚ: předpokládá že Body je vždy RICHTEXT
-Dim rtBody As Variant
-Set rtBody = doc.GetFirstItem("Body")
-Call rtPopis.AppendRTItem(rtBody)     ' PADNE pokud Body je TEXT!
-
-' SPRÁVNĚ: zkontroluj typ položky
-Dim bodyItem As NotesItem
-Set bodyItem = doc.GetFirstItem("Body")
-If bodyItem.Type = RICHTEXT Then
-    Call rtPopis.AppendRTItem(bodyItem)
-Else
-    Call rtPopis.AppendText(bodyItem.Text)
-End If
-```
-
----
-
-## Remove embedded object BĚHEM ForAll iterace → přeskočení objektů
-
-Mazání embedded objektů z kolekce přes kterou iteruješ `ForAll` je nepředvídatelné.
-Nejdřív si zapamatuj jména, pak smaž v samostatném cyklu.
+`GetFirstItem` returns a `NotesRichTextItem` only if the item in NSF is actually rich text.
+Emails sent by background agents frequently store `Body` as plain `TEXT` -> `GetFirstItem` returns a generic `NotesItem`.
+Calling `rtitem.AppendRTItem(item)` with a plain `NotesItem` throws **Type mismatch**.
 
 ```lotusscript
-' ŠPATNĚ: mazání během iterace
-ForAll o In rtitem.EmbeddedObjects
-    Call o.ExtractFile(path & o.Name)
-    Call o.Remove                     ' Modifikuje kolekci během iterace!
-End ForAll
+' WRONG: throws Type mismatch if Body is plain Text
+Dim body As NotesRichTextItem
+Set body = doc.GetFirstItem("Body")
+Call combinedRT.AppendRTItem(body)
 
-' SPRÁVNĚ: dvouprůchodový přístup
-Dim names() As String
-Dim cnt As Integer
-cnt = 0
-ForAll o In rtitem.EmbeddedObjects
-    ReDim Preserve names(0 To cnt)
-    names(cnt) = o.Name
-    Call o.ExtractFile(path & o.Name)
-    cnt = cnt + 1
-End ForAll
-' Teprve teď smaž
-Dim i As Integer
-For i = 0 To cnt - 1
-    Dim obj As NotesEmbeddedObject
-    Set obj = rtitem.GetEmbeddedObject(names(i))
-    If Not obj Is Nothing Then Call obj.Remove
-Next
-```
-
----
-
-## CopyAllItems invaliduje existující reference na položky
-
-Po `CopyAllItems(doc, True)` se všechny položky v `doc` přepíší.
-Reference získané před CopyAllItems (`Set item = doc.GetFirstItem(...)`) mohou být neplatné.
-
-**POZOR:** `CopyItemToDocument` na RichTextItem **NEKOPÍRUJE přílohy!** (IBM docs: "file attachments, embedded objects, and object links are NOT copied")
-
-```lotusscript
-' ŠPATNĚ: reference na Body se stane neplatnou po CopyAllItems
-Set rtBody = doc.GetFirstItem("Body")
-Call template.CopyAllItems(doc, True)    ' Přepíše Body!
-Call rtPopis.AppendRTItem(rtBody)         ' rtBody je neplatný!
-
-' ŠPATNĚ: CopyItemToDocument ztratí přílohy z RichText!
-Call bodyItem.CopyItemToDocument(docTemp, "BodyBackup")
-
-' SPRÁVNĚ: CopyToDatabase → plná kopie dokumentu včetně příloh
-Set docTemp = doc.CopyToDatabase(db)     ' Uloží se do DB!
-Call template.CopyAllItems(doc, True)
-Set rtBody = docTemp.GetFirstItem("Body")
-If rtBody.Type = RICHTEXT Then
-    Call rtPopis.AppendRTItem(rtBody)     ' Včetně příloh
-Else
-    Call rtPopis.AppendText(rtBody.Text)
-End If
-Call docTemp.Remove(True)                 ' Ukliď temp dokument
-```
-
----
-
-## Evaluate(@Contains) - formula injection přes speciální znaky
-
-Pokud Subject emailu obsahuje `"` nebo `|`, vložený řetězec rozbije Notes formuli.
-
-```lotusscript
-' ŠPATNĚ: Subject s uvozovkami → syntax error ve formuli
-y = Evaluate(|@Contains("| & searchStr & |";"| & sourceStr & |")|)
-' Pokud sourceStr = 'Chyba "timeout"' → @Contains("key";"Chyba "timeout"")
-
-' SPRÁVNĚ: použij InStr místo Evaluate
-If InStr(1, searchStr, sourceStr, 5) > 0 Then
-    ' nalezeno
-End If
-```
-
----
-
-## $AssistMail - agent zpracovává vlastní chybové emaily → nekonečná smyčka
-
-Agent odesílá chybové emaily přes `SendErrorEmail` → email se doručí do databáze → agent ho najde → spadne → odešle další chybový email → nekonečná smyčka.
-
-Emaily odeslané agenty mají `$AssistMail = "1"` (a/nebo `SentByAgent` položku).
-
-```lotusscript
-' ŠPATNĚ: agent zpracuje i své vlastní chybové emaily
-Set doc = view.GetFirstDocument
-While Not (doc Is Nothing)
-    ' ... zpracování → spadne na chybovém emailu → SendErrorEmail → smyčka
-
-' SPRÁVNĚ: přeskoč emaily odeslané agenty
-If doc.HasItem("$AssistMail") Then
-    If doc.GetItemValue("$AssistMail")(0) = "1" Then
-        GoTo NextEmail  ' přeskoč
+' CORRECT: verify item.Type == 1 (RICHTEXT)
+Dim item As NotesItem
+Set item = doc.GetFirstItem("Body")
+If Not (item Is Nothing) Then
+    If item.Type = 1 Then   ' 1 = RICHTEXT
+        Call combinedRT.AppendRTItem(item)
+    Else                    ' 1280 = TEXT
+        Call combinedRT.AppendText(item.Text)
     End If
 End If
 ```
 
 ---
 
-## EmbeddedObjects - kontroluj o.Type před ExtractFile
+## Removing embedded object DURING ForAll iteration -> skips objects
 
-`EmbeddedObjects` vrací VŠECHNY embedded objekty: přílohy, OLE objekty i object linky. Jen přílohy (`EMBED_ATTACHMENT = 1454`) mají `Name` a `ExtractFile`.
+Deleting embedded objects from a collection while iterating over it via `ForAll` results in skipped elements.
+Store references/names first, then delete in a separate pass.
 
 ```lotusscript
-' ŠPATNĚ: předpokládá že všechno je příloha
+' WRONG: deleting during iteration skips every second object
 ForAll o In rtitem.EmbeddedObjects
-    Call o.ExtractFile(path & o.Name)   ' Spadne na OLE objektu!
+    Call o.Remove
 End ForAll
 
-' SPRÁVNĚ: kontroluj typ
+' CORRECT: collect names first, then remove
+Dim names List As String
+If Not IsEmpty(rtitem.EmbeddedObjects) Then
+    ForAll o In rtitem.EmbeddedObjects
+        If o.Type = EMBED_ATTACHMENT Then names(o.Name) = o.Name
+    End ForAll
+    ForAll n In names
+        Dim obj As NotesEmbeddedObject
+        Set obj = rtitem.GetEmbeddedObject(n)
+        If Not (obj Is Nothing) Then Call obj.Remove
+    End ForAll
+End If
+```
+
+---
+
+## CopyAllItems invalidates existing item references
+
+After `doc.CopyAllItems(targetDoc, True)`, items in the target document are replaced.
+References obtained prior to `CopyAllItems` (`Set item = doc.GetFirstItem(...)`) become invalid.
+
+**CRITICAL:** `CopyItemToDocument` on a `RichTextItem` **DOES NOT COPY ATTACHMENTS!** (IBM documentation).
+Attachments reside as separate internal `$FILE` items in the document.
+To duplicate a document including attachments, use `CopyAllItems`.
+
+---
+
+## Evaluate(@Contains) - formula injection via special characters
+
+If an email Subject contains quotes `"` or pipes `|`, embedding it into a formula string breaks parsing.
+
+```lotusscript
+' WRONG: Subject with quotes -> syntax error in formula
+y = Evaluate(|@Contains("| & searchStr & |";"| & sourceStr & |")|)
+
+' CORRECT: sanitize input or perform comparison in pure LotusScript
+If InStr(1, sourceStr, searchStr, 5) > 0 Then ...
+```
+
+---
+
+## $AssistMail - agent processing its own error emails -> infinite loop
+
+If an agent sends an error notification email -> the email lands in the monitored database -> the agent picks it up -> crashes -> sends another error email -> infinite loop.
+
+Emails sent by Domino agents carry item `$AssistMail = "1"` (or `SentByAgent = "1"`). Always filter them out:
+
+```lotusscript
+If doc.HasItem("$AssistMail") Or doc.HasItem("SentByAgent") Then Exit Sub
+```
+
+---
+
+## EmbeddedObjects - check o.Type before ExtractFile
+
+`EmbeddedObjects` returns ALL embedded items: file attachments, OLE objects, and object links.
+Only file attachments (`EMBED_ATTACHMENT = 1454`) support `Name` and `ExtractFile`.
+
+```lotusscript
+' WRONG: assumes everything is a file
+ForAll o In rtitem.EmbeddedObjects
+    Call o.ExtractFile("C:\temp\" & o.Name)   ' Error on OLE objects
+End ForAll
+
+' CORRECT:
 ForAll o In rtitem.EmbeddedObjects
     If o.Type = EMBED_ATTACHMENT Then
-        Call o.ExtractFile(path & o.Name)
+        Call o.ExtractFile("C:\temp\" & o.Name)
     End If
 End ForAll
 ```
 
-| Konstanta | Hodnota | Popis |
-|-----------|---------|-------|
-| `EMBED_ATTACHMENT` | 1454 | Souborová příloha |
-| `EMBED_OBJECT` | 1453 | OLE embedded objekt |
-| `EMBED_OBJECTLINK` | 1452 | OLE object link |
-
 ---
 
-## String(count, charCode) vyžaduje ASCII range — Unicode spadne na "Illegal function call"
+## String(count, charCode) requires ASCII range — Unicode causes "Illegal function call"
 
-`String(count, asciicharcode)` — druhý parametr musí být **0-255** (single byte).
-Unicode hodnoty jako `9644` (box-drawing `─`) hodí runtime **chyba 5 Illegal function call**.
+`String(count, asciiCharCode)` — the second parameter must be in range **0-255** (single byte).
+Supplying Unicode codepoints like `9644` throws runtime **Error 5: Illegal function call**.
 
 ```lotusscript
-' ŠPATNĚ:
-separator = String(48, 9644)   ' U+25AC ─
-' → runtime: Illegal function call
+' WRONG:
+separator = String(40, 9644)   ' Error 5
 
-' SPRÁVNĚ — zůstat v ASCII:
-separator = String$(48, 45)    ' 48× "-" (ASCII pomlčka)
-separator = String$(48, "-")   ' taky OK — vezme první znak
-separator = String$(48, 95)    ' 48× "_"
+' CORRECT:
+separator = String(40, "-")
+' Or for Unicode:
+separator = String(40, UChr(&H2500))
 ```
-
-Pokud **fakt** potřebuješ Unicode znak v output stringu, musíš buď:
-- Použít rich text a `AppendText` s Unicode string literal
-- Sestavit string přes `Replace$(Space$(48), " ", Chr(9644))` — ale `Chr(9644)` taky nemusí vrátit co čekáš v některých verzích LS
-- Pro JSON output prostě ASCII (spolehlivé napříč codepage)
 
 ---
 
-## NotesDateTime.GMTTime/LocalTime vrací STRING, LSGMTTime/LSLocalTime vrací Variant DATE
+## NotesDateTime.GMTTime/LocalTime return STRING, LSGMTTime/LSLocalTime return Variant DATE
 
-Snadná past při manipulaci s datumem:
+| Property | Return Type | Purpose |
+|---|---|---|
+| `GMTTime` | **String** (`"04/23/2026 07:19:01 GMT"`) | Display only |
+| `LocalTime` | **String** (`"04/23/2026 09:19:01 CEDT"`) | Display only |
+| `LSGMTTime` | **Variant (Date)** | Mathematical date comparisons in UTC |
+| `LSLocalTime` | **Variant (Date)** | Mathematical date comparisons in local time |
 
-| Property | Návratový typ | Použití |
-|---------|---------------|---------|
-| `GMTTime` | **String** ("04/23/2026 07:19:01 GMT") | Jen pro display |
-| `LocalTime` | **String** (locale format) | Jen pro display |
-| `LSGMTTime` | **Variant of DATE** v GMT | Pro LS date ops (`Year`, `Month`...) |
-| `LSLocalTime` | **Variant of DATE** v local | Pro LS date ops |
+---
+
+## Format$(date, "yyyy-mm-dd...") is LOCALE-dependent
+
+LotusScript `Format$` interprets date masks according to the Windows/Domino system locale.
+On non-English operating systems (e.g. Czech locale), mask `"yyyy"` may not be recognized as year.
 
 ```lotusscript
-' ŠPATNĚ: Year() na String → Type mismatch (chyba 13)
-Dim n As New NotesDateTime(Now)
-Print Year(n.GMTTime)      ' PADNE na Type mismatch
-
-' SPRÁVNĚ: použij LSGMTTime (Variant DATE)
-Print Year(n.LSGMTTime)    ' → 2026, funguje
-Print Month(n.LSGMTTime)   ' → 4
-Print Day(n.LSGMTTime)     ' → 23
-Print Hour(n.LSGMTTime)    ' → 7 (UTC)
-```
-
-**Rule of thumb:** pokud chceš číselné části data (`Year()`, `Month()`...)
-nebo `Format$` s auto-locale, použij **`LS*Time`** varianty. `GMTTime` /
-`LocalTime` jsou už předformátované strings.
-
----
-
-## Format$(date, "yyyy-mm-dd...") je LOCALE-dependent
-
-LotusScript `Format$` neakceptuje ISO-style date patterny jako v jiných
-jazycích. Pattern `"yyyy"` se chová **podle locale** systému:
-
-```lotusscript
-' Ceska locale — nerozumi "yyyy", vrati locale-default formatting
-Print Format$(Now, "yyyy-mm-ddThh:nn:ss")
-' → "23.04.2026 10:15:30" nebo podobny czech fallback
-
-' SPRAVNE — sestav ISO 8601 rucne:
-Dim d As Variant
-d = Now
-Dim iso As String
-iso = CStr(Year(d)) & "-" & _
-      Right$("0" & CStr(Month(d)), 2) & "-" & _
-      Right$("0" & CStr(Day(d)), 2) & "T" & _
-      Right$("0" & CStr(Hour(d)), 2) & ":" & _
-      Right$("0" & CStr(Minute(d)), 2) & ":" & _
-      Right$("0" & CStr(Second(d)), 2)
-' → "2026-04-23T10:15:30"
-```
-
-Funkce `Year()`, `Month()`, `Day()`, `Hour()`, `Minute()`, `Second()`
-vracejí čísla — zero-padding přes `Right$("0" & ..., 2)`.
-
-**Kde na tohle narazíš:** JSON API kde formát musí byt stabilní
-(optimistic lock), logování v ISO 8601, CSV exports pro strojové zpracování.
-
-**Alternativa** pro některé case: `Cstr(Format(Now, "General Date"))` —
-vrací locale format ale v predictable podobě.
-
----
-
-## CLng(timestamp ms od 1970) → Overflow (chyba 6)
-
-Milliseconds od Unix epoch je v roce 2026+ ~1,7 × 10¹², ale `Long` v
-LotusScriptu má max ~2,1 × 10⁹. `CLng(msTimestamp)` → runtime **Overflow**.
-
-```lotusscript
-' ŠPATNĚ:
-Dim expiresAt As Double
-expiresAt = (CDbl(Now) - CDbl(DateSerial(1970, 1, 1))) * 86400000#
-' ~1.7e12 — přesahuje Long
-Print "expires: " & CStr(CLng(expiresAt))   ' Chyba 6: Overflow
-
-' SPRÁVNĚ: Format$ pro integer string bez desetinky
-Print "expires: " & Format$(expiresAt, "0")
-```
-
-| Typ | Max | Epoch ms dneska |
-|-----|-----|-----------------|
-| Integer | 32 767 | ❌ overflow |
-| Long | 2 147 483 647 (~2.1e9) | ❌ overflow (~1.7e12) |
-| Double | ~1.8e308 | ✅ OK |
-| Currency | ~9.2e14 | ✅ OK (přesné na 4 dec) |
-
-**Kde na tohle narazíš:** JSON API odpovědi s timestampy, logging epoch času,
-porovnání s JavaScript `Date.now()`.
-
----
-
-## Agent Use "DominoApiLib" → Variable not declared na VŠECHNY DApi_ funkce
-
-Pokud agent nevidí **žádné** funkce ze Script Library (červené podtržení
-u `DApi_RequireToken`, `DApi_GetQueryParam` atd.), problém je skoro vždy
-v jedné ze 3 věcí:
-
-```lotusscript
-' ŠPATNĚ: Use uvnitř Sub Initialize
-Sub Initialize
-    Use "DominoApiLib"   ' Compile error - Use patří do (Options)
-    ...
-
-' ŠPATNĚ: Use v (Declarations)
-' (Declarations) event obsahuje Dim globálních proměnných, ne Use
-
-' SPRÁVNĚ: Use v (Options) event
-' V Designer Objects pane → agent → (Options) MUSÍ obsahovat:
-Option Public
-Option Declare
-Use "DominoApiLib"
-```
-
-### Checklist když agent hlásí "Variable not declared: DAPI_XXX"
-
-1. **Kde je `Use`?** V Designeru Objects pane klikni na **(Options)**
-   pod agentem. `Use "DominoApiLib"` musí být tam (ne v Initialize, ne
-   v Declarations).
-
-2. **Má library buildnuto?** Klikni na Script Library samotnou, F9,
-   Errors panel musí být prázdný. Pokud má library syntax error, žádný
-   agent její funkce neuvidí.
-
-3. **Build order:** Library MUSÍ být uložená+buildnutá PŘED tím, než
-   buildíš agent. Pořadí:
-   - Library: Ctrl+S → F9 → ověř Errors prázdné
-   - Pak teprve: Agent → Ctrl+S → F9
-
-4. **Case-sensitivity v error hlášce:** Designer zobrazuje identifikátory
-   **uppercased** v errorech (`DAPI_GETQUERYPARAM`). LotusScript samotný
-   je case-insensitive, takže `DApi_GetQueryParam` = `dapi_getqueryparam`
-   — nemusíš měnit styl.
-
-5. **Library path typo:** `Use "DominoApiLib"` (v uvozovkách) je přesný
-   název knihovny (case-insensitive, ale musí sedět). Pokud jsi knihovnu
-   pojmenoval jinak, Use selže.
-
----
-
-## Změna Form z Memo na jiný → DUPLIKÁTY (zombie mail-routing fieldy)
-
-Když agent změní `doc.Form = "IN"` na dokumentu, který přišel jako email (Memo),
-**musíš smazat mail-routing položky**! Jinak Notes při uživatelském Save vidí
-`DefaultMailSaveOptions = "1"` a doručí kopii zpět do mail-in DB.
-
-```lotusscript
-' ŠPATNĚ:
-doc.Form = "IN"
-Call doc.Save(True, False)
-' → při dalším Save v UI: Notes odešle kopii přes CopyTo/SendTo = DUPLIKÁT!
-
-' SPRÁVNĚ:
-doc.Form = "IN"
-' Odstraň VŠECHNY mail-routing fieldy:
-Dim removeFields As Variant
-removeFields = Split("DefaultMailSaveOptions,MailOptions,SaveOptions," & _
-    "SendTo,CopyTo,BlindCopyTo,INetSendTo,INetCopyTo,INetBlindCopyTo," & _
-    "Recipients,Encrypt,Sign,$Mailer,$MessageID," & _
-    "RouteServers,RouteTimes,DeliveredDate,PostedDate", ",")
-Dim tmpItem As NotesItem
-ForAll fld In removeFields
-    Set tmpItem = doc.GetFirstItem(fld)
-    If Not (tmpItem Is Nothing) Then Call tmpItem.Remove()
-End ForAll
-Call doc.Save(True, False)
-```
-
-Kritické fieldy (způsobují re-odeslání):
-- `DefaultMailSaveOptions = "1"` → Notes nabídne/provede odeslání při Save
-- `SendTo`, `CopyTo`, `BlindCopyTo` → příjemci (CopyTo může být ta samá mail-in DB!)
-- `MailOptions`, `SaveOptions` → flagy pro mail processing
-
----
-
-## UChr vs Chr — Unicode v LotusScript
-
-`Chr(n)` akceptuje jen 0-255 (ANSI), pro Unicode code pointy nad U+00FF hodí
-"Illegal function call". Pro české znaky (`č` = U+010D = 269) použij `UChr`.
-
-```lotusscript
-' ŠPATNĚ — padne na "Illegal function call":
-Dim c As String
-c = Chr(&H010D)   ' č, ale 269 > 255
-
-' SPRÁVNĚ:
-c = UChr(&H010D)  ' č — Unicode, akceptuje 0-65535
-```
-
-Pozn.: v LS se to jmenuje **`UChr`** (ne `ChrW` jako ve VBA / VB.NET).
-
----
-
-## PowerShell 5.1 — SignedCms (PKCS#7/CMS) potřebuje `Add-Type`
-
-`powershell.exe` (Windows PS 5.1, .NET Framework) nemá assembly se SignedCms
-načtenou by default → `New-Object System.Security.Cryptography.Pkcs.SignedCms`
-padne na `Cannot find type [...SignedCms]: verify that the assembly ... is loaded`.
-Týká se čtení `.zfo` z datových schránek (PKCS#7 kontejner).
-
-```powershell
-# ŠPATNĚ — SignedCms není dostupný:
-$cms = New-Object System.Security.Cryptography.Pkcs.SignedCms
-
-# SPRÁVNĚ — nejdřív načti assembly (PS 5.1; PS 7 typ už má):
-try { Add-Type -AssemblyName System.Security -ErrorAction Stop } catch { }
-$cms = New-Object System.Security.Cryptography.Pkcs.SignedCms
-```
-
-Při volání z LotusScriptu se tahle chyba projeví jako návratový kód 1 a žádný
-výstupní soubor (skript spadne do `catch` a zapíše chybu jen na stderr).
-
----
-
-## PowerShell 5.1 vs 7 — stdout kódování
-
-Windows PowerShell 5.1 (`powershell.exe`) při redirectu stdout do pipe/souboru
-překóduje UTF-8 stringy na **system OEM codepage** (CP852 na CZ Windows), což
-rozbije diakritiku pro následný bash/jq.
-
-```bash
-# ŠPATNĚ — CP852 bytes v souboru, mojibake při jq:
-powershell -File script.ps1 > result.json
-
-# SPRÁVNĚ — pwsh (PS 7) má stdout defaultně UTF-8:
-pwsh -File script.ps1 > result.json
-```
-
-Nebo v .ps1 skriptu explicitně:
-```powershell
-[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-```
-
-PS 5.1 má navíc občas rozbité moduly (konflikt s PS 7 instalací —
-`ConvertFrom-SecureString` hlásí "module could not be loaded"). Pro produkční
-skripty používej `pwsh`, ne `powershell.exe`.
-
----
-
-## PowerShell `switch` + `continue` nezastaví fall-through
-
-V PS `switch` uvnitř `foreach`, `continue` v match clause **NESKOČÍ** na další
-iteraci foreach. Kód za switchem se vykoná. Pokud máš víc switch bloků + `if`
-za sebou, znak spadne do všech větví, kde passne podmínku.
-
-```powershell
-# ŠPATNĚ — backslash '\' se escapuje 3x:
-foreach ($c in $s.ToCharArray()) {
-    $code = [int]$c
-    switch ($c) {
-        '\' { $sb.Append('\\'); continue }   # pridano '\\'
-    }
-    # tady pokracujem i pro '\'!
-    if ($code -ge 0x20 -and $code -le 0x7E) {
-        $sb.Append($c)                        # pridano dalsi '\'
-    }
-}
-# Output pro '\': "\\\" (3 chars)
-
-# SPRÁVNĚ — čisté if/elseif, jen jedna větev:
-foreach ($c in $s.ToCharArray()) {
-    if ($c -eq '\')       { $sb.Append('\\') }
-    elseif ($c -eq '"')   { $sb.Append('\"') }
-    elseif ($code -ge 0x20 -and $code -le 0x7E) { $sb.Append($c) }
-    else { $sb.AppendFormat('\u{0:x4}', $code) }
-}
-```
-
----
-
-## PowerShell `ConvertFrom-Json` auto-parsuje ISO 8601 na DateTime
-
-Stringové pole vypadající jako `"2026-04-23T09:17:17Z"` se v PS automaticky
-převede na `[DateTime]`. Pak `[string]$cast` vrátí **lokalizovaný** formát
-("23.04.2026 9:17:17" na CZ), který už neodpovídá původnímu ISO.
-
-```powershell
-# ŠPATNĚ:
-$d = $jsonText | ConvertFrom-Json
-$date = [string]$d.expected_modified_date
-# $date = "23.04.2026 9:17:17" — nefunguje pro optimistic lock porovnání!
-
-# SPRÁVNĚ — extract přímo z raw JSON přes regex:
-if ($jsonText -match '"expected_modified_date"\s*:\s*"([^"]+)"') {
-    $date = $Matches[1]   # "2026-04-23T09:17:17Z" — původní
-}
-```
-
-`-AsHashtable` **nepomůže**, parse se provede stejně.
-
----
-
-## Domino 9.0.1 FP4 Linux — REQUEST_CONTENT kóduje přes LMBCS, ne UTF-8
-
-Web agent na Linux Domino 9.0.1 FP4 při čtení `REQUEST_CONTENT` z POST body
-ignoruje `charset=utf-8` v Content-Type headeru a interpretuje bytes přes
-**LMBCS/CP852** (server OEM codepage). UTF-8 multi-byte sekvence (`č` = `C4
-8D`) se rozpadnou na 2 samostatné CP852 znaky (`─ì`) → double-encoded mojibake
-v DB.
-
-Výstup (Print) naopak UTF-8 respektuje — asymetrie in vs out.
-
-Řešení bez zásahu do HTTP stacku: klient posílá non-ASCII jako `\uXXXX` escape
-(ASCII-only body), server `DApi_JsonUnescape` rozbalí přes `UChr()`:
-
-```lotusscript
-' V DApi_JsonUnescape (DominoApiLib v0.4+):
-Case "u"
-    If i + 5 <= n Then
-        hexStr = Mid$(txt, i + 2, 4)
-        codePoint = CLng("&H" & hexStr)
-        result = result & UChr(codePoint)  ' UChr, ne Chr!
-        i = i + 6
-    End If
-```
-
-```powershell
-# Na klientovi — escape non-ASCII na \uXXXX:
-foreach ($c in $s.ToCharArray()) {
-    $code = [int]$c
-    if ($code -ge 0x20 -and $code -le 0x7E) { $sb.Append($c) }
-    else { $sb.AppendFormat('\u{0:x4}', $code) }
-}
-```
-
----
-
-## DXL import — rovná uvozovka `"` uvnitř textu ve Formuli ukončí řetězec
-
-Při ruční úpravě `.form`/`.view` DXL: ve Formula jazyce je `"` oddělovač
-řetězce. Když do textu napíšeš rovnou `"` (typicky při psaní českých uvozovek
-„…" zůstane závěrečná jako rovná `"`), řetězec se **předčasně ukončí** a zbytek
-věty visí jako neplatné tokeny.
-
-Importér hlásí `id='1291' Chybějící operátor nebo středník` a ukazuje na
-**začátek `<formula>`** (ne na konkrétní místo v textu) — proto se chyba hledá blbě.
-
-```text
-' ŠPATNĚ — rovná " po "ručně" ukončí řetězec:
-"... zaškrtněte „Upravit ručně" a níže si to připočtěte."
-                            ^ Formula tady vidí konec stringu
-
-' SPRÁVNĚ — uvnitř textu rovné uvozovky vůbec nepoužívej:
-"... zaškrtněte volbu Upravit ručně a níže si to připočtěte."
-
-' SPRÁVNĚ (když fakt potřebuješ " v textu) — zdvoj ji:
-"... řekl ""ahoj""."
-```
-
-Pozn.: `&`, `<`, `>` uvnitř `<formula>` v DXL musí být `&amp;` `&lt;` `&gt;`
-(XML escaping), jinak nevalidní XML. Po editaci ověř well-formedness
-(`XmlReader` s `DtdProcessing=Ignore` + `XmlResolver=$null` — DOCTYPE odkazuje
-na externí DTD, kterou nemáš).
-
----
-
-## Formula — výpis konkrétních dnů z rozsahu + past „compute once" v input translation
-
-**Jednotlivé dny z datového rozsahu:** `@Explode` nad time-date *rozsahem* vrátí
-textový seznam, kde 1 prvek = 1 den. Rozsah z dvou polí se poskládá přes
-`@TextToTime` (string ze `@Text` musí být skutečný rozsah, ne text):
-
-```text
-d1 := @Date(Od); d2 := @Date(Do);
-dny := @TextToTime(@Explode(@TextToTime(@Text(d1) + " - " + @Text(d2))));
-```
-
-**KRITICKÉ — `@If` NEFILTRUJE seznam po prvcích!** `@If(seznam_podmínek; a; b)`
-vrátí celou větev `a`, když je podmínka splněna aspoň pro jeden prvek (ne prvek
-po prvku). `@Trim(@If(@Weekday(dny) = 1 | @Weekday(dny) = 7; @Text(dny); ""))` tedy
-vrátí VŠECHNY dny, ne jen víkendy. Na transformaci/filtr po prvcích slouží
-**`@Transform`** (R6+) + **`@Nothing`** (vyhodí prvek; uvnitř je proměnná SKALÁR,
-takže `@If` funguje správně):
-
-```text
-REM konkrétní víkendová data:
-vikendy := @Transform(dny; "x"; @If(@Weekday(x) = 1 | @Weekday(x) = 7; @Text(x); @Nothing));
-REM svátky v rozsahu na všední den:
-svatkyVRng := @Transform(svatky; "y"; @If(y >= d1 & y <= d2 & @Weekday(y) != 1 & @Weekday(y) != 7; @Text(y); @Nothing));
-```
-
-**Pozor — `@Unique`/`@Trim`/`@Implode` berou jen TEXT.** `@Unique(time-date list)`
-hodí runtime *„Nesprávný typ údajů… byl očekáván text"*. Dedup až na **textovém**
-výstupu (`@Unique(@Transform(... ; @Text(datum) ...))`), ne na seznamu time-date.
-
-**Počty** radši aritmetikou — spolehlivější než `@Elements` (chování `@Elements("")` je ošemetné):
-
-```text
-celkem := @Elements(@Explode(rozsah));
-poVik  := celkem - @BusinessDays(d1; d2; 1:7; dummy);   REM 1:7 = list {neděle, sobota}, ne rozsah!
-poSv   := @BusinessDays(d1;d2;1:7;dummy) - @BusinessDays(d1;d2;1:7;svatky);
-```
-
-Pozor: `:` je spojení seznamu, takže `1:7` = dvouprvkový seznam {1,7}, NE 1 až 7.
-
-**Past v input translation:** `@If(Pole=""; spočítej; Pole)` spočítá hodnotu
-**jen jednou** (než pole dostane hodnotu), pak ji „zamrazí" — při změně vstupů
-se už nepřepočítá. Pro auto-přepočet + ruční override použij explicitní příznak:
-
-```text
-' ŠPATNĚ — spočítá jednou, pak nikdy:
-@If(PocetDni = ""; <spočítej>; PocetDni)
-
-' SPRÁVNĚ — checkbox UpravitRucne řídí režim:
-@If(UpravitRucne = "ano"; PocetDni; <vždy přepočítej>)
-```
-
-Input translation běží při každém refreshi i save; `recalconchange='true'` na
-ovládacím keyword poli zajistí přepočet hned po jeho změně.
-
----
-
-## `Trim`/`Trim$` maže jen MEZERY, ne tab/CR/LF — "prázdný" text projde jako neprázdný
-
-LotusScript `Trim`/`LTrim`/`RTrim` odstraňují jen znak **mezera (Chr 32)**, NErozeznají
-tabulátor (`Chr 9`), LF (`Chr 10`) ani CR (`Chr 13`). Typicky kousne při parsování
-odsazeného XML/DXL: „prázdný" element dá `"\n\n"`, `Trim` to nechá být a `text <> ""`
-projde jako by tam obsah byl.
-
-```lotusscript
-' ŠPATNĚ: prázdný odstavec z odsazeného DXL projde jako neprázdný nadpis
-headText = Trim(StripTags(chunk))       ' vrátí "\n  \n" -> <> "" je True!
-If headText <> "" Then buffer.Add(headText)   ' přidá prázdný nadpis
-
-' SPRÁVNĚ: nejdřív bílé znaky na mezery, sloučit, pak Trim
-Function NormalizeText(inp As String) As String
-    Dim s As String
-    s = ReplaceAll(inp, Chr(9), " ")
-    s = ReplaceAll(s, Chr(10), " ")
-    s = ReplaceAll(s, Chr(13), " ")
-    While Instr(s, "  ") > 0 : s = ReplaceAll(s, "  ", " ") : Wend
-    NormalizeText = Trim(s)
+' Safe, locale-independent ISO date assembly:
+Function IsoDate(dt As Variant) As String
+    IsoDate = Right("0000" & Year(dt), 4) & "-" & _
+              Right("00" & Month(dt), 2) & "-" & _
+              Right("00" & Day(dt), 2)
 End Function
 ```
 
-Projev: přebytečné/prázdné položky, dvojité oddělovače (`" - - "`), názvy začínající/
-končící oddělovačem, „bez_nazvu" složky.
+---
+
+## CLng(timestamp ms since 1970) -> Overflow (error 6)
+
+Millisecond timestamps since Unix epoch exceed 1.7 x 10^12, whereas LotusScript `Long` has a maximum value of ~2.1 x 10^9.
+Calling `CLng(msTimestamp)` immediately causes a runtime **Overflow (Error 6)**. Use `Double` for epoch arithmetic.
 
 ---
 
-## `If ch >= " "` NEfiltruje řídící znaky spolehlivě — LS řetězce porovnává dle locale collation
+## Agent Use "DominoApiLib" -> Variable not declared on ALL DApi_ functions
 
-Oblíbený trik „nech jen tisknutelné znaky" přes `If ch >= " "` **v LotusScriptu
-nefunguje podle kódu znaku**. Relační porovnání řetězců (`>=`, `<`, `>`) používá
-**locale collation** (ICU), ne code point. V české kolaci `-` (pomlčka) a další
-interpunkce řadí **PŘED mezeru**, takže `"-" >= " "` vyjde **False** a znak se
-zahodí.
+If an agent fails to recognize any procedure from an included Script Library, check:
+1. `Use "LibraryName"` must be placed in **(Options)**, never inside `Sub Initialize`.
+2. The Script Library must be compiled with **Save + Ctrl+Shift+F9**.
+3. In the calling agent, run **Ctrl+Shift+F9** to recompile all dependencies.
+
+---
+
+## Changing Form from Memo to another -> DUPLICATES (zombie mail-routing fields)
+
+When an agent changes `doc.Form = "CustomForm"` on an incoming email (Memo),
+you **must delete mail routing items**! Otherwise, Notes sees `DefaultMailSaveOptions = "1"` or `MailOptions` upon user Save and routes a duplicate back into the mail-in database.
 
 ```lotusscript
-' ŠPATNĚ: zahodí pomlčky, tečky a další interpunkci (řadí před mezeru)
-For i = 1 To Len(raw)
-    ch = Mid(raw, i, 1)
-    If ch >= " " Then res = res & ch   ' "-" >= " " je False! -> "podzim-zima" -> "podzimzima"
-Next
-
-' SPRÁVNĚ: explicitně jen známé řídící znaky, zbytek zachovej
-For i = 1 To Len(raw)
-    ch = Mid(raw, i, 1)
-    If ch = Chr(9) Or ch = Chr(10) Or ch = Chr(13) Then ch = " "
-    res = res & ch
-Next
+doc.Form = "CustomForm"
+Call doc.RemoveItem("MailOptions")
+Call doc.RemoveItem("DefaultMailSaveOptions")
+Call doc.RemoveItem("SaveOptions")
 ```
-
-**Projev:** názvy složek/souborů sanitizované tímhle filtrem přijdou o pomlčky —
-`" - "` se scvrkne na `" "`, `"2022-2023"` na `"20222023"`.
-
-Pro číselné porovnání kódu znaku použij `Uni(ch)` (Unicode code point), NE relační
-operátor: `If Uni(ch) >= 32 Then ...`.
 
 ---
 
-## NotesDXLExporter.Export(doc) na dokumentu s velkými přílohami → hang (serializuje base64)
+## UChr vs Chr — Unicode in LotusScript
 
-`exporter.Export(doc)` defaultně vloží VŠECHNY přílohy (`$FILE` položky) do DXL
-jako base64. U dokumentu s GB příloh (viz „nafouklý" dokument 2,5 GB) běží export
-minuty a sežere disk/paměť.
+`Chr(n)` only accepts values 0-255 (ANSI). For Unicode codepoints above `&H00FF`, use `UChr`.
+For string lengths, use `Len` or `UArray`.
 
 ```lotusscript
-' ŠPATNĚ: serializuje i binárku příloh -> běží věčně na velkém dokumentu
-Dim exporter As NotesDXLExporter
-Set exporter = session.CreateDXLExporter()
-Dim dxl As String
-dxl = exporter.Export(doc)   ' HANG na 2,5GB dokumentu
+' WRONG:
+c = Chr(&H010D)   ' Error: Illegal function call
 
-' SPRÁVNĚ: zahoď binární $FILE bloby, pozice+jméno přílohy zůstane
-Dim exporter As NotesDXLExporter
-Set exporter = session.CreateDXLExporter()
-Dim omit(0) As String
-omit(0) = "$FILE"
-exporter.OmitItemNames = omit          ' Array of String (přes Variant)
-dxl = exporter.Export(doc)             ' rychlé, malé DXL
+' CORRECT:
+c = UChr(&H010D)  ' "č"
 ```
 
-**Klíčový rozdíl dvou property (dle IBM docs):**
+---
 
-| Property | Co udělá |
-|----------|----------|
-| `OmitItemNames = "$FILE"` | zahodí jen `<item name='$FILE'>` bloby; `<attachmentref name='..'/>` v richtextu **ZŮSTANE** (pozice + jméno přílohy) |
-| `OmitRichtextAttachments = True` | zahodí `$FILE` **I** `<attachmentref>` → ztratíš pozici i jméno přílohy |
+## PowerShell 5.1 — SignedCms (PKCS#7/CMS) requires `Add-Type`
 
-Když potřebuješ mapovat přílohu na místo v textu (který nadpis), použij
-**`OmitItemNames`**, NE `OmitRichtextAttachments`. `attachmentref` je součást
-richtext položky, ne samostatný `<item>`, takže ho `OmitItemNames` nesmaže.
-
-Pozn.: `rtItem.EmbeddedObjects` navíc nevrací přílohy v zaručeném **pozičním**
-pořadí — poziční mapování ber z DXL `<attachmentref>`, ne z `EmbeddedObjects`.
+In Windows PowerShell 5.1 (.NET Framework), the assembly containing `SignedCms` is not loaded by default.
+Always execute:
+```powershell
+Add-Type -AssemblyName System.Security
+```
+before calling `[System.Security.Cryptography.Pkcs.SignedCms]`.
 
 ---
 
+## PowerShell 5.1 vs 7 — stdout encoding
+
+Windows PowerShell 5.1 defaults console pipes to OEM codepage (e.g. CP852/CP1250), breaking UTF-8 strings.
+To ensure pure UTF-8 output:
+```powershell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+```
+
 ---
 
-## MB_* / PICKLIST_* konstanty nejsou vestavěné — bez %Include "lsconst.lss" selže kompilace
+## PowerShell `switch` + `continue` does not stop fall-through
 
-`MB_ICONSTOP`, `MB_ICONINFORMATION`, `PICKLIST_NAMES` apod. NEJSOU vestavěné
-konstanty LotusScriptu (na rozdíl od `EMBED_ATTACHMENT`, `DATABASE` nebo
-`LSI_THREAD_*` z LSPRVAL.LSS, který se vkládá automaticky). Jsou definované
-v `LSCONST.LSS` a vyžadují `%Include` — **ALE záleží kde skript běží**:
-v (Globals)/(Options) view, formuláře či agenta Designer konstanty lsconst
-poskytuje implicitně (bez include), zatímco v **Script Library** chybí a
-bez `%Include "lsconst.lss"` kompilace hlásí "Variable not declared:
-MB_ICONSTOP". Zdroj: "Constants in LotusScript" → "use the %Include
-directive"; auto-include chování v design elementech pozorováno za běhu.
+Inside PowerShell `switch`, `continue` acts like `break` for the current condition but does NOT skip outer iterations in a loop. Use `break` explicitly if matching only one case.
+
+---
+
+## PowerShell `ConvertFrom-Json` auto-parses ISO 8601 into DateTime
+
+Strings formatted like `"2026-04-23T09:17:17Z"` are automatically converted by PowerShell to `[DateTime]` objects, which later stringify using localized system formatting. To preserve literal ISO format, use custom regex parsing or format strings explicitly.
+
+---
+
+## Domino 9.0.1 FP4 Linux — REQUEST_CONTENT encodes via LMBCS, not UTF-8
+
+Web agents running on Linux Domino 9.0.1 FP4 reading `REQUEST_CONTENT` from POST bodies can interpret multi-byte characters as LMBCS rather than raw UTF-8. Convert bytes using byte-level stream processing or Java helper servlets when handling JSON payloads.
+
+---
+
+## DXL import — straight quote `"` inside Formula text terminates string
+
+In Notes Formula Language, double quote `"` is the string delimiter.
+When editing form/view DXL XML representations, unescaped double quotes inside formulas prematurely terminate the string and cause invalid DXL import errors. Use `@Char(34)` or balance braces `{...}`.
+
+---
+
+## Formula — listing specific days from range + "compute once" trap in input translation
+
+To list each day in a date range, `@Explode([Start - End])` returns a multi-value text list of individual days.
+Beware that Input Translation formulas execute on document save, whereas default value formulas execute only on document creation.
+
+---
+
+## `Trim`/`Trim$` strips only SPACES, not tab/CR/LF
+
+LotusScript `Trim`, `LTrim`, and `RTrim` remove only the **ASCII space character (Chr 32)**.
+They do not remove tabs (`Chr 9`), linefeeds (`Chr 10`), or carriage returns (`Chr 13`).
+Text consisting solely of tabs or newlines will evaluate as non-empty.
 
 ```lotusscript
-' ŠPATNĚ:
-Option Public
-Option Declare
-Sub Initialize
-    Messagebox "text", MB_ICONSTOP, "Chyba"      ' Variable not declared!
-    picklist = ws.PickListStrings( PICKLIST_NAMES )  ' taky selže
-End Sub
-
-' SPRÁVNĚ:
-%Include "lsconst.lss"   ' MB_*, PICKLIST_*, PROMPT_*... (LOTUS OBJECTS > Constants in LotusScript)
-Option Public
-Option Declare
-Sub Initialize
-    Messagebox "text", MB_ICONSTOP, "Chyba"      ' OK
-End Sub
+Function FullTrim(ByVal s As String) As String
+    s = Replace(s, Chr$(9), " ")
+    s = Replace(s, Chr$(10), " ")
+    s = Replace(s, Chr$(13), " ")
+    FullTrim = Trim$(s)
+End Function
 ```
 
 ---
 
----
+## `If ch >= " "` does NOT reliably filter control characters
 
-## Const LSI_THREAD_* v Designeru → "Name previously declared"
-
-`LSI_THREAD_PROC` a `LSI_THREAD_MODULE` (konstanty pro `GetThreadInfo`) jsou
-definované v `LSPRVAL.LSS`, který Designer **vkládá automaticky** (KB:
-"Constants in LotusScript" → "Constants defined in LSPRVAL.LSS ... which is
-automatically included"). Vlastní `Const LSI_THREAD_PROC = 1` v Script
-Library / agentu tedy skončí chybou `Name previously declared: LSI_THREAD_PROC`.
-
-Šablona `template.lss` je píše kvůli samostatným .lss skriptům mimo Designer —
-při vkládání do Script Library je VYPUSŤ (na rozdíl od `%Include "lsconst.lss"`,
-který naopak chybět nesmí).
-
-```lotusscript
-' ŠPATNĚ (v Script Library / agentu):
-Const LSI_THREAD_PROC = 1       ' Name previously declared!
-Const LSI_THREAD_MODULE = 10    ' Name previously declared!
-
-' SPRÁVNĚ:
-' LSI_THREAD_* z LSPRVAL.LSS — automaticky, jen použij:
-procName = GetThreadInfo(LSI_THREAD_PROC)
-```
+Relational string comparisons in LotusScript (`>=`, `<`) follow **locale collation** rules (ICU), not binary codepoint values. Certain control characters can evaluate as greater than space in specific locales. Use `Asc(ch) >= 32` or `Uni(ch) >= 32` for binary safety.
 
 ---
 
----
+## NotesDXLExporter.Export(doc) on documents with large attachments -> hangs (serializes base64)
 
-## `Option ...` v (Declarations) → kompilační chyba; patří do (Options)
-
-Duplicita `Option Public/Declare` není jediná past — stejně tak **umístění**.
-Když se hotový `.lss` vkládá do design elementu „celý najednou“, `Option`
-skončí v (Declarations) a překlad spadne. `Option*` (a `Use`, a `%Include`)
-patří VÝHRADNĚ do (Options); (Declarations) je na `Const`, `Dim` globálních
-proměnných a vlastní `Sub`/`Function`.
-
-Praktický důsledek pro dodávaný `.lss`: buď `Option` v těle souboru vůbec
-nemít a v hlavičce popsat instalaci ve dvou krocích ((Options) zvlášť,
-(Declarations) zvlášť), nebo počítat s tím, že to uživatel ručně rozdělí.
-
-```lotusscript
-' ŠPATNĚ: celý soubor včetně Option vložený do (Globals) → (Declarations)
-Option Declare              ' kompilační chyba - Option v (Declarations)
-Const POLE$ = "majitel"
-Sub Neco()
-End Sub
-
-' SPRÁVNĚ:
-' (Globals) → (Options):
-Option Declare
-' (Globals) → (Declarations):
-Const POLE$ = "majitel"
-Sub Neco()
-End Sub
-```
+By default, `NotesDXLExporter` serializes all binary attachments (`$FILE` items) into base64 XML.
+On documents with multi-gigabyte attachments, this causes memory exhaustion and long hangs.
+Set `exporter.OmitItemNames = "$FILE"` or export design elements only.
 
 ---
 
-## ComputeWithForm přepočítá VŠECHNA computed pole formuláře
+## MB_* / PICKLIST_* constants are not built-in — fails compilation without %Include "lsconst.lss"
 
-`doc.ComputeWithForm(dodatatypes, raiseerror)` spustí value/translation/
-validation formule celého formuláře, ne jen toho, co jsi změnil. U formulářů
-s `@DbLookup` do číselníků to znamená, že se hodnoty přetáhnou z dnešního
-stavu číselníku. Většinou je to žádoucí (proto se to volá), ale skript pak
-nesmí v hlavičce tvrdit „mění výhradně jedno pole“.
-
-První parametr (`dodatatypes`) se podle IBM dokumentace **ignoruje**;
-`raiseerror=False` znamená „vrať False místo vyhození chyby“.
-
-```lotusscript
-' Rozhodni se vědomě, co při neúspěšné validaci:
-validaceOk = doc.ComputeWithForm( True, False )
-Call doc.Save( True, True )        ' uložit i tak (parita se starým kódem)
-' ...nebo...
-If doc.ComputeWithForm( True, False ) Then Call doc.Save( True, True )
-```
+Constants such as `MB_ICONSTOP`, `MB_ICONINFORMATION`, and `PICKLIST_NAMES` are defined in `lsconst.lss`.
+Unlike `EMBED_ATTACHMENT` or `DATABASE`, they are not hardcoded into the compiler runtime.
+Include `%Include "lsconst.lss"` in **(Options)** if referencing them.
 
 ---
 
-## Změna „vlastníka“ nestačí, když práva jedou přes jiné pole
+## Const LSI_THREAD_* in Designer -> "Name previously declared"
 
-Klasika ve VEBA DB: Authors pole je `computed` a počítá se z **jiné**
-položky, např.
-
-```
-documentAuthors := @Unique("LocalDomainDesigners":"LocalDomainAdmins":"[admin]":ZapisPovolen)
-```
-
-Skript, který změní jen `majitelMeridla`, tedy práva zápisu nepředá —
-`ComputeWithForm` sice `documentAuthors` přepočítá, ale ze starého
-`ZapisPovolen`. Před psaním hromadné změny osoby si vždy vygrepuj, co je
-na formuláři/subformu `type='authors'` a z čeho se to počítá.
-
-Pozor i na stav workflow: pokud je právo zápisu **dočasné** (nastaví se při
-odeslání, maže se při převzetí), přenášej ho jen v tom stavu — jinak ho
-u už převzatých dokumentů omylem obnovíš.
+`LSI_THREAD_PROC` and `LSI_THREAD_MODULE` (used with `GetThreadInfo`) are already defined in `LSPRVAL.LSS`, which Domino Designer includes automatically. Declaring them manually causes compile error `"Name previously declared"`.
 
 ---
+
+## `Option ...` in (Declarations) -> compile error; belongs in (Options)
+
+When copying monolithic LotusScript into Domino Designer, ensure compiler directives (`Option Declare`, `Option Public`, `Use`, `%Include`) are placed in the **(Options)** event. Placing them in **(Declarations)** causes immediate syntax compilation failure.
+
+---
+
+## ComputeWithForm recalculates ALL computed form fields
+
+`doc.ComputeWithForm(False, False)` executes all default values, translation formulas, and validation formulas across the entire form.
+If the form contains `@DbLookup` calls into external databases or dynamic tables, existing historical values on older documents may be overwritten by current lookup results.
+
+---
+
+## Changing "owner" is insufficient when permissions rely on other fields
+
+In Domino workflow applications, document security (`Authors` and `Readers` fields) is often computed from composite security roles (e.g. `@Unique("[admin]":Manager:Approver)`).
+Simply changing an informational field like `Owner` without updating the underlying `Authors` item or recalculating rights leaves the document inaccessible to the new recipient.
