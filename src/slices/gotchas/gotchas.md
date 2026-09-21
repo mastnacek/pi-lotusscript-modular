@@ -605,3 +605,33 @@ If the form contains `@DbLookup` calls into external databases or dynamic tables
 
 In Domino workflow applications, document security (`Authors` and `Readers` fields) is often computed from composite security roles (e.g. `@Unique("[admin]":Manager:Approver)`).
 Simply changing an informational field like `Owner` without updating the underlying `Authors` item or recalculating rights leaves the document inaccessible to the new recipient.
+
+
+---
+
+## Komentář ' Účel: před deklarací procedury zmizí při recompile/decompile
+
+## Komentář nad deklarací se přesune do 01_declarations.lss
+
+V modulární složce LotusScript agenta (pi-lotusscript-modular) se komentář
+napsaný **před** `Function`/`Sub` v souboru procedury při sestavení přesune do
+`01_declarations.lss` (jako blok `' === SECTION: ... ===`) a v souboru procedury
+po dalším decompile zmizí.
+
+Důsledek: linter ve scorecardu ("Czech purpose comments") počítá jen komentáře,
+které v souboru procedury zůstanou. Po cyklu compile → decompile se proto hlásí
+chybějící popis, i když byl napsán — a scorecard spadne o 2 body.
+
+```lotusscript
+' WRONG - po recompile/decompile zmizí ze souboru procedury
+' Účel: Načte rozeslané bezpečnostní listy.
+Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
+
+' CORRECT - zůstává v těle procedury a linter ho vidí i po cyklu
+Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
+
+	' Účel: Načte rozeslané bezpečnostní listy.
+	Dim pocet As Long
+```
+
+Platí i pro komentáře uvnitř těla obecně - ty se v monolitu i po decompile drží.
