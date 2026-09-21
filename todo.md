@@ -166,8 +166,9 @@ _Filled after each phase is implemented and tested._
 | 3 | ✅ | ✅ | Pre-flight gotchas + debrief handoff; tests 40–43 |
 | 4 | ✅ | ✅ | Recurring-failure gotcha drafting; tests 44–47 |
 | 5 | ✅ | ✅ | JEV semantic evaluation (OpenRouter Decisions API) + comment style parser; tests 48–54 |
+| 6 | ✅ | ✅ | Shell/code-tool monolith read guard (bash, ctx_execute, ctx_batch_execute) + explicit `main.lss` "not truncated" banner; tests 55–59 |
 
-**Final verification:** `npm test` — **54 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief, recurring-failure detection, comment style scanner (new vs old style), JEV Decisions API payload & response parsing, and scorecard integration.
+**Final verification:** `npm test` — **59 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief, recurring-failure detection, comment style scanner (new vs old style), JEV Decisions API payload & response parsing, scorecard integration, and the shell/code-tool monolith read guard (blocked dumps, allowed modular reads, allowed metadata commands).
 
 **New config keys:** `enableScorecard`, `enforceGradingRubric`, `injectPreflightGotchas`, `autoDraftRecurringGotchas` — all default `true`, all settable via `/ls config set <key> <value>` and listed in `/ls status`.
 

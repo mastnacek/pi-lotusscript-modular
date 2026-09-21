@@ -1290,6 +1290,87 @@ End Sub
   console.log("54. computeScorecard attaches JEV semantic review item:", scJevOk ? "PASS" : "FAIL");
   if (!scJevOk) throw new Error(`Unexpected scorecard with JEV: ${JSON.stringify(scWithJev)}`);
 
+  // --------------------------------------------------
+  // 55-59. Shell / code-execution read guards (bash, ctx_execute, ctx_batch_execute)
+  // --------------------------------------------------
+  const shellDir = path.join(testDir, "ShellGuardAgent");
+  fs.mkdirSync(shellDir, { recursive: true });
+  fs.writeFileSync(path.join(shellDir, "00_options.lss"), "Option Public\nOption Declare\n", "utf-8");
+  fs.writeFileSync(path.join(shellDir, "01_declarations.lss"), "' Deklarace\nDim g_x As Integer\n", "utf-8");
+  fs.writeFileSync(path.join(shellDir, "sub_Work.lss"), "' Účel: Pracovní procedura.\nSub Work()\nEnd Sub\n", "utf-8");
+  fs.writeFileSync(path.join(shellDir, "main.lss"), "' %pi-import \"sub_Work.lss\"\n", "utf-8");
+  fs.writeFileSync(
+    path.join(shellDir, "manifest.json"),
+    JSON.stringify(
+      {
+        formatVersion: "1.0",
+        agentName: "ShellGuardAgent",
+        decompileTimestamp: new Date().toISOString(),
+        compilationOrder: ["00_options.lss", "01_declarations.lss", "sub_Work.lss"],
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
+  // Monolithic sibling that the modular folder was decompiled from.
+  const shellMonolith = path.join(testDir, "ShellGuardAgent.lss");
+  fs.writeFileSync(shellMonolith, ["Option Public", "Sub Work()", "\tPrint \"1\"", "End Sub", ""].join("\n"), "utf-8");
+
+  // 55. bash content dump of the monolith is blocked
+  const bashDump = guardToolCall({
+    toolName: "bash",
+    input: { command: `cd "${testDir}" && cat -n ShellGuardAgent.lss | sed -n '1,180p'` },
+  });
+  const bashDumpBlocked =
+    bashDump?.block === true &&
+    String(bashDump.reason).includes("INSTANT FAILURE") &&
+    String(bashDump.reason).includes("monolithic");
+  console.log("55. Guard blocks bash content dump of monolithic .lss:", bashDumpBlocked ? "PASS" : "FAIL");
+  if (!bashDumpBlocked) throw new Error(`bash monolith dump was not blocked: ${JSON.stringify(bashDump)}`);
+
+  // 56. ctx_execute code that reads the monolith is blocked
+  const ctxExec = guardToolCall({
+    toolName: "ctx_execute",
+    input: {
+      language: "javascript",
+      code: `const fs = require('fs'); console.log(fs.readFileSync('${shellMonolith.replace(/\\/g, "\\\\")}', 'utf8'));`,
+    },
+  });
+  const ctxExecBlocked = ctxExec?.block === true && String(ctxExec.reason).includes("INSTANT FAILURE");
+  console.log("56. Guard blocks ctx_execute readFileSync of monolithic .lss:", ctxExecBlocked ? "PASS" : "FAIL");
+  if (!ctxExecBlocked) throw new Error(`ctx_execute monolith read was not blocked: ${JSON.stringify(ctxExec)}`);
+
+  // 57. ctx_batch_execute command array is scanned
+  const ctxBatch = guardToolCall({
+    toolName: "ctx_batch_execute",
+    input: {
+      commands: [{ label: "dump", command: `head -n 200 "${shellMonolith}"` }],
+      queries: ["anything"],
+    },
+  });
+  const ctxBatchBlocked = ctxBatch?.block === true && String(ctxBatch.reason).includes("INSTANT FAILURE");
+  console.log("57. Guard blocks ctx_batch_execute content dump of monolithic .lss:", ctxBatchBlocked ? "PASS" : "FAIL");
+  if (!ctxBatchBlocked) throw new Error(`ctx_batch_execute monolith dump was not blocked: ${JSON.stringify(ctxBatch)}`);
+
+  // 58. Modular parts remain readable via bash (no false positive)
+  const modularRead = guardToolCall({
+    toolName: "bash",
+    input: { command: `cat "${path.join(shellDir, "sub_Work.lss")}"` },
+  });
+  const modularReadOk = modularRead?.block !== true;
+  console.log("58. Guard allows bash read of modular sub_*.lss:", modularReadOk ? "PASS" : "FAIL");
+  if (!modularReadOk) throw new Error(`Modular file read was wrongly blocked: ${JSON.stringify(modularRead)}`);
+
+  // 59. Metadata-only commands are not blocked
+  const metadataCmd = guardToolCall({
+    toolName: "bash",
+    input: { command: `cd "${testDir}" && wc -l ShellGuardAgent.lss` },
+  });
+  const metadataOk = metadataCmd?.block !== true;
+  console.log("59. Guard allows metadata-only bash (wc -l) on monolithic file:", metadataOk ? "PASS" : "FAIL");
+  if (!metadataOk) throw new Error(`Metadata command was wrongly blocked: ${JSON.stringify(metadataCmd)}`);
+
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
   console.log("=== All VSA Modular Workflow Tests Passed! ===");

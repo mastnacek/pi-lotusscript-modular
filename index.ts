@@ -37,6 +37,7 @@ import {
 } from "./src/shared/config.js";
 import {
   findModularRoot,
+  findMonolithicScriptReads,
   getExistingModularDir,
   isMonolithicDxl,
   isMonolithicLss,
@@ -79,6 +80,50 @@ const MUTATING_TOOL_NAMES = new Set([
   "lotusscript_compile",
   "lotusscript_decompile",
 ]);
+
+/**
+ * Tools that can read file CONTENT without exposing a `path` parameter, so the
+ * read-time auto-decompile hook never sees them. Their command/code text must be
+ * scanned for monolithic `.lss` / `.dxl` reads instead.
+ */
+const SHELL_LIKE_TOOL_NAMES = new Set([
+  "bash",
+  "shell",
+  "execute",
+  "run",
+  "ctx_execute",
+  "ctx_execute_file",
+  "ctx_batch_execute",
+  "ctx_fetch_and_index",
+  "ctx_index",
+]);
+
+/**
+ * Extracts every free-text command/code fragment a shell-like tool would execute.
+ * Handles bash (`command`), ctx_execute (`code`) and ctx_batch_execute (`commands[]`).
+ */
+function collectShellLikeSources(input: Record<string, unknown> | undefined): string[] {
+  if (!input) return [];
+  const sources: string[] = [];
+
+  if (typeof input.command === "string" && input.command) {
+    sources.push(input.command);
+  }
+  if (typeof input.code === "string" && input.code) {
+    sources.push(input.code);
+  }
+  if (Array.isArray(input.commands)) {
+    for (const entry of input.commands) {
+      if (typeof entry === "string" && entry) {
+        sources.push(entry);
+      } else if (entry && typeof entry === "object" && typeof (entry as { command?: unknown }).command === "string") {
+        sources.push((entry as { command: string }).command);
+      }
+    }
+  }
+
+  return sources;
+}
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   let config: ModularConfig = { ...DEFAULT_CONFIG };
@@ -556,6 +601,34 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
     if (!config.autoDecompileOnRead) return;
     if (MUTATING_TOOL_NAMES.has(baseToolName)) return;
+
+    // --- Shell / code-execution read guards (bash, ctx_execute, ctx_batch_execute) ---
+    // These tools carry no top-level `path`, so the redirect below cannot see them.
+    // Without this guard an agent can dump the whole monolithic file with
+    // `cat tlacitko.lss | sed -n '1,400p'`, defeating auto-decompilation.
+    if (SHELL_LIKE_TOOL_NAMES.has(baseToolName) && input) {
+      const sources = collectShellLikeSources(input);
+      for (const source of sources) {
+        const hits = findMonolithicScriptReads(source, activeCwd);
+        if (hits.length === 0) continue;
+
+        const hit = hits[0]!;
+        const modularHint = hit.modularRoot
+          ? `The decompiled folder already exists at '${hit.modularRoot}'. Read its '01_declarations.lss' first, then only the specific 'sub_*.lss' / 'func_*.lss' files you need.`
+          : `Read the file with the 'read' tool instead — it auto-decompiles into a modular folder whose '01_declarations.lss' and 'sub_*.lss' / 'func_*.lss' files you can inspect selectively.`;
+
+        return {
+          block: true,
+          reason: [
+            `INSTANT FAILURE: you are dumping a monolithic LotusScript file ('${hit.referenced}') through a shell/code tool.`,
+            "Shell and code-execution tools bypass read-time auto-decompilation, so the entire monolith (thousands of lines) would be loaded into the context window.",
+            modularHint,
+            "Do NOT retry this command with cat / sed / head / tail / more / Get-Content / python / node or any other content dump.",
+          ].join(" "),
+        };
+      }
+    }
+
     if (!input || !pathKey) return;
 
     const targetPath = input[pathKey] as string;
@@ -620,11 +693,25 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           const notice = [
             "",
             "---",
-            "🧩 [LotusScript Modular Agent Detected]",
+            "🧩 [LotusScript Modular Agent Detected — READ THIS BEFORE ACTING]",
             `- Modular root: ${modularRoot}`,
-            "- Virtual imports (%pi-import) shown above are assembled in manifest order.",
-            "- IMPORTANT: Inspect '01_declarations.lss' first to check global variables, types, and classes.",
-            "- Edit individual 'sub_*.lss' / 'func_*.lss' files. Edits automatically sync the manifest and recompile.",
+            "",
+            "⚠️ THE CONTENT ABOVE IS COMPLETE, NOT TRUNCATED.",
+            "  You requested the monolithic .lss/.dxl. The extension intercepted the request,",
+            "  split the file into a modular folder, and returned this '%pi-import' index instead.",
+            "  The line count above is the index — NOT the size of the original script.",
+            "  Never conclude the read failed, was cut short, or is a 'stub'.",
+            "",
+            "⛔ DO NOT read the monolithic file through bash or code-execution tools.",
+            "  Forbidden: cat / sed / head / tail / more / less / Get-Content / python / node",
+            "  / any other content dump targeting the original '.lss' or '.dxl'.",
+            "  Such calls are blocked, and reading the whole script would flood your context.",
+            "",
+            "✅ HOW TO READ THE CODE:",
+            "  1. Read '01_declarations.lss' first — global variables, constants, types, classes.",
+            "  2. Then read only the specific 'sub_*.lss' / 'func_*.lss' file you need.",
+            "     List them with the modular root above; each file is one procedure (~30-100 lines).",
+            "  3. Edit those procedure files. Manifest sync + recompile are automatic.",
             `  (LSP validation: ${config.enableLsp ? "ENABLED" : "DISABLED"})`,
             `  (Overwrite original .lss: ${config.overwriteSourceLss ? "ENABLED" : "DISABLED"})`,
             "",

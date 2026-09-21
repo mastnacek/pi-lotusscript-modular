@@ -18,6 +18,25 @@ A modular agent folder contains:
 - `99_initialize.lss` — `Sub Initialize` runtime entrypoint.
 - `99_terminate.lss` — Optional `Sub Terminate`.
 
+### ⚠️ `main.lss` is a virtual index, not a truncated read
+
+When you ask to read a monolithic `.lss` / `.dxl`, the extension intercepts the call, splits the
+file into the modular folder above, and returns `main.lss` instead. That response is the **complete**
+index — its line count (often ~30) is the size of the index, **not** the size of the original script.
+
+- Do **not** conclude the read failed, was truncated, or returned a "stub".
+- Do **not** re-read the original monolith to "get the full content".
+- Read `01_declarations.lss` first, then only the specific `sub_*.lss` / `func_*.lss` file you need.
+
+### ⛔ Never dump the monolith through a shell or code tool
+
+`bash`, `ctx_execute`, `ctx_batch_execute` and similar tools bypass read-time auto-decompilation.
+Dumping the original file (`cat`, `sed`, `head`, `tail`, `more`, `less`, `Get-Content`, `python`,
+`node`, `readFileSync`, …) pulls thousands of lines into the context window and is **blocked** as an
+instant failure. Metadata-only commands (`wc -l`, `ls`, `git status`) remain allowed.
+
+---
+
 ## 2. Rules When Reading or Editing Procedures
 
 1. **Always consult `01_declarations.lss`**:
@@ -95,6 +114,7 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
 
 1. **Pre-flight gotchas (the Plan step):** on the first read of a modular agent's `main.lss`, the extension extracts identifiers from `01_declarations.lss` plus the procedure file names, then surfaces up to 3 registered gotchas matching **this agent's own** declarations. Falls back to the generic top-8 summary when nothing matches. Toggle: `injectPreflightGotchas`.
 2. **Instant-failure guards:** `edit`/`write` to `main.lss`, `manifest.json`, or `*_compiled.lss` is blocked — all three files are maintained by the extension, so hand edits are always lost.
+2b. **Monolith read guard:** dumping the original `.lss` / `.dxl` through `bash`, `ctx_execute`, `ctx_batch_execute` or any other content-read tool is blocked. Read the modular files instead; the guard resolves `cd <dir>` and `--cwd` before matching, so relative paths cannot slip through.
 3. **Debrief (note-to-self):** when `agent_settled` finalises an agent folder, if any Definition of Done item is unmet the harness records a debrief. It is injected as a message at the start of the next turn and consumed exactly once.
 4. **Recurring failures → gotcha draft:** every LSP diagnostic is normalised to a location-free signature (line, column and file paths stripped). If the same signature appears in two compile cycles, the harness drafts a gotcha and asks the user to approve it — the model is not trusted to notice its own repeats. Toggle: `autoDraftRecurringGotchas`.
 

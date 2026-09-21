@@ -187,6 +187,7 @@ export function buildGradingRubric(config: ModularConfig): string {
     "  INSTANT FAILURE: editing 'main.lss' (synthetic index, regenerated on every compile)",
     "  INSTANT FAILURE: editing '*_compiled.lss' (generated artifact)",
     "  INSTANT FAILURE: hand-editing 'manifest.json' inside a modular root (auto-synced from disk)",
+    "  INSTANT FAILURE: dumping a monolithic '.lss'/'.dxl' via a shell/code tool (cat, sed, head, tail, Get-Content, python, node) — the 'read' tool redirects to the modular folder for you",
     "  ADVISORY: writing a LotusScript file outside the active modular root",
     "  A live scorecard is attached to every compile result — treat it as your feedback signal.",
   ].join("\n");
