@@ -1,14 +1,40 @@
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { GotchaItem } from "../../shared/types.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const GOTCHAS_MD_PATH = path.join(__dirname, "gotchas.md");
+const BUNDLED_GOTCHAS_PATH = path.join(__dirname, "gotchas.md");
+const GLOBAL_GOTCHAS_DIR = path.join(os.homedir(), ".pi", "lotusscript");
+const GLOBAL_GOTCHAS_PATH = path.join(GLOBAL_GOTCHAS_DIR, "gotchas.md");
 
 let cachedGotchas: GotchaItem[] | null = null;
 let lastMtimeMs = 0;
+
+/**
+ * Returns the effective path to the shared gotchas.md file.
+ * Automatically initializes ~/.pi/lotusscript/gotchas.md from bundled gotchas
+ * so that user gotchas persist across package updates and are shared across projects.
+ */
+export function getEffectiveGotchasPath(): string {
+  if (fs.existsSync(GLOBAL_GOTCHAS_PATH)) {
+    return GLOBAL_GOTCHAS_PATH;
+  }
+  try {
+    if (!fs.existsSync(GLOBAL_GOTCHAS_DIR)) {
+      fs.mkdirSync(GLOBAL_GOTCHAS_DIR, { recursive: true });
+    }
+    if (fs.existsSync(BUNDLED_GOTCHAS_PATH)) {
+      fs.copyFileSync(BUNDLED_GOTCHAS_PATH, GLOBAL_GOTCHAS_PATH);
+      return GLOBAL_GOTCHAS_PATH;
+    }
+  } catch (err: unknown) {
+    console.error(`[LotusScript Modular] Failed to initialize global gotchas file: ${err}`);
+  }
+  return BUNDLED_GOTCHAS_PATH;
+}
 
 function parseGotchasFile(filePath: string): GotchaItem[] {
   if (!fs.existsSync(filePath)) return [];
@@ -51,9 +77,10 @@ function parseGotchasFile(filePath: string): GotchaItem[] {
 
 export function getAllGotchas(): GotchaItem[] {
   try {
-    const stat = fs.statSync(GOTCHAS_MD_PATH);
+    const targetPath = getEffectiveGotchasPath();
+    const stat = fs.statSync(targetPath);
     if (!cachedGotchas || stat.mtimeMs !== lastMtimeMs) {
-      cachedGotchas = parseGotchasFile(GOTCHAS_MD_PATH);
+      cachedGotchas = parseGotchasFile(targetPath);
       lastMtimeMs = stat.mtimeMs;
     }
     return cachedGotchas;
@@ -107,6 +134,7 @@ export function getGotchasSummary(limit = 12): string {
 }
 
 export function addGotcha(title: string, body: string): GotchaItem {
+  const targetPath = getEffectiveGotchasPath();
   const cleanTitle = title.trim();
   const cleanBody = body.trim();
   const id = cleanTitle
@@ -115,7 +143,16 @@ export function addGotcha(title: string, body: string): GotchaItem {
     .replace(/\s+/g, "-");
 
   const entry = `\n\n---\n\n## ${cleanTitle}\n\n${cleanBody}\n`;
-  fs.appendFileSync(GOTCHAS_MD_PATH, entry, "utf-8");
+  fs.appendFileSync(targetPath, entry, "utf-8");
+
+  // If running in development source directory, also sync back to bundled gotchas.md
+  if (targetPath !== BUNDLED_GOTCHAS_PATH && fs.existsSync(BUNDLED_GOTCHAS_PATH)) {
+    try {
+      fs.appendFileSync(BUNDLED_GOTCHAS_PATH, entry, "utf-8");
+    } catch {
+      // Ignore if bundled is read-only
+    }
+  }
 
   cachedGotchas = null;
   return { id, title: cleanTitle, body: cleanBody };

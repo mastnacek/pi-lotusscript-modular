@@ -65,6 +65,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     },
   },
   {
+    key: "enforceGotchaCapture",
+    kind: "boolean",
+    description: "Vynucovat zaznamenávání nově objevených chyb a gotchas",
+    valueHelp: {
+      true: "Zapnuto — připomínat povinnost uložit nový gotcha po vyřešení problému",
+      false: "Vypnuto — nepovinné",
+    },
+  },
+  {
     key: "keepTimestampInCompiledName",
     kind: "boolean",
     description: "Vytvářet navíc soubory s časovou značkou (<Nazev>_<timestamp>_compiled.lss)",

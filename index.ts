@@ -39,6 +39,7 @@ import { AgentParser } from "./src/slices/parser/index.js";
 import { checkLotusScriptDiagnostics } from "./src/slices/lsp/index.js";
 import {
   addGotcha,
+  getEffectiveGotchasPath,
   getGotchasSummary,
   searchGotchas,
 } from "./src/slices/gotchas/index.js";
@@ -81,6 +82,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (config.injectGotchasSummary) {
       event.systemPromptOptions.promptGuidelines.push(
         `LOTUSSCRIPT GOTCHAS: 40+ known LotusScript traps are registered in the global plugin. Top gotchas include: built-in keywords as names (Shell/Mid/Format), ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects. Use tool 'lotusscript_gotchas' to check specific gotchas.`
+      );
+    }
+
+    if (config.enforceGotchaCapture) {
+      event.systemPromptOptions.promptGuidelines.push(
+        "MANDATORY GOTCHA RECORDING: When working with LotusScript / Domino 9.0.1, if you encounter or resolve an unexpected language quirk, compiler trap, or runtime error, you MUST record it to the shared gotchas registry using tool 'lotusscript_gotchas(action: \"add\", title: \"...\", body: \"...\")' before concluding your turn."
       );
     }
   });
@@ -199,11 +206,15 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           ? " (original .lss overwritten & synced)"
           : "";
 
+        const gotchaNudge = config.enforceGotchaCapture
+          ? "\n💡 GOTCHA CHECK: If this fix resolved an unexpected LotusScript bug or compiler error, record it via 'lotusscript_gotchas(action: \"add\")'."
+          : "";
+
         const recompileNotice = [
           "",
           "---",
           `🔨 [LotusScript Modular: Recompiled]`,
-          `- Artifact: ${compiledPath}${overwriteNotice}${lspNotice}`,
+          `- Artifact: ${compiledPath}${overwriteNotice}${lspNotice}${gotchaNudge}`,
           "---",
         ].join("\n");
 
@@ -240,8 +251,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             `- Auto-dekompilace při čtení: ${config.autoDecompileOnRead ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-rekompilace při uložení: ${config.autoRecompileOnSave ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Vynucovat lotus-notes KB prompt: ${config.enforceKbPrompt ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Vynucovat zápis gotchas: ${config.enforceGotchaCapture ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Vkládat gotchas souhrn: ${config.injectGotchasSummary ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Zachovat timestamp v názvu: ${config.keepTimestampInCompiledName ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Centrální Gotchas soubor: ${getEffectiveGotchasPath()}`,
             `- Konfigurační soubor: ${cfgPath}`,
           ];
           ctx.ui.notify(lines.join("\n"), "info");
@@ -481,7 +494,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "lotusscript_gotchas",
     label: "Search or Add LotusScript Gotchas",
-    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or add a newly discovered gotcha to the central plugin registry.",
+    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or record a newly discovered gotcha into the shared registry (~/.pi/lotusscript/gotchas.md) across all projects.",
     parameters: Type.Object({
       action: Type.Optional(Type.String({ description: "'search', 'summary', or 'add'" })),
       query: Type.Optional(Type.String({ description: "Keyword to search (e.g. 'shell', 'forall', 'const', 'computewithform', 'variant')" })),

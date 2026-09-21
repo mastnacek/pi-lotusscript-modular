@@ -18,6 +18,8 @@ export interface ModularConfig {
   enforceKbPrompt: boolean;
   /** Automatically inject top LotusScript gotchas into system prompt */
   injectGotchasSummary: boolean;
+  /** Enforce recording newly discovered LotusScript traps and gotchas */
+  enforceGotchaCapture: boolean;
 }
 
 export interface CodeBlock {

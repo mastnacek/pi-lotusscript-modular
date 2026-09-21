@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   overwriteSourceLss: true,
   enforceKbPrompt: true,
   injectGotchasSummary: true,
+  enforceGotchaCapture: true,
 };
 
 export function projectConfigPath(cwd: string): string {

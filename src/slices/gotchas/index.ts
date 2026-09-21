@@ -3,4 +3,5 @@ export {
   searchGotchas,
   getGotchasSummary,
   addGotcha,
+  getEffectiveGotchasPath,
 } from "./catalogue.js";
