@@ -1,0 +1,47 @@
+{
+  "name": "pi-lotusscript-modular",
+  "version": "0.1.0",
+  "description": "Pi extension for automatic LotusScript decompilation, virtual modularization, auto-recompilation, and optional LSP diagnostics for Notes/Domino 9.0.1",
+  "type": "module",
+  "main": "index.ts",
+  "types": "index.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mastnacek/pi-lotusscript-modular.git"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "lotusscript",
+    "lotus-notes",
+    "domino",
+    "dxl",
+    "decompilation",
+    "modular"
+  ],
+  "author": "mastnacek",
+  "license": "MIT",
+  "scripts": {
+    "test": "npx tsx test/test_modular_workflow.ts"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills/lotusscript-modular"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.80.0",
+    "@earendil-works/pi-coding-agent": ">=0.80.0",
+    "@earendil-works/pi-tui": ">=0.80.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "typescript": "^5.8.0"
+  },
+  "dependencies": {
+    "typebox": "^1.3.19"
+  }
+}
