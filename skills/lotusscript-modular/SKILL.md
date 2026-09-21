@@ -126,3 +126,31 @@ The loop is closed: **evaluate → detect gap → harness drafts gotcha → user
 - Copy entire contents of the generated `<AgentName>_compiled.lss` (or `<AgentName>_<timestamp>_compiled.lss`).
 - Paste into `(Declarations)` or `(Options)` in Programmer's Pane.
 - Save and recompile: **Ctrl+Shift+F9**.
+
+## 5. Language policy (hard rule)
+
+**English for everything the agent reads. Czech for everything the user reads.**
+
+| Surface | Language | Why |
+| --- | --- | --- |
+| `promptGuidelines` / system prompt | **English** | Instruction-following and prompt-cache stability |
+| Tool-result content (`event.content`) | **English** | It is model input, not UI |
+| Block reasons / instant-failure text | **English** | Read by the model to correct course |
+| Scorecard, DoD rubric, JEV verdicts | **English** | Injected into tool results |
+| `/ls` notifications, modals, statusline | **Czech** | Rendered by the extension; no translator sees them |
+| Setting descriptions, autocompletions | **Czech** | User-facing only |
+
+Two things stay Czech **inside** English agent text, because they are data rather than instructions:
+
+1. The required code marker `' Účel: ...` — it is the literal string the linter matches.
+2. Czech sample words used for classification (e.g. `zpracování`, `pomocná funkce` in the JEV
+ground-truth state), and the Czech text of a comment being judged.
+
+**Do not rely on `pi-prompt-translate` for extension text.** That extension translates the
+user's prompt into English on the way in and the final assistant briefing back to Czech on the
+way out. It never sees `ctx.ui.notify(...)`, modal labels, or extension-emitted tool-result
+content — so those must be authored in the correct language at the source. Runtime translation
+of static strings would only add cost, latency and a failure mode.
+
+Regression guard: test 60 asserts every agent-facing surface is Czech-free (with the two
+exceptions above), and test 61 proves that guard is not vacuous.

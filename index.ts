@@ -813,11 +813,11 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         }
 
         const overwriteNotice = config.overwriteSourceLss
-          ? " (zdrojový .lss aktualizován)"
+          ? " (source .lss updated)"
           : "";
 
         const cleanupNotice = config.cleanupOnSettled
-          ? "\nℹ️ (Dočasná modulární složka bude automaticky smazána po dokončení práce agenta)"
+          ? "\nℹ️ (the temporary modular folder is deleted automatically once the agent finishes)"
           : "";
 
         const gotchaNudge = config.enforceGotchaCapture

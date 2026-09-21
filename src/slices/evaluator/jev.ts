@@ -111,14 +111,14 @@ export function createFallbackEval(
 
   const summary =
     isTrivial
-      ? "STRICT FAIL: Triviální / dummy komentář účelu"
+      ? "STRICT FAIL: trivial / placeholder purpose comment"
       : analysis.style === "new"
-        ? "STRICT PASS: Komentář v novém stylu s popisem účelu (' Účel: ...)"
+        ? "STRICT PASS: new-style comment with a purpose description (' Účel: ...)"
         : analysis.style === "old"
-          ? "STRICT FAIL: Starý styl komentáře (%REM/legacy šablona nebo chybí ' Účel:)"
+          ? "STRICT FAIL: legacy comment style (%REM template or missing ' Účel:)"
           : analysis.style === "mixed"
-            ? "STRICT WARN: Smíšený styl komentáře (obsahuje ' Účel: i staré značky/oddělovače)"
-            : "STRICT FAIL: Chybí popis účelu i dokumentační komentář";
+            ? "STRICT WARN: mixed comment style (has ' Účel: plus legacy markers/dividers)"
+            : "STRICT FAIL: no purpose description and no documentation comment";
 
   return {
     fileName,
@@ -191,20 +191,21 @@ export function parseJevResponse(
   const styleCompliant = isStrictlyNew && !isTrivial && isQualityStrict && !analysis.hasLegacyBlock;
 
   const riskScore = gotchaSev >= 1.3 || trapNoul > 0.6 ? 2 : gotchaSev >= 0.5 || trapNoul > 0.25 ? 1 : 0;
-  const riskLabel = riskScore === 0 ? "bezpečné (p čisté)" : riskScore === 1 ? "upozornění na rizika" : "kritické runtime riziko";
+  const riskLabels = ["clean (no trap)", "risk warning", "critical runtime risk"] as const;
+  const riskLabel = riskLabels[riskScore] ?? "critical runtime risk";
 
   let verdict = "STRICT PASS";
   if (!styleCompliant) {
-    if (isTrivial) verdict = "STRICT FAIL (triviální/dummy komentář)";
-    else if (resolvedStyle === "old") verdict = "STRICT FAIL (starý styl %REM/legacy)";
-    else if (resolvedStyle === "mixed") verdict = "STRICT WARN (smíšený styl / staré značky)";
-    else if (!isQualityStrict) verdict = "STRICT FAIL (nízká kvalita popisu)";
-    else verdict = "STRICT FAIL (nesplňuje standard)";
+    if (isTrivial) verdict = "STRICT FAIL (trivial / placeholder comment)";
+    else if (resolvedStyle === "old") verdict = "STRICT FAIL (legacy %REM style)";
+    else if (resolvedStyle === "mixed") verdict = "STRICT WARN (mixed style / legacy markers)";
+    else if (!isQualityStrict) verdict = "STRICT FAIL (low purpose quality)";
+    else verdict = "STRICT FAIL (does not meet the standard)";
   } else if (!isRuntimeSafe) {
-    verdict = "STRICT WARN (detekováno runtime riziko)";
+    verdict = "STRICT WARN (runtime risk detected)";
   }
 
-  const summary = `${verdict} | Styl: ${resolvedStyle.toUpperCase()} (p=${newStyleNoul.toFixed(2)}) | Kvalita: ${quality.toFixed(1)}/2 | Gotcha: ${riskLabel}`;
+  const summary = `${verdict} | style: ${resolvedStyle.toUpperCase()} (p=${newStyleNoul.toFixed(2)}) | purpose quality: ${quality.toFixed(1)}/2 | gotcha: ${riskLabel}`;
 
   return {
     fileName,
@@ -255,12 +256,12 @@ export function buildFolderSummary(evals: JevProcedureEval[]): JevFolderEvalResu
   const ok = total > 0 && compliantCount === total && oldStyleCount === 0 && mixedStyleCount === 0 && maxGotchaRisk <= 1;
 
   const summary = [
-    `Nový styl (vyhovující): ${compliantCount}/${total}`,
-    oldStyleCount > 0 ? `Starý styl (%REM/legacy): ${oldStyleCount}` : "",
-    mixedStyleCount > 0 ? `Smíšený/triviální styl: ${mixedStyleCount}` : "",
-    uncommentedCount > 0 ? `Bez komentáře: ${uncommentedCount}` : "",
-    `Průměrná kvalita popisu: ${averageQuality}/2`,
-    `Max riziko chyb: ${maxGotchaRisk === 0 ? "čisté" : maxGotchaRisk === 1 ? "upozornění" : "vysoké"}`,
+    `New style (compliant): ${compliantCount}/${total}`,
+    oldStyleCount > 0 ? `Legacy style (%REM): ${oldStyleCount}` : "",
+    mixedStyleCount > 0 ? `Mixed / trivial style: ${mixedStyleCount}` : "",
+    uncommentedCount > 0 ? `No comment: ${uncommentedCount}` : "",
+    `Average purpose quality: ${averageQuality}/2`,
+    `Max gotcha risk: ${["clean", "warning", "high"][maxGotchaRisk] ?? "high"}`,
   ]
     .filter(Boolean)
     .join(" | ");

@@ -149,7 +149,7 @@ Enforced in `tool_call` for `edit` / `write` (including `*__edit` / `*__write` p
 - **No modal on every compile.** Gate by content signature (existing `verifyProcedureLimits` pattern).
 - **No full self-compact implementation.** pi owns compaction; the plugin only supplies root-scoped durable state.
 - **No stale numbers in the system prompt.** Rubric = static rules; live score = `tool_result` only.
-- **Czech for user UI, English for agent-facing text** (established split).
+- **Czech for user UI, English for agent-facing text** (established split). Concretely: `promptGuidelines`, `tool_result` content, block reasons, scorecard and JEV verdicts are **English**; `/ls` notifications, modals, statusline, setting descriptions and autocompletions are **Czech**. `pi-prompt-translate` only bridges user prompt → English and final assistant briefing → Czech; it never sees extension-emitted UI or tool-result content, so those must be authored correctly at the source (no runtime translation of static strings). Exceptions inside English agent text: the required `' Účel:` code marker, Czech classification sample words, and the Czech text of a comment being judged. Guarded by tests 60–61.
 - **No new tool if an `action` on `lotusscript_gotchas` suffices** — tool count is prompt-cache cost.
 - **Slices never import each other.** All cross-slice orchestration happens in `index.ts`.
 
@@ -167,8 +167,9 @@ _Filled after each phase is implemented and tested._
 | 4 | ✅ | ✅ | Recurring-failure gotcha drafting; tests 44–47 |
 | 5 | ✅ | ✅ | JEV semantic evaluation (OpenRouter Decisions API) + comment style parser; tests 48–54 |
 | 6 | ✅ | ✅ | Shell/code-tool monolith read guard (bash, ctx_execute, ctx_batch_execute) + explicit `main.lss` "not truncated" banner; tests 55–59 |
+| 7 | ✅ | ✅ | Language policy enforcement: JEV verdicts/summaries and recompile notices moved to English; agent-facing English regression guard; tests 60–61 |
 
-**Final verification:** `npm test` — **59 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief, recurring-failure detection, comment style scanner (new vs old style), JEV Decisions API payload & response parsing, scorecard integration, and the shell/code-tool monolith read guard (blocked dumps, allowed modular reads, allowed metadata commands).
+**Final verification:** `npm test` — **61 test phases, all PASS** (`=== All VSA Modular Workflow Tests Passed! ===`), covering VSA layout, decompile/compile, LSP, ephemeral cleanup, gotcha modal, procedure-limit modal, scorecard, guards, pre-flight, debrief, recurring-failure detection, comment style scanner (new vs old style), JEV Decisions API payload & response parsing, scorecard integration, the shell/code-tool monolith read guard (blocked dumps, allowed modular reads, allowed metadata commands), and the agent-facing English language guard.
 
 **New config keys:** `enableScorecard`, `enforceGradingRubric`, `injectPreflightGotchas`, `autoDraftRecurringGotchas` — all default `true`, all settable via `/ls config set <key> <value>` and listed in `/ls status`.
 

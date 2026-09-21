@@ -86,7 +86,7 @@ export async function evaluateProcedureWithJev(
       styleCompliant: false,
       purposeQualityScore: 0,
       gotchaRiskScore: 0,
-      summary: "Soubor nebyl nalezen",
+      summary: "File not found",
       modelUsed: "offline",
     };
   }
@@ -162,7 +162,7 @@ export async function evaluateFolderWithJev(
       averageQuality: 0,
       maxGotchaRisk: 0,
       totalCostUsd: 0,
-      summary: "Složka neexistuje",
+      summary: "Folder does not exist",
     };
   }
 

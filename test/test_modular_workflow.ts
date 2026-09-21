@@ -1261,8 +1261,8 @@ End Sub
     folderSummary.newStyleCount === 1 &&
     folderSummary.oldStyleCount === 1 &&
     folderSummary.ok === false &&
-    folderSummary.summary.includes("Nový styl (vyhovující): 1/2") &&
-    folderSummary.summary.includes("Starý styl (%REM/legacy): 1");
+    folderSummary.summary.includes("New style (compliant): 1/2") &&
+    folderSummary.summary.includes("Legacy style (%REM): 1");
   console.log("53. createFallbackEval & buildFolderSummary aggregate metrics:", summaryOk ? "PASS" : "FAIL");
   if (!summaryOk) throw new Error(`Unexpected folder summary: ${JSON.stringify(folderSummary)}`);
 
@@ -1370,6 +1370,50 @@ End Sub
   const metadataOk = metadataCmd?.block !== true;
   console.log("59. Guard allows metadata-only bash (wc -l) on monolithic file:", metadataOk ? "PASS" : "FAIL");
   if (!metadataOk) throw new Error(`Metadata command was wrongly blocked: ${JSON.stringify(metadataCmd)}`);
+
+  // --------------------------------------------------
+  // 60. Agent-facing text is English (Czech only in user UI surfaces)
+  // --------------------------------------------------
+  // The plugin's hard constraint: Czech for user UI, English for agent-facing text.
+  // Agent-facing = promptGuidelines, tool_result content, block reasons, scorecard,
+  // JEV verdicts. The ONLY allowed Czech token in agent text is the required code
+  // marker ' Účel:' plus Czech sample words used as classification data.
+  const AGENT_FACING_ALLOWED =
+    /Účel|zpracování|pomocná funkce|pomocná|funkce|\btest\b/gi;
+  const czechDiacritics = /[áčďéěíňóřšťúůýž]/i;
+  const hasAgentFacingCzech = (text: string): boolean =>
+    czechDiacritics.test(text.replace(AGENT_FACING_ALLOWED, ""));
+
+  const agentFacingSamples: Array<{ label: string; text: string }> = [
+    { label: "fallback eval summary", text: createFallbackEval("sub_A.lss", "A", newAnalysis).summary },
+    { label: "fallback eval (legacy) summary", text: createFallbackEval("sub_B.lss", "B", oldAnalysis).summary },
+    { label: "parseJevResponse summary", text: parsedJev.summary },
+    { label: "buildFolderSummary summary", text: folderSummary.summary },
+    { label: "buildGradingRubric", text: buildGradingRubric(DEFAULT_CONFIG) },
+    { label: "formatScorecard", text: formatScorecard(scWithJev, scGood) },
+    { label: "bash block reason", text: String(bashDump?.reason ?? "") },
+    { label: "ctx_execute block reason", text: String(ctxExec?.reason ?? "") },
+    { label: "ctx_batch_execute block reason", text: String(ctxBatch?.reason ?? "") },
+  ];
+
+  const offending = agentFacingSamples.filter((s) => hasAgentFacingCzech(s.text));
+  const englishOk = offending.length === 0;
+  console.log(
+    "60. All agent-facing surfaces are English:",
+    englishOk ? "PASS" : `FAIL (${offending.map((o) => o.label).join(", ")})`
+  );
+  if (!englishOk) {
+    throw new Error(
+      `Agent-facing text contains Czech:\n${offending
+        .map((o) => `--- ${o.label} ---\n${o.text}`)
+        .join("\n")}`
+    );
+  }
+
+  // 61. Sanity: the English guard actually detects Czech (not a no-op)
+  const guardWorks = hasAgentFacingCzech("STRICT FAIL: triviální komentář");
+  console.log("61. English guard detects Czech (anti-no-op sanity check):", guardWorks ? "PASS" : "FAIL");
+  if (!guardWorks) throw new Error("English guard did not flag known Czech text — test is vacuous");
 
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
