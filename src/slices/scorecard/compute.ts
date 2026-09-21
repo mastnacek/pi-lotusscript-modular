@@ -1,5 +1,6 @@
 import type {
   AgentScorecard,
+  LspCheckResult,
   ModularConfig,
   ScorecardInput,
   ScorecardItem,
@@ -64,15 +65,24 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     });
   }
 
-  // DoD 3 — LSP diagnostics
+  // DoD 3 — LSP diagnostics.
+  // A check that did not run (no result) or failed on the harness side (server
+  // missing, timeout, query error) is "not measured" — never "failed". Grading
+  // an absent result as a failure produced the self-contradictory
+  // "❌ LSP diagnostics (0 errors)" line in the final debrief.
   if (input.lspEnabled) {
-    const errs = input.lsp?.errorCount ?? 0;
+    const lsp = input.lsp;
+    const measured = !!lsp && !isLspHarnessFailure(lsp);
+    const errs = lsp?.errorCount ?? 0;
     items.push({
       id: "lsp-clean",
-      label: `LSP diagnostics (${errs} error${errs === 1 ? "" : "s"})`,
-      ok: input.lsp ? input.lsp.ok : false,
+      label: measured
+        ? `LSP diagnostics (${errs} error${errs === 1 ? "" : "s"})`
+        : "LSP diagnostics (not checked)",
+      ok: measured && !!lsp?.ok,
+      pending: !measured,
       weight: 2,
-      detail: input.lsp && !input.lsp.ok ? condense(input.lsp.diagnostics) : undefined,
+      detail: lsp && !lsp.ok ? condense(lsp.diagnostics) : undefined,
     });
   }
 
@@ -196,6 +206,18 @@ export function buildGradingRubric(config: ModularConfig): string {
 /** Diagnostics that carry no code-level signal (clean runs, harness failures). */
 const DIAGNOSTIC_NOISE =
   /^(no diagnostics|ok\b|lsp check timed out|lsp query error|lsp execution error|lotusscript lsp server not found|file not found|failed to spawn)/i;
+
+/**
+ * True when an LSP result carries no code-level signal: the check itself failed
+ * to run (server not found, timeout, query error). Such a result must be scored
+ * as pending rather than as an unmet requirement, otherwise a harness problem
+ * silently docks the agent's score.
+ */
+function isLspHarnessFailure(lsp: LspCheckResult): boolean {
+  if (lsp.ok) return false;
+  const firstLine = lsp.diagnostics.trim().split(/\r?\n/)[0] ?? "";
+  return DIAGNOSTIC_NOISE.test(firstLine);
+}
 
 /**
  * Reduces a diagnostics blob to stable, location-free signatures so the same

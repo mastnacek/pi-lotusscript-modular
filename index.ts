@@ -453,9 +453,20 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           let finalScorecard: AgentScorecard | undefined = undefined;
           // Debrief: deterministic "note to self" carried into the next turn.
           if (config.enableScorecard) {
+            // Measure the LSP on the artifact that was just written. Skipping the
+            // check (lsp: null) made the debrief grade "not measured" as "failed"
+            // — see computeScorecard's DoD 3.
+            let lspRes: LspCheckResult | null = null;
+            if (config.enableLsp) {
+              try {
+                lspRes = await checkLotusScriptDiagnostics(finalLss);
+              } catch {
+                lspRes = null;
+              }
+            }
             const scorecard = buildScorecard(modDir, {
               lint: lintBeforeDelete,
-              lsp: null,
+              lsp: lspRes,
               artifact: "written",
               manifestSynced: true,
             });

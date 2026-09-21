@@ -1415,6 +1415,59 @@ End Sub
   console.log("61. English guard detects Czech (anti-no-op sanity check):", guardWorks ? "PASS" : "FAIL");
   if (!guardWorks) throw new Error("English guard did not flag known Czech text — test is vacuous");
 
+  // 62. An unmeasured (or harness-failed) LSP result is pending, not failed
+  const cleanLint = {
+    ok: true,
+    exceededProcedures: [],
+    missingCommentProcedures: [],
+    allItems: cleanItems,
+  };
+  const scNoLsp = computeScorecard({
+    agent: "ScoreAgent",
+    maxProcedureLines: 300,
+    lint: cleanLint,
+    lsp: null,
+    lspEnabled: true,
+    enforceCzechComments: true,
+    manifestSynced: true,
+    artifact: "written",
+  });
+  const scHarness = computeScorecard({
+    agent: "ScoreAgent",
+    maxProcedureLines: 300,
+    lint: cleanLint,
+    lsp: {
+      ok: false,
+      diagnostics: "LotusScript LSP server not found at: D:/nope/server.js",
+      errorCount: 1,
+      warningCount: 0,
+    },
+    lspEnabled: true,
+    enforceCzechComments: true,
+    manifestSynced: true,
+    artifact: "written",
+  });
+  const lspItemUnmeasured = scNoLsp.items.find((i) => i.id === "lsp-clean");
+  const lspItemHarness = scHarness.items.find((i) => i.id === "lsp-clean");
+  const lspPendingOk =
+    scNoLsp.score === 8 &&
+    scNoLsp.max === 8 &&
+    lspItemUnmeasured?.pending === true &&
+    lspItemUnmeasured?.ok === false &&
+    lspItemUnmeasured?.label === "LSP diagnostics (not checked)" &&
+    scHarness.max === 8 &&
+    lspItemHarness?.pending === true &&
+    !formatScorecard(scNoLsp, undefined).includes("- LSP diagnostics");
+  console.log(
+    "62. Unmeasured/harness-failed LSP is pending, not a failed DoD item:",
+    lspPendingOk ? "PASS" : "FAIL"
+  );
+  if (!lspPendingOk) {
+    throw new Error(
+      `Unexpected LSP pending scorecard: ${JSON.stringify({ scNoLsp, scHarness })}`
+    );
+  }
+
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
   console.log("=== All VSA Modular Workflow Tests Passed! ===");
