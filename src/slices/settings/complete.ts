@@ -15,6 +15,7 @@ export const LS_SUBCOMMANDS: readonly Suggestion[] = [
   { value: "compile", description: "Sestavit modulární složku do _compiled.lss", space: true },
   { value: "pack", description: "Sestavit do .lss a smazat modulární složku", space: true },
   { value: "lint", description: "Zkontrolovat délku procedur (max 300 řádků) a komentáře", space: true },
+  { value: "score", description: "Zobrazit scorecard a trend hodnocení agenta", space: true },
   { value: "decompile", description: "Rozložit monolitický .lss nebo .dxl do podsložky", space: true },
   { value: "gotchas", description: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)", space: true },
   { value: "help", description: "Zobrazit nápovědu příkazů" },

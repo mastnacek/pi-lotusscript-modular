@@ -28,6 +28,43 @@ export interface ModularConfig {
   maxProcedureLines: number;
   /** Enforce concise Czech documentation comments on procedures */
   enforceCzechComments: boolean;
+  /** Compute and inject a deterministic per-agent scorecard after every compile */
+  enableScorecard: boolean;
+  /** Inject the LotusScript Definition of Done + grading rubric into the system prompt */
+  enforceGradingRubric: boolean;
+  /** Replace the generic gotcha summary with traps matching this agent's own identifiers */
+  injectPreflightGotchas: boolean;
+  /** Auto-draft a gotcha when the same LSP diagnostic recurs across compile cycles */
+  autoDraftRecurringGotchas: boolean;
+}
+
+export interface ScorecardItem {
+  id: string;
+  label: string;
+  ok: boolean;
+  weight: number;
+  /** Item is not yet applicable (e.g. final artifact during mid-work compiles). */
+  pending?: boolean;
+  detail?: string;
+}
+
+export interface AgentScorecard {
+  agent: string;
+  score: number;
+  max: number;
+  items: ScorecardItem[];
+  ts: string;
+}
+
+export interface ScorecardInput {
+  agent: string;
+  maxProcedureLines: number;
+  lint: FolderLintResult;
+  lsp: LspCheckResult | null;
+  lspEnabled: boolean;
+  enforceCzechComments: boolean;
+  manifestSynced: boolean;
+  artifact: "written" | "pending";
 }
 
 export interface ProcedureLintItem {

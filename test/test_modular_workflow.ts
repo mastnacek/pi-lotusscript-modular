@@ -9,8 +9,17 @@ import { AgentParser } from "../src/slices/parser/index.js";
 import { checkLotusScriptDiagnostics } from "../src/slices/lsp/index.js";
 import { getAllGotchas, searchGotchas, GotchaReviewComponent, promptGotchaReview } from "../src/slices/gotchas/index.js";
 import { lintModularFolder, ProcedureLimitComponent } from "../src/slices/linter/index.js";
+import {
+  buildGradingRubric,
+  buildRecurringGotchaDraft,
+  computeScorecard,
+  findRecurringSignatures,
+  formatScorecard,
+  normalizeDiagnostics,
+  trendLabel,
+} from "../src/slices/scorecard/index.js";
 import { completeLsArguments } from "../src/slices/settings/index.js";
-import { DEFAULT_CONFIG } from "../src/shared/config.js";
+import { DEFAULT_CONFIG, projectConfigPath } from "../src/shared/config.js";
 import lotusscriptModularExtension from "../index.js";
 
 async function runTest() {
@@ -619,6 +628,507 @@ End Sub
   if (!widthOk || !hasWrappedRisk) {
     throw new Error("Modal did not wrap/scale correctly");
   }
+
+  // --------------------------------------------------
+  // 7. Scorecard / grading (Phase 1)
+  // --------------------------------------------------
+  const overItem: any = {
+    fileName: "sub_Click.lss",
+    procedureName: "Click",
+    lineCount: 746,
+    maxLines: 300,
+    isExceeded: true,
+    hasDocComment: true,
+  };
+  const noDocItem: any = {
+    fileName: "func_X.lss",
+    procedureName: "X",
+    lineCount: 12,
+    maxLines: 300,
+    isExceeded: false,
+    hasDocComment: false,
+  };
+
+  // 29. computeScorecard on a failing agent
+  const scBad = computeScorecard({
+    agent: "ScoreAgent",
+    maxProcedureLines: 300,
+    lint: { ok: false, exceededProcedures: [overItem], missingCommentProcedures: [noDocItem], allItems: [overItem, noDocItem] },
+    lsp: { ok: false, diagnostics: "Error on line 412: type mismatch", errorCount: 2, warningCount: 0 },
+    lspEnabled: true,
+    enforceCzechComments: true,
+    manifestSynced: false,
+    artifact: "pending",
+  });
+  const badOk =
+    scBad.score === 0 &&
+    scBad.max === 8 &&
+    scBad.items.length === 5 &&
+    scBad.items.find((i) => i.id === "artifact")?.pending === true;
+  console.log("29. Scorecard scores failing agent 0/8 with pending artifact:", badOk ? "PASS" : "FAIL");
+  if (!badOk) throw new Error(`Unexpected failing scorecard: ${JSON.stringify(scBad)}`);
+
+  // 30. computeScorecard on a clean agent + trend
+  const cleanItems: any[] = [overItem, noDocItem].map((i) => ({
+    ...i,
+    lineCount: 20,
+    isExceeded: false,
+    hasDocComment: true,
+  }));
+  const scGood = computeScorecard({
+    agent: "ScoreAgent",
+    maxProcedureLines: 300,
+    lint: { ok: true, exceededProcedures: [], missingCommentProcedures: [], allItems: cleanItems },
+    lsp: { ok: true, diagnostics: "No diagnostics.", errorCount: 0, warningCount: 0 },
+    lspEnabled: true,
+    enforceCzechComments: true,
+    manifestSynced: true,
+    artifact: "written",
+  });
+  const trend = trendLabel(scGood, scBad);
+  const goodOk = scGood.score === 10 && scGood.max === 10 && trend.startsWith("▲ +10");
+  console.log("30. Scorecard scores clean agent 10/10 and reports upward trend:", goodOk ? "PASS" : "FAIL");
+  if (!goodOk) throw new Error(`Unexpected clean scorecard/trend: ${JSON.stringify({ scGood, trend })}`);
+
+  // 31. formatScorecard structure
+  const formattedBad = formatScorecard(scBad, undefined);
+  const formattedGood = formatScorecard(scGood, scBad);
+  const formatOk =
+    formattedBad.includes("SCORECARD") &&
+    formattedBad.includes("(first compile)") &&
+    formattedBad.includes("⬜") &&
+    formattedBad.includes("Remaining:") &&
+    formattedGood.includes("▲ +10 since last compile");
+  console.log("31. formatScorecard emits header, pending icon, remaining list and trend:", formatOk ? "PASS" : "FAIL");
+  if (!formatOk) throw new Error(`Unexpected scorecard formatting:\n${formattedBad}\n---\n${formattedGood}`);
+
+  // 32. buildGradingRubric content
+  const rubric = buildGradingRubric(DEFAULT_CONFIG);
+  const rubricOk =
+    rubric.includes("DEFINITION OF DONE") &&
+    rubric.includes("HOW YOU'RE GRADED") &&
+    rubric.includes("INSTANT FAILURE") &&
+    rubric.includes(String(DEFAULT_CONFIG.maxProcedureLines)) &&
+    rubric.includes("never self-report");
+  console.log("32. Grading rubric contains DoD, grading, instant-failure rules:", rubricOk ? "PASS" : "FAIL");
+  if (!rubricOk) throw new Error(`Unexpected rubric:\n${rubric}`);
+
+  // 33. Rubric is injected into the system prompt
+  let skipRubricPromptHandler: any = null;
+  const rubricPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "before_agent_start") skipRubricPromptHandler = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(rubricPi);
+  const promptEvent: any = { systemPromptOptions: { promptGuidelines: [] } };
+  skipRubricPromptHandler(promptEvent);
+  const guidelines: string[] = promptEvent.systemPromptOptions.promptGuidelines;
+  const rubricInjected = guidelines.some((g) => g.includes("DEFINITION OF DONE"));
+  console.log("33. before_agent_start injects the grading rubric:", rubricInjected ? "PASS" : "FAIL");
+  if (!rubricInjected) throw new Error(`Rubric was not injected. Guidelines: ${JSON.stringify(guidelines)}`);
+
+  // 34. Scorecard is emitted in the recompile result (integration)
+  const scoreDir = path.join(testDir, "ScoreAgent");
+  fs.mkdirSync(scoreDir, { recursive: true });
+  fs.writeFileSync(path.join(scoreDir, "00_options.lss"), "Option Public\nOption Declare\n", "utf-8");
+  fs.writeFileSync(path.join(scoreDir, "01_declarations.lss"), "' Deklarace\nDim g_score As Integer\n", "utf-8");
+  fs.writeFileSync(
+    path.join(scoreDir, "sub_Thing.lss"),
+    "' @script-member-of: ScoreAgent\n' @procedure: Thing\n' Účel: Testovací procedura pro ověření scorecardu v kompilaci.\nSub Thing()\n    Print \"x\"\nEnd Sub\n",
+    "utf-8"
+  );
+  fs.writeFileSync(path.join(scoreDir, "main.lss"), "' main\n", "utf-8");
+  fs.writeFileSync(
+    path.join(scoreDir, "manifest.json"),
+    JSON.stringify(
+      {
+        formatVersion: "1.0",
+        agentName: "ScoreAgent",
+        decompileTimestamp: new Date().toISOString(),
+        compilationOrder: ["00_options.lss", "01_declarations.lss", "sub_Thing.lss"],
+      },
+      null,
+      2
+    ),
+    "utf-8"
+  );
+
+  let scoreToolResult: any = null;
+  const scorePi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_result") scoreToolResult = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(scorePi);
+
+  const scoreEditEvt: any = {
+    toolName: "edit",
+    input: { path: path.join(scoreDir, "sub_Thing.lss") },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  };
+  const scoreRes = await scoreToolResult(scoreEditEvt);
+  const scoreText: string = scoreRes?.content?.[1]?.text ?? "";
+  const scoreEmitted =
+    scoreText.includes("SCORECARD") &&
+    scoreText.includes("ScoreAgent") &&
+    scoreText.includes("procedures ≤ 300 lines") &&
+    scoreText.includes("first compile");
+  console.log("34. Recompile result contains the computed scorecard:", scoreEmitted ? "PASS" : "FAIL");
+  if (!scoreEmitted) throw new Error(`Scorecard missing from recompile result:\n${scoreText}`);
+
+  // --------------------------------------------------
+  // 8. Instant-failure guards (Phase 2)
+  // --------------------------------------------------
+  let guardToolCall: any = null;
+  let guardToolResult: any = null;
+  const guardPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_call") guardToolCall = handler;
+      if (evt === "tool_result") guardToolResult = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(guardPi);
+
+  // 35. Block editing main.lss
+  const mainBlock = guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, "main.lss") } });
+  const mainBlocked =
+    mainBlock?.block === true &&
+    String(mainBlock.reason).includes("INSTANT FAILURE") &&
+    String(mainBlock.reason).includes("main.lss");
+  console.log("35. Guard blocks editing main.lss:", mainBlocked ? "PASS" : "FAIL");
+  if (!mainBlocked) throw new Error(`main.lss edit was not blocked: ${JSON.stringify(mainBlock)}`);
+
+  // 36. Block hand-editing manifest.json
+  const manifestBlock = guardToolCall({ toolName: "write", input: { path: path.join(scoreDir, "manifest.json") } });
+  const manifestBlocked = manifestBlock?.block === true && String(manifestBlock.reason).includes("manifest.json");
+  console.log("36. Guard blocks hand-editing manifest.json:", manifestBlocked ? "PASS" : "FAIL");
+  if (!manifestBlocked) throw new Error(`manifest.json edit was not blocked: ${JSON.stringify(manifestBlock)}`);
+
+  // 37. Block editing generated *_compiled.lss
+  const compiledBlock = guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, "ScoreAgent_compiled.lss") } });
+  const compiledBlocked = compiledBlock?.block === true && String(compiledBlock.reason).includes("_compiled.lss");
+  console.log("37. Guard blocks editing generated *_compiled.lss:", compiledBlocked ? "PASS" : "FAIL");
+  if (!compiledBlocked) throw new Error(`_compiled.lss edit was not blocked: ${JSON.stringify(compiledBlock)}`);
+
+  // 38. Legitimate modular files are not blocked
+  const legitFiles = ["00_options.lss", "01_declarations.lss", "sub_Thing.lss", "func_Helper.lss", "99_initialize.lss"];
+  const legitResults = legitFiles.map((f) => guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, f) } }));
+  const anyBlocked = legitResults.some((r) => r?.block === true);
+  console.log("38. Legitimate modular files are not blocked:", anyBlocked ? "FAIL" : "PASS");
+  if (anyBlocked) throw new Error(`A legitimate modular file was blocked: ${JSON.stringify(legitResults)}`);
+
+  // 39. Advisory when a LotusScript file outside the active modular root is edited
+  const insideEvt: any = {
+    toolName: "edit",
+    input: { path: path.join(scoreDir, "sub_Thing.lss") },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  };
+  await guardToolResult(insideEvt); // activates scoreDir as a modified root
+
+  const outsideLss = path.join(testDir, "OutsideThing.lss");
+  fs.writeFileSync(outsideLss, "Option Public\n", "utf-8");
+  const outsideEvt: any = {
+    toolName: "edit",
+    input: { path: outsideLss },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  };
+  const outsideRes = await guardToolResult(outsideEvt);
+  const advisoryText: string = outsideRes?.content?.[1]?.text ?? "";
+  const advisoryOk = advisoryText.includes("Advisory") && advisoryText.includes("outside the active modular root");
+  console.log("39. Advisory emitted for LotusScript edit outside the active root:", advisoryOk ? "PASS" : "FAIL");
+  if (!advisoryOk) throw new Error(`Expected outside-root advisory, got: ${JSON.stringify(outsideRes)}`);
+
+  // --------------------------------------------------
+  // 9. Pre-flight gotchas, debrief handoff (Phase 3)
+  // --------------------------------------------------
+  const makeRoot = (name: string, files: Record<string, string>): string => {
+    const dir = path.join(testDir, name);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, "main.lss"), "' main\n", "utf-8");
+    for (const [file, body] of Object.entries(files)) {
+      fs.writeFileSync(path.join(dir, file), body, "utf-8");
+    }
+    fs.writeFileSync(
+      path.join(dir, "manifest.json"),
+      JSON.stringify(
+        {
+          formatVersion: "1.0",
+          agentName: name,
+          decompileTimestamp: new Date().toISOString(),
+          compilationOrder: ["00_options.lss", "01_declarations.lss", ...Object.keys(files).filter((f) => f !== "00_options.lss" && f !== "01_declarations.lss")],
+        },
+        null,
+        2
+      ),
+      "utf-8"
+    );
+    return dir;
+  };
+
+  // 40. Pre-flight banner surfaces a trap matching the agent's own identifier
+  const preflightDir = makeRoot("PreflightAgent", {
+    "00_options.lss": "Option Public\nOption Declare\n",
+    "01_declarations.lss": "' Deklarace\nDim shell As Variant\n",
+    "sub_Thing.lss": "' @script-member-of: PreflightAgent\n' @procedure: Thing\n' Účel: Testovací procedura pro předletovou kontrolu gotchas.\nSub Thing()\n    Print \"x\"\nEnd Sub\n",
+  });
+
+  let preflightToolResult: any = null;
+  const preflightPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_result") preflightToolResult = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(preflightPi);
+
+  const preflightRead = await preflightToolResult({
+    toolName: "read",
+    input: { path: path.join(preflightDir, "main.lss") },
+    content: [{ type: "text", text: "main.lss body" }],
+    isError: false,
+  });
+  const preflightText: string = preflightRead?.content?.[1]?.text ?? "";
+  const preflightOk =
+    preflightText.includes("PRE-FLIGHT GOTCHA CHECK") &&
+    preflightText.toLowerCase().includes("shell");
+  console.log("40. Pre-flight banner surfaces traps matching agent identifiers:", preflightOk ? "PASS" : "FAIL");
+  if (!preflightOk) throw new Error(`Pre-flight banner missing targeted match:\n${preflightText}`);
+
+  // 41. Pre-flight falls back to the generic summary when nothing matches
+  const inertDir = makeRoot("InertAgent", {
+    "00_options.lss": "Option Public\n",
+    "01_declarations.lss": "' nic\n",
+    "sub_Zzq.lss": "' @script-member-of: InertAgent\n' @procedure: Zzq\n' Účel: Inertní procedura bez kolize s evidovanými pastmi.\nSub Zzq()\n    Print \"y\"\nEnd Sub\n",
+  });
+  const inertRead = await preflightToolResult({
+    toolName: "read",
+    input: { path: path.join(inertDir, "main.lss") },
+    content: [{ type: "text", text: "main.lss body" }],
+    isError: false,
+  });
+  const inertText: string = inertRead?.content?.[1]?.text ?? "";
+  const fallbackOk = inertText.includes("Top Critical LotusScript Gotchas");
+  console.log("41. Pre-flight falls back to generic summary without matches:", fallbackOk ? "PASS" : "FAIL");
+  if (!fallbackOk) throw new Error(`Expected generic gotchas fallback:\n${inertText}`);
+
+  // 42. Debrief is emitted at settle and handed to the next turn
+  const debriefDir = makeRoot("DebriefAgent", {
+    "00_options.lss": "Option Public\n",
+    "01_declarations.lss": "' nic\nDim g_count As Long\n",
+    "sub_NoComment.lss": "' @script-member-of: DebriefAgent\n' @procedure: NoComment\nSub NoComment()\n    Print \"z\"\nEnd Sub\n",
+  });
+
+  let debriefToolResult: any = null;
+  let debriefSettled: any = null;
+  let debriefBeforeStart: any = null;
+  const debriefPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_result") debriefToolResult = handler;
+      if (evt === "agent_settled") debriefSettled = handler;
+      if (evt === "before_agent_start") debriefBeforeStart = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(debriefPi);
+
+  await debriefToolResult({
+    toolName: "edit",
+    input: { path: path.join(debriefDir, "sub_NoComment.lss") },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  });
+
+  const settleCtx: any = { hasUI: false, cwd: testDir, ui: { notify: () => {} } };
+  await debriefSettled({}, settleCtx);
+
+  const debriefEvent: any = { systemPromptOptions: { promptGuidelines: [] } };
+  const debriefTurn = debriefBeforeStart(debriefEvent);
+  const debriefContent: string = debriefTurn?.message?.content ?? "";
+  const debriefOk =
+    debriefTurn?.message?.customType === "lotusscript-debrief" &&
+    debriefContent.includes("LotusScript Debrief") &&
+    debriefContent.includes("Unmet Definition of Done") &&
+    debriefContent.includes("Czech purpose comments");
+  console.log("42. Debrief emitted at settle and injected into the next turn:", debriefOk ? "PASS" : "FAIL");
+  if (!debriefOk) throw new Error(`Debrief handoff failed: ${JSON.stringify(debriefTurn)}`);
+
+  // 42b. Debrief is consumed exactly once
+  const secondTurn: any = debriefBeforeStart({ systemPromptOptions: { promptGuidelines: [] } });
+  const consumed = secondTurn === undefined;
+  console.log("42b. Debrief is consumed once (no repeat injection):", consumed ? "PASS" : "FAIL");
+  if (!consumed) throw new Error(`Debrief repeated: ${JSON.stringify(secondTurn)}`);
+
+  // 43. No debrief when the Definition of Done is fully satisfied
+  const cleanDir = makeRoot("CleanAgent", {
+    "00_options.lss": "Option Public\n",
+    "01_declarations.lss": "' nic\nDim g_total As Long\n",
+    "sub_Fine.lss": "' @script-member-of: CleanAgent\n' @procedure: Fine\n' Účel: Procedura splňující všechny položky Definition of Done.\nSub Fine()\n    Print \"ok\"\n    ' druhá řádka popisu\nEnd Sub\n",
+  });
+
+  let cleanToolResult: any = null;
+  let cleanSettled: any = null;
+  let cleanBeforeStart: any = null;
+  const cleanPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_result") cleanToolResult = handler;
+      if (evt === "agent_settled") cleanSettled = handler;
+      if (evt === "before_agent_start") cleanBeforeStart = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(cleanPi);
+
+  await cleanToolResult({
+    toolName: "edit",
+    input: { path: path.join(cleanDir, "sub_Fine.lss") },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  });
+  await cleanSettled({}, { hasUI: false, cwd: testDir, ui: { notify: () => {} } });
+  const cleanTurn: any = cleanBeforeStart({ systemPromptOptions: { promptGuidelines: [] } });
+  const noDebrief = cleanTurn === undefined;
+  console.log("43. No debrief when Definition of Done is satisfied:", noDebrief ? "PASS" : "FAIL");
+  if (!noDebrief) throw new Error(`Unexpected debrief for clean agent: ${JSON.stringify(cleanTurn)}`);
+
+  // --------------------------------------------------
+  // 10. Recurring-failure gotcha drafting (Phase 4)
+  // --------------------------------------------------
+  // 44. normalizeDiagnostics is location-independent
+  const sigA = normalizeDiagnostics("ERROR: Type mismatch in assignment (line 10; column 2)")[0];
+  const sigB = normalizeDiagnostics("ERROR: Type mismatch in assignment (line 931; column 37)")[0];
+  const normOk =
+    !!sigA &&
+    sigA === sigB &&
+    sigA.includes("type mismatch") &&
+    !/\d/.test(sigA);
+  console.log("44. normalizeDiagnostics strips line/column so the same fault matches:", normOk ? "PASS" : "FAIL");
+  if (!normOk) throw new Error(`Normalization failed: "${sigA}" vs "${sigB}"`);
+
+  // 45. findRecurringSignatures distinguishes recurring from one-off
+  const recurringHit = findRecurringSignatures(["error: type mismatch in assignment"], [["error: type mismatch in assignment"]], 2);
+  const oneOff = findRecurringSignatures(["error: brand new problem here"], [["error: type mismatch in assignment"]], 2);
+  const noHistory = findRecurringSignatures(["error: type mismatch in assignment"], [], 2);
+  const recurOk = recurringHit.length === 1 && oneOff.length === 0 && noHistory.length === 0;
+  console.log("45. findRecurringSignatures flags only genuine repeats:", recurOk ? "PASS" : "FAIL");
+  if (!recurOk) throw new Error(`Recurrence detection failed: ${JSON.stringify({ recurringHit, oneOff, noHistory })}`);
+
+  // 46. buildRecurringGotchaDraft produces a usable draft
+  const draft = buildRecurringGotchaDraft("RecurAgent", ["error: type mismatch in assignment"], ["sub_Recur.lss"]);
+  const draftOk =
+    draft.title.includes("Recurring LotusScript diagnostic in RecurAgent") &&
+    draft.body.includes("Recurring failure detected by the harness") &&
+    draft.body.includes("sub_Recur.lss") &&
+    draft.body.includes("error: type mismatch in assignment");
+  console.log("46. buildRecurringGotchaDraft produces a usable draft:", draftOk ? "PASS" : "FAIL");
+  if (!draftOk) throw new Error(`Bad draft: ${JSON.stringify(draft)}`);
+
+  // 47. Integration: a recurring LSP diagnostic opens the gotcha modal exactly once
+  const fakeLsp = path.join(testDir, "fake-lsp.cjs");
+  fs.writeFileSync(
+    fakeLsp,
+    [
+      "process.stdin.setEncoding('utf8');",
+      "let buf = '';",
+      "process.stdin.on('data', (chunk) => {",
+      "  buf += chunk;",
+      "  let idx;",
+      "  while ((idx = buf.indexOf('\\n')) !== -1) {",
+      "    const line = buf.slice(0, idx).trim();",
+      "    buf = buf.slice(idx + 1);",
+      "    if (!line) continue;",
+      "    let msg;",
+      "    try { msg = JSON.parse(line); } catch { continue; }",
+      "    if (msg.method === 'initialize') {",
+      "      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: {} }) + '\\n');",
+      "    } else if (msg.method === 'tools/call') {",
+      "      const n = 100 + Math.floor(Math.random() * 800);",
+      "      const text = `ERROR: Type mismatch in assignment (line ${n}; column ${n % 40})`;",
+      "      process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: msg.id, result: { content: [{ text }] } }) + '\\n');",
+      "    }",
+      "  }",
+      "});",
+    ].join("\n"),
+    "utf-8"
+  );
+
+  const recurDir = makeRoot("RecurAgent", {
+    "00_options.lss": "Option Public\n",
+    "01_declarations.lss": "' nic\nDim g_x As Long\n",
+    "sub_Recur.lss": "' @script-member-of: RecurAgent\n' @procedure: Recur\n' Účel: Procedura pro test opakované LSP chyby.\nSub Recur()\n    Print \"r\"\nEnd Sub\n",
+  });
+
+  const cfgPath = projectConfigPath(testDir);
+  fs.mkdirSync(path.dirname(cfgPath), { recursive: true });
+  fs.writeFileSync(
+    cfgPath,
+    JSON.stringify({ enableLsp: true, autoDraftRecurringGotchas: true }, null, 2),
+    "utf-8"
+  );
+
+  const previousLspEnv = process.env.LOTUSSCRIPT_MCP_SERVER;
+  process.env.LOTUSSCRIPT_MCP_SERVER = fakeLsp;
+
+  let modalCalls = 0;
+  const recurCtx: any = {
+    hasUI: true,
+    cwd: testDir,
+    ui: {
+      custom: async () => {
+        modalCalls++;
+        return { action: "cancel" };
+      },
+      notify: () => {},
+    },
+  };
+
+  let recurSessionStart: any = null;
+  let recurToolResult: any = null;
+  const recurPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "session_start") recurSessionStart = handler;
+      if (evt === "tool_result") recurToolResult = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(recurPi);
+  recurSessionStart({}, recurCtx);
+
+  const recurEdit = () => ({
+    toolName: "edit",
+    input: { path: path.join(recurDir, "sub_Recur.lss") },
+    content: [{ type: "text", text: "edited" }],
+    isError: false,
+  });
+
+  await recurToolResult(recurEdit(), recurCtx);
+  const afterFirst = modalCalls;
+  await recurToolResult(recurEdit(), recurCtx);
+  const afterSecond = modalCalls;
+  await recurToolResult(recurEdit(), recurCtx);
+  const afterThird = modalCalls;
+
+  const recurringOk = afterFirst === 0 && afterSecond === 1 && afterThird === 1;
+  console.log("47. Recurring LSP diagnostic drafts a gotcha exactly once:", recurringOk ? "PASS" : "FAIL");
+  if (!recurringOk) {
+    throw new Error(`Recurring detection failed — modal calls after each cycle: ${afterFirst}/${afterSecond}/${afterThird}`);
+  }
+
+  if (previousLspEnv === undefined) delete process.env.LOTUSSCRIPT_MCP_SERVER;
+  else process.env.LOTUSSCRIPT_MCP_SERVER = previousLspEnv;
 
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });

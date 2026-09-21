@@ -32,15 +32,12 @@ A modular agent folder contains:
      ' @procedure: <Name>
      ' @parent-declarations: 01_declarations.lss
      ```
-   - Register the file in `manifest.json` inside the `compilationOrder` array (before `99_initialize.lss`).
-   - Add virtual import line to `main.lss`:
-     ```lotusscript
-     ' %pi-import "sub_<Name>.lss"
-     ```
+   - `manifest.json` (the `compilationOrder` array) and `main.lss` are **maintained automatically** by the extension on every compile — do not edit them.
+     - `main.lss` is a synthetic index of `' %pi-import` directives regenerated from `manifest.json`.
+     - Hand edits to either file are discarded on the next recompile.
 
 3. **Deleting a Subroutine or Function**:
-   - Delete the `.lss` file from disk.
-   - Remove its entry from `manifest.json` and `main.lss`.
+   - Delete the `.lss` file from disk. The next recompile drops it from `manifest.json` and `main.lss` automatically.
 
 4. **Changing Global State or Types**:
    - Edit `01_declarations.lss`.
@@ -61,6 +58,47 @@ The extension automates the full ephemeral modularization lifecycle:
    - Assembles final `.lss` file, verifies LSP, and deletes modular folder.
 5. **Interactive Gotchas Approval:**
    - Proposing gotchas via `lotusscript_gotchas(action: "add")` displays an interactive modal window with Save, Cancel, and Rewrite options before writing anything to disk.
+
+## 3b. Definition of Done, Scorecard & Evaluation
+
+The extension grades every compile deterministically. **The model never self-reports a score** — the same facts (procedure length, comments, LSP diagnostics, manifest sync, final artifact) are computed by the plugin and injected as a feedback signal.
+
+**Definition of Done (per agent you touch):**
+
+1. No procedure exceeds `maxProcedureLines` (default 300), unless the user approved an exception.
+2. Every sub/function has a concise Czech purpose comment (`' Účel: ...`).
+3. The compiled artifact reports 0 LSP errors.
+4. `manifest.json` compilationOrder matches the files on disk.
+5. The final artifact is written: original `.lss` overwritten, or `<Agent>.lss` created for `.dxl`.
+6. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
+
+**Scorecard** is attached to every recompile result:
+
+```text
+📊 SCORECARD  tlacitko_v2  7/10  ▲ +3 since last compile
+  ✅ procedures ≤ 300 lines
+  ✅ Czech purpose comments (11/11)
+  ❌ LSP diagnostics (2 errors)
+  ✅ manifest.json in sync
+  ⬜ final artifact written
+  Remaining:
+    - LSP diagnostics (2 errors): <first lines of the diagnostic output>
+```
+
+Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-5` per over-limit procedure without an approved exception, `-3` per procedure missing its Czech purpose comment.
+
+Instant failure conditions: editing `main.lss` or `*_compiled.lss` directly; writing outside the modular root; deleting a procedure file without updating `manifest.json`.
+
+Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka]` (per-procedure line counts and comment status).
+
+## 3c. Self-improvement loop (pre-flight, debrief, recurring failures)
+
+1. **Pre-flight gotchas (the Plan step):** on the first read of a modular agent's `main.lss`, the extension extracts identifiers from `01_declarations.lss` plus the procedure file names, then surfaces up to 3 registered gotchas matching **this agent's own** declarations. Falls back to the generic top-8 summary when nothing matches. Toggle: `injectPreflightGotchas`.
+2. **Instant-failure guards:** `edit`/`write` to `main.lss`, `manifest.json`, or `*_compiled.lss` is blocked — all three files are maintained by the extension, so hand edits are always lost.
+3. **Debrief (note-to-self):** when `agent_settled` finalises an agent folder, if any Definition of Done item is unmet the harness records a debrief. It is injected as a message at the start of the next turn and consumed exactly once.
+4. **Recurring failures → gotcha draft:** every LSP diagnostic is normalised to a location-free signature (line, column and file paths stripped). If the same signature appears in two compile cycles, the harness drafts a gotcha and asks the user to approve it — the model is not trusted to notice its own repeats. Toggle: `autoDraftRecurringGotchas`.
+
+The loop is closed: **evaluate → detect gap → harness drafts gotcha → user approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 
 ## 4. Pasting into Domino Designer 9.0.1
 

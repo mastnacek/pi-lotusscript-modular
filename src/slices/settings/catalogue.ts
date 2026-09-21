@@ -114,6 +114,42 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
       false: "Vypnuto — nepovinné",
     },
   },
+  {
+    key: "enableScorecard",
+    kind: "boolean",
+    description: "Počitovat a vkládat deterministický scorecard po každé kompilaci agenta",
+    valueHelp: {
+      true: "Zapnuto — vkládat hodnocení (scorecard) do výsledku kompilace",
+      false: "Vypnuto — pouze prose hlášení bez skóre",
+    },
+  },
+  {
+    key: "enforceGradingRubric",
+    kind: "boolean",
+    description: "Vkládat do system promptu Definition of Done a hodnotící rubriku",
+    valueHelp: {
+      true: "Zapnuto — model dostane DoD a způsob hodnocení",
+      false: "Vypnuto — rubrika se nevkládá",
+    },
+  },
+  {
+    key: "injectPreflightGotchas",
+    kind: "boolean",
+    description: "Vkládat místo obecného souhrnu gotchas cílené nálezy podle identifikátorů agenta",
+    valueHelp: {
+      true: "Zapnuto — předletová kontrola gotchas podle vlastních identifikátorů agenta",
+      false: "Vypnuto — vkládat obecný souhrn top gotchas",
+    },
+  },
+  {
+    key: "autoDraftRecurringGotchas",
+    kind: "boolean",
+    description: "Automaticky navrhnout gotchu, když se stejná LSP diagnostika opakuje ve více cyklech",
+    valueHelp: {
+      true: "Zapnuto — opakovaná chyba se nabídne k uložení jako gotcha (se schválením)",
+      false: "Vypnuto — opakované chyby se neevidují",
+    },
+  },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {

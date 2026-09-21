@@ -16,6 +16,10 @@ export const DEFAULT_CONFIG: ModularConfig = {
   checkProcedureLimits: true,
   maxProcedureLines: 300,
   enforceCzechComments: true,
+  enableScorecard: true,
+  enforceGradingRubric: true,
+  injectPreflightGotchas: true,
+  autoDraftRecurringGotchas: true,
 };
 
 export function projectConfigPath(cwd?: string): string {

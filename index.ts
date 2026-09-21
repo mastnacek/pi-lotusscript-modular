@@ -20,7 +20,13 @@ import {
   isWriteToolResult,
 } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
-import type { GotchaItem, ModularConfig } from "./src/shared/types.js";
+import type {
+  AgentScorecard,
+  FolderLintResult,
+  GotchaItem,
+  LspCheckResult,
+  ModularConfig,
+} from "./src/shared/types.js";
 import {
   DEFAULT_CONFIG,
   loadConfig,
@@ -47,6 +53,15 @@ import {
   promptProcedureLineReview,
 } from "./src/slices/linter/index.js";
 import {
+  buildGradingRubric,
+  buildRecurringGotchaDraft,
+  computeScorecard,
+  findRecurringSignatures,
+  formatScorecard,
+  normalizeDiagnostics,
+  trendLabel,
+} from "./src/slices/scorecard/index.js";
+import {
   completeLsArguments,
   findSetting,
   formatValue,
@@ -68,6 +83,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const modifiedModularDirs = new Set<string>();
   const approvedLineExceptions = new Set<string>();
   const rejectedLineSignatures = new Map<string, string>();
+  const scoreHistory = new Map<string, AgentScorecard[]>();
 
   /** Cheap content signature used to avoid re-prompting for unchanged files. */
   function procedureSignature(filePath: string): string {
@@ -79,18 +95,165 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
   }
 
+  /** True when manifest.json compilationOrder covers exactly the procedure files on disk. */
+  function isManifestSynced(root: string): boolean {
+    try {
+      const manifestPath = path.join(root, "manifest.json");
+      if (!fs.existsSync(manifestPath)) return false;
+      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as { compilationOrder?: string[] };
+      const order = manifest.compilationOrder ?? [];
+      const onDisk = fs
+        .readdirSync(root)
+        .filter((f) => f.endsWith(".lss") && f !== "main.lss" && !/_compiled\.lss$/i.test(f));
+      return onDisk.length === order.length && onDisk.every((f) => order.includes(f));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Builds a deterministic scorecard for one modular agent root. */
+  function buildScorecard(
+    root: string,
+    opts: {
+      lint: FolderLintResult;
+      lsp: LspCheckResult | null;
+      artifact: "written" | "pending";
+      manifestSynced?: boolean;
+    }
+  ): AgentScorecard {
+    return computeScorecard({
+      agent: path.basename(root),
+      maxProcedureLines: config.maxProcedureLines,
+      lint: opts.lint,
+      lsp: opts.lsp,
+      lspEnabled: config.enableLsp,
+      enforceCzechComments: config.enforceCzechComments,
+      manifestSynced: opts.manifestSynced ?? isManifestSynced(root),
+      artifact: opts.artifact,
+    });
+  }
+
+  /** Appends to session history and returns the previous scorecard (for the trend line). */
+  function recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined {
+    const history = scoreHistory.get(root) ?? [];
+    const previous = history.at(-1);
+    scoreHistory.set(root, [...history, scorecard].slice(-20));
+    return previous;
+  }
+
+  const preflightBannerCache = new Map<string, string>();
+  const pendingDebriefs: string[] = [];
+  const diagnosticHistory = new Map<string, string[][]>();
+  const recurringGotchaReported = new Set<string>();
+
+  /**
+   * Identifiers and procedure names declared by this agent. These are the tokens
+   * most likely to collide with a registered LotusScript trap (reserved words,
+   * built-in function names, risky API usage).
+   */
+  function collectRootTokens(root: string): string[] {
+    const tokens = new Set<string>();
+    try {
+      const declPath = path.join(root, "01_declarations.lss");
+      if (fs.existsSync(declPath)) {
+        const text = fs.readFileSync(declPath, "utf-8");
+        for (const m of text.matchAll(
+          /\b(?:Dim|Static|Const|Global|Type|Class|Sub|Function|Property(?:\s+Get|\s+Set)?)\s+([A-Za-z_][A-Za-z0-9_]*)/gi
+        )) {
+          const name = m[1];
+          if (name) tokens.add(name);
+        }
+        for (const m of text.matchAll(/\bAs\s+([A-Za-z_][A-Za-z0-9_]*)/gi)) {
+          const name = m[1];
+          if (name) tokens.add(name);
+        }
+      }
+      for (const f of fs.readdirSync(root)) {
+        if (!/^(?:sub_|func_).*\.lss$/i.test(f)) continue;
+        tokens.add(f.replace(/\.lss$/i, "").replace(/^(?:sub_|func_)/i, ""));
+      }
+    } catch {
+      // best effort — pre-flight is advisory only
+    }
+    return [...tokens].filter((t) => t.length >= 3);
+  }
+
+  /**
+   * Pre-flight gotcha banner. With `injectPreflightGotchas` it surfaces only the
+   * traps matching this agent's own identifiers; otherwise the generic summary.
+   * Computed once per root per session and cached.
+   */
+  function buildGotchasBanner(root: string): string {
+    if (!config.injectGotchasSummary) return "";
+
+    const cached = preflightBannerCache.get(root);
+    if (cached !== undefined) return cached;
+
+    let banner: string;
+    if (!config.injectPreflightGotchas) {
+      banner = `\n\n${getGotchasSummary(8)}`;
+    } else {
+      const found = new Map<string, GotchaItem>();
+      for (const token of collectRootTokens(root)) {
+        for (const hit of searchGotchas(token, 3)) {
+          if (`${hit.title}\n${hit.body}`.toLowerCase().includes(token.toLowerCase())) {
+            found.set(hit.id, hit);
+          }
+        }
+        if (found.size >= 3) break;
+      }
+
+      if (found.size === 0) {
+        banner = `\n\n${getGotchasSummary(8)}`;
+      } else {
+        const lines = [
+          "⚠️ PRE-FLIGHT GOTCHA CHECK (matches against this agent's own declarations):",
+        ];
+        for (const g of [...found.values()].slice(0, 3)) {
+          const gist = g.body
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
+            .slice(0, 2)
+            .join(" ");
+          lines.push(`  • ${g.title}`);
+          if (gist) lines.push(`    ${gist.slice(0, 200)}`);
+        }
+        lines.push("  Full text: tool 'lotusscript_gotchas' with a keyword, or /ls gotchas <query>.");
+        banner = `\n\n${lines.join("\n")}`;
+      }
+    }
+
+    preflightBannerCache.set(root, banner);
+    return banner;
+  }
+
   async function verifyProcedureLimits(
     folder: string,
     ctx?: ExtensionContext
-  ): Promise<{ ok: boolean; message?: string; splitInstructions?: string; warnings: string[] }> {
+  ): Promise<{
+    ok: boolean;
+    message?: string;
+    splitInstructions?: string;
+    warnings: string[];
+    lint: FolderLintResult;
+  }> {
     const warnings: string[] = [];
-    if (!config.checkProcedureLimits) return { ok: true, warnings };
-
     const lint = lintModularFolder(
       folder,
       config.maxProcedureLines,
       config.enforceCzechComments
     );
+
+    if (config.enforceCzechComments) {
+      for (const m of lint.missingCommentProcedures) {
+        warnings.push(
+          `Procedure '${m.fileName}' lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
+        );
+      }
+    }
+
+    if (!config.checkProcedureLimits) return { ok: true, warnings, lint };
 
     for (const item of lint.exceededProcedures) {
       const key = `${path.resolve(folder)}:${item.fileName}`;
@@ -106,6 +269,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         return {
           ok: false,
           warnings,
+          lint,
           message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user already rejected the exception for this revision. Split it into smaller subroutines/functions in 'sub_*.lss' or 'func_*.lss' files.`,
         };
       }
@@ -115,6 +279,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         return {
           ok: false,
           warnings,
+          lint,
           message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. Approving an exception requires an interactive UI, which is unavailable. Split the procedure into smaller subroutines/functions.`,
         };
       }
@@ -133,6 +298,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         return {
           ok: false,
           warnings,
+          lint,
           splitInstructions: review.instructions,
           message: `Procedure '${item.fileName}' has ${item.lineCount} lines (limit ${item.maxLines}). The user rejected the exception and provided splitting instructions: "${review.instructions}"`,
         };
@@ -141,18 +307,13 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         return {
           ok: false,
           warnings,
+          lint,
           message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user rejected the exception and requests splitting it into smaller subroutines/functions according to LotusScript principles (avoiding the 32 KB procedure limit).`,
         };
       }
     }
 
-    if (config.enforceCzechComments && lint.missingCommentProcedures.length > 0) {
-      for (const m of lint.missingCommentProcedures) {
-        warnings.push(`Procedure '${m.fileName}' lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`);
-      }
-    }
-
-    return { ok: true, warnings };
+    return { ok: true, warnings, lint };
   }
 
   function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
@@ -224,11 +385,36 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           if (!limitCheck.ok) {
             continue;
           }
+          const lintBeforeDelete = limitCheck.lint;
           const finalLss = AgentParser.compileAgent(modDir, {
             overwriteSourceLss: config.overwriteSourceLss,
             createLssForDxl: true,
             deleteModularDir: true,
           });
+
+          // Debrief: deterministic "note to self" carried into the next turn.
+          if (config.enableScorecard) {
+            const scorecard = buildScorecard(modDir, {
+              lint: lintBeforeDelete,
+              lsp: null,
+              artifact: "written",
+              manifestSynced: true,
+            });
+            const previous = recordScorecard(modDir, scorecard);
+            const unmet = scorecard.items.filter((i) => !i.ok && !i.pending);
+            if (unmet.length > 0) {
+              pendingDebriefs.push(
+                [
+                  `🧾 [LotusScript Debrief] ${path.basename(modDir)} — final ${scorecard.score}/${scorecard.max} (${trendLabel(scorecard, previous)})`,
+                  `- Artifact: ${path.basename(finalLss)}`,
+                  "- Unmet Definition of Done:",
+                  ...unmet.map((u) => `    - ${u.label}${u.detail ? `: ${u.detail}` : ""}`),
+                  '- Propose each unmet trap via lotusscript_gotchas(action: "add") so it is not repeated.',
+                ].join("\n")
+              );
+            }
+          }
+
           if (ctx.hasUI) {
             ctx.ui.notify(
               `🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} sestaven a dočasná složka smazána.`,
@@ -259,7 +445,19 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   // Prompt injection: enforce KB query + inject gotchas reminder
   pi.on("before_agent_start", (event) => {
-    if (!event.systemPromptOptions?.promptGuidelines) return;
+    const pendingDebrief = pendingDebriefs.length > 0 ? pendingDebriefs.join("\n\n") : "";
+    if (pendingDebrief) pendingDebriefs.length = 0;
+    const debriefMessage = pendingDebrief
+      ? {
+          message: {
+            customType: "lotusscript-debrief",
+            content: pendingDebrief,
+            display: true,
+          },
+        }
+      : undefined;
+
+    if (!event.systemPromptOptions?.promptGuidelines) return debriefMessage;
 
     if (config.enforceKbPrompt) {
       event.systemPromptOptions.promptGuidelines.push(
@@ -285,24 +483,64 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
       );
     }
 
+    if (config.enforceGradingRubric) {
+      event.systemPromptOptions.promptGuidelines.push(buildGradingRubric(config));
+    }
+
     event.systemPromptOptions.promptGuidelines.push(
       "LOTUSSCRIPT MODULAR AGENTS (EPHEMERAL WORKFLOW): When reading LotusScript (.lss) or Domino agent DXL (.dxl) files, the extension temporarily decompiles them into modular folders (manifest.json, main.lss, sub_*.lss, func_*.lss) for fine-grained editing. Always edit the individual modular files. Once you finish your modifications, the extension automatically compiles the final code into the standalone .lss file (or creates <name>.lss for .dxl) and completely deletes the temporary modular folder."
     );
+
+    return debriefMessage;
   });
 
   // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
   pi.on("tool_call", (event) => {
-    if (!config.autoDecompileOnRead) return;
-
     const rawName = event.toolName || "";
     const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
-    if (MUTATING_TOOL_NAMES.has(baseToolName)) return;
 
     const input = event.input as Record<string, unknown> | undefined;
-    if (!input) return;
+    const pathKey =
+      input && typeof input.path === "string"
+        ? "path"
+        : input && typeof input.file === "string"
+          ? "file"
+          : null;
 
-    const pathKey = typeof input.path === "string" ? "path" : (typeof input.file === "string" ? "file" : null);
-    if (!pathKey) return;
+    // --- Instant-failure guards (edit/write only; independent of autoDecompileOnRead) ---
+    if ((baseToolName === "edit" || baseToolName === "write") && input && pathKey) {
+      const guardPath = path.resolve(input[pathKey] as string);
+      const guardBase = path.basename(guardPath).toLowerCase();
+      const guardRoot = findModularRoot(guardPath);
+
+      if (guardRoot && guardBase === "main.lss") {
+        return {
+          block: true,
+          reason:
+            "INSTANT FAILURE: 'main.lss' is a synthetic index of '%pi-import' directives that the extension regenerates from manifest.json on every compile, so your edit would be discarded. Edit the individual 'sub_*.lss' / 'func_*.lss' files instead.",
+        };
+      }
+
+      if (guardRoot && guardBase === "manifest.json") {
+        return {
+          block: true,
+          reason:
+            "INSTANT FAILURE: 'manifest.json' is auto-synced from the files on disk on every compile. Create or delete the 'sub_*.lss' / 'func_*.lss' file instead — the manifest follows automatically.",
+        };
+      }
+
+      if (/_compiled\.lss$/i.test(guardPath)) {
+        return {
+          block: true,
+          reason:
+            "INSTANT FAILURE: '*_compiled.lss' is a generated artifact that every compile overwrites. Edit the modular source files; the extension recompiles automatically.",
+        };
+      }
+    }
+
+    if (!config.autoDecompileOnRead) return;
+    if (MUTATING_TOOL_NAMES.has(baseToolName)) return;
+    if (!input || !pathKey) return;
 
     const targetPath = input[pathKey] as string;
     if (!targetPath) return;
@@ -341,7 +579,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   });
 
   // 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
-  pi.on("tool_result", async (event) => {
+  pi.on("tool_result", async (event, ctx: ExtensionContext) => {
     const rawName = event.toolName || "";
     const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
 
@@ -361,9 +599,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         const isMain = path.basename(resolved).toLowerCase() === "main.lss";
 
         if (modularRoot && isMain) {
-          const gotchasBanner = config.injectGotchasSummary
-            ? `\n\n${getGotchasSummary(8)}`
-            : "";
+          const gotchasBanner = buildGotchasBanner(modularRoot);
 
           const notice = [
             "",
@@ -399,7 +635,25 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
       const resolved = path.resolve(targetPath);
       const modularRoot = findModularRoot(resolved);
-      if (!modularRoot) return;
+      if (!modularRoot) {
+        const activeRoots = [...modifiedModularDirs, ...readModularDirs];
+        if (
+          activeRoots.length > 0 &&
+          /\.(lss|dxl)$/i.test(resolved) &&
+          !/_compiled\.lss$/i.test(resolved)
+        ) {
+          return {
+            content: [
+              ...event.content,
+              {
+                type: "text",
+                text: `\n\n⚠️ [LotusScript Modular] Advisory: this edit targets a LotusScript file outside the active modular root(s): ${activeRoots.map((r) => path.basename(r)).join(", ")}. If you meant to change a decompiled agent, edit its 'sub_*.lss' / 'func_*.lss' files so manifest sync and recompile stay correct.`,
+              },
+            ],
+          };
+        }
+        return;
+      }
 
       if (resolved.toLowerCase().endsWith("_compiled.lss")) return;
 
@@ -442,17 +696,16 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         });
 
         let lspNotice = "";
+        let lspResult: LspCheckResult | null = null;
         if (config.enableLsp) {
-          const lspResult = await checkLotusScriptDiagnostics(compiledPath);
+          lspResult = await checkLotusScriptDiagnostics(compiledPath);
           if (lspResult.ok) {
-            lspNotice = `\n✓ LSP Diagnostics: 0 errors (clean)`;
             renderStatusline("clean");
           } else {
             lspNotice = `\n⚠️ LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
             renderStatusline("error");
           }
         } else {
-          lspNotice = `\n(LSP validation disabled — toggle with /ls lsp on)`;
           renderStatusline("clean");
         }
 
@@ -472,11 +725,76 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           ? `\nℹ️ [Comments]:\n${limitCheck.warnings.map((w) => `  - ${w}`).join("\n")}`
           : "";
 
+        let scorecardBlock = "";
+        if (config.enableScorecard) {
+          const scorecard = buildScorecard(modularRoot, {
+            lint: limitCheck.lint,
+            lsp: lspResult,
+            artifact: "pending",
+          });
+          const previous = recordScorecard(modularRoot, scorecard);
+          scorecardBlock = formatScorecard(scorecard, previous);
+        }
+
+        // Recurring-failure detection → harness-generated gotcha draft (user-approved).
+        let recurringNotice = "";
+        if (config.autoDraftRecurringGotchas && config.enableLsp && lspResult && !lspResult.ok) {
+          const signatures = normalizeDiagnostics(lspResult.diagnostics);
+          if (signatures.length > 0) {
+            const history = diagnosticHistory.get(modularRoot) ?? [];
+            const recurring = findRecurringSignatures(signatures, history, 2);
+            diagnosticHistory.set(modularRoot, [...history, signatures].slice(-10));
+
+            const fresh = recurring.filter(
+              (s) => !recurringGotchaReported.has(`${modularRoot}:${s}`)
+            );
+
+            if (fresh.length > 0) {
+              const reviewCtx = ctx ?? latestUiContext;
+              const draft = buildRecurringGotchaDraft(
+                path.basename(modularRoot),
+                fresh,
+                [path.basename(resolved)]
+              );
+
+              if (!reviewCtx || !reviewCtx.hasUI) {
+                recurringNotice = `\n♻️ RECURRING FAILURE (${fresh.length} signature(s)) detected, but no UI is available to approve a gotcha draft. Record it via lotusscript_gotchas(action: "add", ...).`;
+              } else {
+                for (const s of fresh) recurringGotchaReported.add(`${modularRoot}:${s}`);
+                const review = await promptGotchaReview(reviewCtx, draft.title, draft.body);
+
+                if (review.action === "save") {
+                  const created = addGotcha(draft.title, draft.body);
+                  reviewCtx.ui.notify(`✓ Opakovaná chyba uložena jako gotcha: ${created.title}`, "info");
+                  recurringNotice = `\n♻️ Recurring failure recorded as a gotcha: ${created.title}`;
+                } else if (review.action === "rewrite") {
+                  recurringNotice = [
+                    "",
+                    "♻️ RECURRING FAILURE — the user wants this gotcha rewritten before saving.",
+                    `Draft title: ${draft.title}`,
+                    `User instructions: "${review.instructions}"`,
+                    'Call lotusscript_gotchas(action: "add", title: "...", body: "...") with the revised text.',
+                  ].join("\n");
+                } else {
+                  reviewCtx.ui.notify("Opakovaná chyba nebyla uložena jako gotcha.", "warning");
+                  recurringNotice =
+                    "\n♻️ Recurring failure detected; the user declined to record a gotcha for it.";
+                }
+              }
+            }
+          }
+        }
+
         const recompileNotice = [
           "",
           "---",
           `🔨 [LotusScript Modular: Recompiled]`,
-          `- Artifact: ${compiledPath}${overwriteNotice}${cleanupNotice}${lspNotice}${gotchaNudge}${commentWarnings}`,
+          `- Artifact: ${compiledPath}${overwriteNotice}${cleanupNotice}`,
+          ...(scorecardBlock ? ["", scorecardBlock] : []),
+          ...(recurringNotice ? [recurringNotice.trimStart()] : []),
+          ...(lspNotice ? [lspNotice.trimStart()] : []),
+          ...(gotchaNudge ? [gotchaNudge.trimStart()] : []),
+          ...(commentWarnings ? [commentWarnings.trimStart()] : []),
           "---",
         ].join("\n");
 
@@ -515,6 +833,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             `- Kontrola limitů procedur: ${config.checkProcedureLimits ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Max řádků na proceduru: ${config.maxProcedureLines}`,
             `- Vynucovat české komentáře: ${config.enforceCzechComments ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Scorecard (hodnocení): ${config.enableScorecard ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Rubrika Definition of Done: ${config.enforceGradingRubric ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Předletová kontrola gotchas: ${config.injectPreflightGotchas ? "ZAPNUTO" : "VYPNUTO"}`,
+            `- Auto-návrh gotchy z opakované chyby: ${config.autoDraftRecurringGotchas ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-dekompilace při čtení: ${config.autoDecompileOnRead ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Auto-rekompilace při uložení: ${config.autoRecompileOnSave ? "ZAPNUTO" : "VYPNUTO"}`,
             `- Vynucovat lotus-notes KB prompt: ${config.enforceKbPrompt ? "ZAPNUTO" : "VYPNUTO"}`,
@@ -607,7 +929,35 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             const docIcon = item.hasDocComment ? "📝" : "⚠️ chybí popis";
             lines.push(`  ${statusIcon} ${item.fileName} — ${item.lineCount} řádků [${docIcon}]`);
           }
+          if (config.enableScorecard) {
+            const sc = buildScorecard(root, { lint: res, lsp: null, artifact: "pending" });
+            lines.push("", formatScorecard(sc, scoreHistory.get(root)?.at(-1)));
+          }
           ctx.ui.notify(lines.join("\n"), res.ok ? "info" : "warning");
+          break;
+        }
+
+        case "score": {
+          const target = parts[1] || ctx.cwd;
+          const root = findModularRoot(target);
+          if (!root) {
+            ctx.ui.notify(`Není modulární složka LotusScriptu: ${target}`, "error");
+            return;
+          }
+          const lintRes = lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
+          const compiledName = fs.readdirSync(root).find((f) => /_compiled\.lss$/i.test(f));
+          let lspRes: LspCheckResult | null = null;
+          if (config.enableLsp && compiledName) {
+            lspRes = await checkLotusScriptDiagnostics(path.join(root, compiledName));
+          }
+          const sc = buildScorecard(root, { lint: lintRes, lsp: lspRes, artifact: "pending" });
+          const history = scoreHistory.get(root) ?? [];
+          const out = [formatScorecard(sc, history.at(-1))];
+          if (history.length > 0) {
+            const trend = history.map((h) => `${h.score}/${h.max}`).join(" → ");
+            out.push("", `Historie (${history.length}): ${trend} → ${sc.score}/${sc.max}`);
+          }
+          ctx.ui.notify(out.join("\n"), "info");
           break;
         }
 
@@ -624,16 +974,23 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
               overwriteSourceLss: config.overwriteSourceLss,
               createLssForDxl: true,
             });
+            let lspRes: LspCheckResult | null = null;
+            let lspLine: string;
             if (config.enableLsp) {
-              const lspRes = await checkLotusScriptDiagnostics(compiled);
-              if (lspRes.ok) {
-                ctx.ui.notify(`Sestaveno ${path.basename(compiled)} (LSP čisté)`, "info");
-              } else {
-                ctx.ui.notify(`Sestaveno s LSP chybami:\n${lspRes.diagnostics}`, "warning");
-              }
+              lspRes = await checkLotusScriptDiagnostics(compiled);
+              lspLine = lspRes.ok
+                ? `Sestaveno ${path.basename(compiled)} (LSP čisté)`
+                : `Sestaveno s LSP chybami:\n${lspRes.diagnostics}`;
             } else {
-              ctx.ui.notify(`Sestaveno: ${compiled}`, "info");
+              lspLine = `Sestaveno: ${compiled}`;
             }
+            const out = [lspLine];
+            if (config.enableScorecard) {
+              const lintRes = lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
+              const sc = buildScorecard(root, { lint: lintRes, lsp: lspRes, artifact: "pending" });
+              out.push("", formatScorecard(sc, scoreHistory.get(root)?.at(-1)));
+            }
+            ctx.ui.notify(out.join("\n"), lspRes && !lspRes.ok ? "warning" : "info");
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             ctx.ui.notify(`Chyba kompilace: ${msg}`, "error");
@@ -650,21 +1007,33 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             return;
           }
           try {
+            const lintRes = lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
             const finalLss = AgentParser.compileAgent(root, {
               overwriteSourceLss: config.overwriteSourceLss,
               createLssForDxl: true,
               deleteModularDir: true,
             });
+            let lspRes: LspCheckResult | null = null;
+            let lspLine: string;
             if (config.enableLsp) {
-              const lspRes = await checkLotusScriptDiagnostics(finalLss);
-              if (lspRes.ok) {
-                ctx.ui.notify(`Sestaveno a uklizeno: ${path.basename(finalLss)} (LSP čisté)`, "info");
-              } else {
-                ctx.ui.notify(`Sestaveno s chybami LSP:\n${lspRes.diagnostics}`, "warning");
-              }
+              lspRes = await checkLotusScriptDiagnostics(finalLss);
+              lspLine = lspRes.ok
+                ? `Sestaveno a uklizeno: ${path.basename(finalLss)} (LSP čisté)`
+                : `Sestaveno s chybami LSP:\n${lspRes.diagnostics}`;
             } else {
-              ctx.ui.notify(`Sestaveno do: ${finalLss} a modulární složka byla smazána.`, "info");
+              lspLine = `Sestaveno do: ${finalLss} a modulární složka byla smazána.`;
             }
+            const out = [lspLine];
+            if (config.enableScorecard) {
+              const sc = buildScorecard(root, {
+                lint: lintRes,
+                lsp: lspRes,
+                artifact: "written",
+                manifestSynced: true,
+              });
+              out.push("", formatScorecard(sc, scoreHistory.get(root)?.at(-1)));
+            }
+            ctx.ui.notify(out.join("\n"), lspRes && !lspRes.ok ? "warning" : "info");
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             ctx.ui.notify(`Chyba při úklidu: ${msg}`, "error");
@@ -749,6 +1118,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "  /ls overwrite [on|off]     — Zapnout/vypnout přepis .lss souboru",
             "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
             "  /ls lint [složka]          — Zkontrolovat délku procedur a komentáře",
+            "  /ls score [složka]         — Zobrazit scorecard a trend agenta",
             "  /ls pack [složka]          — Sestavit do .lss a smazat modulární složku",
             "  /ls decompile <soubor>     — Rozložit monolit .lss/.dxl",
             "  /ls gotchas [dotaz]        — Prohledat centrální bázi 40+ gotchas",
