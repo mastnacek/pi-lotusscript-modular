@@ -9,7 +9,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 ## Features
 
 - **Virtual Modularization:** Decomposes monolithic `.lss` and `.dxl` Domino agents into structured modular files (`00_options.lss`, `01_declarations.lss`, `sub_*.lss`, `func_*.lss`, `99_initialize.lss`, `main.lss`, and `manifest.json`).
-- **Auto-Decompile on Read:** When an agent reads a monolithic `.lss` or `.dxl` file, the extension automatically splits it into a folder alongside the source file and redirects reading to `main.lss`.
+- **Auto-Decompile on Read:** When an agent reads or inspects a monolithic `.lss` or `.dxl` file (via `read`, `read_all`, `ctx_execute_file`, etc.), the extension automatically splits it into a folder alongside the source file and redirects reading to `main.lss`.
 - **Auto-Manifest Sync & Recompile on Save:** When editing or adding any procedure in the modular folder, `manifest.json` is updated and the compiled artifact is regenerated automatically.
 - **Overwrite `.lss` Source:** Keeps the original `.lss` source file in sync on recompile by default (safe for git). DXL files are never overwritten with plain text.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.

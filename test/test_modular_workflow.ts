@@ -10,6 +10,7 @@ import { checkLotusScriptDiagnostics } from "../src/slices/lsp/index.js";
 import { getAllGotchas, searchGotchas } from "../src/slices/gotchas/index.js";
 import { completeLsArguments } from "../src/slices/settings/index.js";
 import { DEFAULT_CONFIG } from "../src/shared/config.js";
+import lotusscriptModularExtension from "../index.js";
 
 async function runTest() {
   console.log("=== Testing LotusScript Modular Standalone Package (VSA Layout) ===");
@@ -149,6 +150,48 @@ End Function
   console.log("13. LSP Diagnostics result:", lspRes);
   if (!lspRes.ok) {
     throw new Error(`LSP diagnostics reported errors: ${lspRes.diagnostics}`);
+  }
+
+  // 14. Test tool_call interception with custom reading tools (e.g. ctx_execute_file, read_all)
+  const monolith2Path = path.join(testDir, "Monolith2.lss");
+  fs.writeFileSync(monolith2Path, monolithCode, "utf-8");
+
+  let toolCallHandler: ((e: any) => void) | null = null;
+  const mockPi: any = {
+    on: (evt: string, handler: any) => {
+      if (evt === "tool_call") toolCallHandler = handler;
+    },
+    registerCommand: () => {},
+    registerTool: () => {},
+  };
+  lotusscriptModularExtension(mockPi);
+
+  if (!toolCallHandler) {
+    throw new Error("Failed to register tool_call handler");
+  }
+
+  const mockEvent: any = {
+    toolName: "ctx_execute_file",
+    input: { path: monolith2Path, code: "console.log(FILE_CONTENT.length)" },
+  };
+  toolCallHandler(mockEvent);
+
+  const redirected = typeof mockEvent.input.path === "string" && mockEvent.input.path.endsWith("main.lss");
+  console.log("14. Auto-decompile on custom tool (ctx_execute_file):", redirected ? "PASS" : "FAIL");
+  if (!redirected) {
+    throw new Error(`Custom tool input.path was not redirected to main.lss: ${mockEvent.input.path}`);
+  }
+
+  // 15. Verify that second access to the already decompiled file redirects to existing modular dir
+  const mockEvent2: any = {
+    toolName: "read_all",
+    input: { path: monolith2Path },
+  };
+  toolCallHandler(mockEvent2);
+  const redirectedExisting = typeof mockEvent2.input.path === "string" && mockEvent2.input.path.endsWith("main.lss");
+  console.log("15. Redirect existing modular dir on custom tool (read_all):", redirectedExisting ? "PASS" : "FAIL");
+  if (!redirectedExisting) {
+    throw new Error(`Custom tool input.path was not redirected to existing modular dir: ${mockEvent2.input.path}`);
   }
 
   // Cleanup

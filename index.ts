@@ -51,6 +51,13 @@ import {
   SETTING_SPECS,
 } from "./src/slices/settings/index.js";
 
+const MUTATING_TOOL_NAMES = new Set([
+  "edit",
+  "write",
+  "lotusscript_compile",
+  "lotusscript_decompile",
+]);
+
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   let config: ModularConfig = { ...DEFAULT_CONFIG };
   let activeCwd = process.cwd();
@@ -135,52 +142,74 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         "MANDATORY GOTCHA RECORDING: When working with LotusScript / Domino 9.0.1, if you encounter or resolve an unexpected language quirk, compiler trap, or runtime error, you MUST record it to the shared gotchas registry using tool 'lotusscript_gotchas(action: \"add\", title: \"...\", body: \"...\")' before concluding your turn."
       );
     }
+
+    event.systemPromptOptions.promptGuidelines.push(
+      "LOTUSSCRIPT MODULAR AGENTS: When reading, inspecting, or analyzing LotusScript (.lss) or Domino agent DXL (.dxl) files, prefer file-reading tools (e.g. read, read_all, ctx_execute_file). Monolithic scripts are automatically decompiled into modular folders (manifest.json, main.lss, sub_*.lss, func_*.lss). Once decompiled, always edit the individual modular files, which automatically sync and recompile."
+    );
   });
 
-  // 1. Tool Call Interception (Auto-decompile on Read or redirect to existing modular dir)
+  // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
   pi.on("tool_call", (event) => {
     if (!config.autoDecompileOnRead) return;
 
-    if (isToolCallEventType("read", event)) {
-      const targetPath = event.input.path;
-      if (!targetPath) return;
+    const rawName = event.toolName || "";
+    const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
+    if (MUTATING_TOOL_NAMES.has(baseToolName)) return;
 
-      const resolved = path.resolve(targetPath);
-      if (!fs.existsSync(resolved)) return;
+    const input = event.input as Record<string, unknown> | undefined;
+    if (!input) return;
 
-      const existingDir = getExistingModularDir(resolved);
-      if (existingDir) {
-        event.input.path = path.join(existingDir, "main.lss");
-        return;
+    const pathKey = typeof input.path === "string" ? "path" : (typeof input.file === "string" ? "file" : null);
+    if (!pathKey) return;
+
+    const targetPath = input[pathKey] as string;
+    if (!targetPath) return;
+
+    const resolved = path.resolve(targetPath);
+    if (!fs.existsSync(resolved)) return;
+
+    const existingDir = getExistingModularDir(resolved);
+    if (existingDir) {
+      input[pathKey] = path.join(existingDir, "main.lss");
+      return;
+    }
+
+    if (isMonolithicLss(resolved)) {
+      try {
+        const outDir = AgentParser.decompileLss(resolved);
+        input[pathKey] = path.join(outDir, "main.lss");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[LotusScript Modular] Auto-decompile LSS failed: ${msg}`);
       }
-
-      if (isMonolithicLss(resolved)) {
-        try {
-          const outDir = AgentParser.decompileLss(resolved);
-          event.input.path = path.join(outDir, "main.lss");
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[LotusScript Modular] Auto-decompile LSS failed: ${msg}`);
+    } else if (isMonolithicDxl(resolved)) {
+      try {
+        const outDir = AgentParser.decompileDxl(resolved);
+        if (outDir) {
+          input[pathKey] = path.join(outDir, "main.lss");
         }
-      } else if (isMonolithicDxl(resolved)) {
-        try {
-          const outDir = AgentParser.decompileDxl(resolved);
-          if (outDir) {
-            event.input.path = path.join(outDir, "main.lss");
-          }
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[LotusScript Modular] Auto-decompile DXL failed: ${msg}`);
-        }
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[LotusScript Modular] Auto-decompile DXL failed: ${msg}`);
       }
     }
   });
 
-  // 2. Tool Result Interception (Context injection on Read, Auto-recompile on Edit/Write)
+  // 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
   pi.on("tool_result", async (event) => {
-    // A) If reading main.lss of a modular agent
-    if (isReadToolResult(event)) {
-      const readPath = (event.input as { path?: string })?.path;
+    const rawName = event.toolName || "";
+    const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
+
+    // A) If reading or inspecting main.lss of a modular agent
+    if (!MUTATING_TOOL_NAMES.has(baseToolName)) {
+      const input = event.input as Record<string, unknown> | undefined;
+      const readPath =
+        typeof input?.path === "string"
+          ? input.path
+          : typeof input?.file === "string"
+            ? input.file
+            : undefined;
+
       if (readPath) {
         const resolved = path.resolve(readPath);
         const modularRoot = findModularRoot(resolved);
@@ -217,7 +246,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
 
     // B) If editing or writing a file inside a modular folder
-    if ((isEditToolResult(event) || isWriteToolResult(event)) && !event.isError) {
+    if ((isEditToolResult(event) || isWriteToolResult(event) || baseToolName === "edit" || baseToolName === "write") && !event.isError) {
       if (!config.autoRecompileOnSave) return;
 
       const targetPath = (event.input as { path?: string })?.path;
