@@ -348,7 +348,7 @@ export async function promptProcedureLineReview(
   ctx: ExtensionContext,
   item: ProcedureLintItem
 ): Promise<ProcedureReviewResult> {
-  if (!ctx.hasUI) {
+  if (!ctx.hasUI || (ctx.mode && ctx.mode !== "tui")) {
     return { action: "reject" };
   }
 

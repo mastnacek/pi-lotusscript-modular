@@ -257,7 +257,7 @@ export async function promptGotchaReview(
   title: string,
   body: string
 ): Promise<GotchaReviewResult> {
-  if (!ctx.hasUI) {
+  if (!ctx.hasUI || (ctx.mode && ctx.mode !== "tui")) {
     return { action: "cancel" };
   }
 
