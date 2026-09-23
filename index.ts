@@ -126,6 +126,14 @@ function collectShellLikeSources(input: Record<string, unknown> | undefined): st
 }
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
+  /** Unsubscribers from every `pi.on()`; drained on session_shutdown (AGENTS §5). */
+  const unsubscribers: Array<() => void> = [];
+
+  /** Retain a `pi.on()` return value; older engine typings declare it void. */
+  const track = (result: unknown): void => {
+    if (typeof result === "function") unsubscribers.push(result as () => void);
+  };
+
   let config: ModularConfig = { ...DEFAULT_CONFIG };
   let activeCwd = process.cwd();
   let latestUiContext: ExtensionContext | null = null;
@@ -422,17 +430,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     renderStatusline("idle");
   }
 
-  pi.on("session_start", (_event, ctx: ExtensionContext) => {
+  track(pi.on("session_start", (_event, ctx: ExtensionContext) => {
     latestUiContext = ctx;
     syncConfig(ctx.cwd);
     renderStatusline("idle");
-  });
+  }));
 
-  pi.on("turn_end", () => {
+  track(pi.on("turn_end", () => {
     renderStatusline("idle");
-  });
+  }));
 
-  pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
+  track(pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
     renderStatusline("idle");
     if (!config.cleanupOnSettled) return;
 
@@ -513,10 +521,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
     modifiedModularDirs.clear();
     readModularDirs.clear();
-  });
+  }));
 
   // Prompt injection: enforce KB query + inject gotchas reminder
-  pi.on("before_agent_start", (event) => {
+  track(pi.on("before_agent_start", (event) => {
     const pendingDebrief = pendingDebriefs.length > 0 ? pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) pendingDebriefs.length = 0;
     const debriefMessage = pendingDebrief
@@ -564,10 +572,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     );
 
     return debriefMessage;
-  });
+  }));
 
   // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
-  pi.on("tool_call", (event) => {
+  track(pi.on("tool_call", (event) => {
     const rawName = event.toolName || "";
     const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
 
@@ -676,10 +684,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         console.error(`[LotusScript Modular] Auto-decompile DXL failed: ${msg}`);
       }
     }
-  });
+  }));
 
   // 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
-  pi.on("tool_result", async (event, ctx: ExtensionContext) => {
+  track(pi.on("tool_result", async (event, ctx: ExtensionContext) => {
     const rawName = event.toolName || "";
     const baseToolName = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
 
@@ -937,7 +945,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         };
       }
     }
-  });
+  }));
 
   // 3. Unified `/ls` Command with Lazy Menus
   pi.registerCommand("ls", {
@@ -1544,5 +1552,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         details: { ok: true, hits },
       };
     },
+  });
+
+  pi.on("session_shutdown", () => {
+    while (unsubscribers.length > 0) unsubscribers.pop()?.();
   });
 }
