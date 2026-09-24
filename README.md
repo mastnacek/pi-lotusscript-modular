@@ -19,6 +19,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the skill so every new element is machine-recognizable in the design graph.
 - **Comprehensive Skill:** Progressive-disclosure skill (`skills/lotusscript-modular/`) with `references/` for workflow, coding conventions, 42-gotcha index, scaffolding and DXL/ODP editing.
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection before writing or modifying Notes 9.0.1 LotusScript code.
+- **Hard KB Edit Gate:** The KB rule is ENFORCED — `edit`/`write` calls on `.lss`/`.dxl` files are rejected (`block: true`) until `kb_search` (collection `lotus-notes`) has been called this session. Gate re-arms on every new session; disable with `"enforceKbGate": false`.
 
 ---
 
@@ -54,6 +55,7 @@ Stored in `.pi/lotusscript-modular.json`:
   "keepTimestampInCompiledName": false,
   "overwriteSourceLss": true,
   "enforceKbPrompt": true,
+  "enforceKbGate": true,
   "injectGotchasSummary": true
 }
 ```

@@ -826,6 +826,19 @@ End Sub
   console.log("37. Guard blocks editing generated *_compiled.lss:", compiledBlocked ? "PASS" : "FAIL");
   if (!compiledBlocked) throw new Error(`_compiled.lss edit was not blocked: ${JSON.stringify(compiledBlock)}`);
 
+  // 37b. KB edit gate: .lss edit is blocked until kb_search runs
+  const kbGateBlock = guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, "sub_Thing.lss") } });
+  const kbGateBlocked = kbGateBlock?.block === true && String(kbGateBlock.reason).includes("KB GATE");
+  console.log("37b. KB gate blocks .lss edit before kb_search:", kbGateBlocked ? "PASS" : "FAIL");
+  if (!kbGateBlocked) throw new Error(`KB gate did not block .lss edit: ${JSON.stringify(kbGateBlock)}`);
+
+  // 37c. A knowledge-base search tool call satisfies the gate for the session
+  guardToolCall({ toolName: "mcp__knowledge_base_kb_search", input: { collection: "lotus-notes", query: "NotesUIDocument" } });
+  const afterKb = guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, "sub_Thing.lss") } });
+  const kbUnblocked = afterKb?.block !== true;
+  console.log("37c. KB gate releases after kb_search:", kbUnblocked ? "PASS" : "FAIL");
+  if (!kbUnblocked) throw new Error(`KB gate still blocking after kb_search: ${JSON.stringify(afterKb)}`);
+
   // 38. Legitimate modular files are not blocked
   const legitFiles = ["00_options.lss", "01_declarations.lss", "sub_Thing.lss", "func_Helper.lss", "99_initialize.lss"];
   const legitResults = legitFiles.map((f) => guardToolCall({ toolName: "edit", input: { path: path.join(scoreDir, f) } }));

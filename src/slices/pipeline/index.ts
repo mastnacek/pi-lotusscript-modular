@@ -37,6 +37,7 @@ import {
   MUTATING_TOOL_NAMES,
   SHELL_LIKE_TOOL_NAMES,
   collectShellLikeSources,
+  guardKbBeforeEdit,
   guardMonolithDump,
   guardProtectedFiles,
 } from "../guards/index.js";
@@ -60,6 +61,12 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   const rawName = event.toolName || "";
   const base = baseToolName(rawName);
 
+  // KB consult tracking: any knowledge-base search tool satisfies the edit gate
+  // for the rest of the session (recorded before any early return below).
+  if (/kb_search|knowledge_base/i.test(rawName) || /kb_search|knowledge_base/i.test(base)) {
+    state.kbConsulted = true;
+  }
+
   const input = event.input as Record<string, unknown> | undefined;
   const pathKey =
     input && typeof input.path === "string"
@@ -73,6 +80,9 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
     const guardPath = path.resolve(input[pathKey] as string);
     const guard = guardProtectedFiles(guardPath);
     if (guard) return guard;
+    // HARD GATE: .lss/.dxl edits require a lotus-notes KB query first.
+    const kbGuard = guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
+    if (kbGuard) return kbGuard;
   }
 
   if (!state.config.autoDecompileOnRead) return;
@@ -516,7 +526,10 @@ export function buildPromptGuidelines(config: import("../../shared/types.js").Mo
 
   if (config.enforceKbPrompt) {
     guidelines.push(
-      "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict."
+      "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict." +
+        (config.enforceKbGate
+          ? " This is ENFORCED: edit/write calls on .lss/.dxl files are rejected until kb_search has been called in this session."
+          : "")
     );
   }
 

@@ -16,8 +16,10 @@ export interface ModularConfig {
   overwriteSourceLss: boolean;
   /** Automatically clean up and delete decompiled folder when agent finishes modifications */
   cleanupOnSettled: boolean;
-  /** Enforce consulting lotus-notes MCP knowledge base */
+  /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */
   enforceKbPrompt: boolean;
+  /** HARD GATE: reject edit/write of .lss/.dxl until kb_search on 'lotus-notes' was called this session */
+  enforceKbGate: boolean;
   /** Automatically inject top LotusScript gotchas into system prompt */
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */

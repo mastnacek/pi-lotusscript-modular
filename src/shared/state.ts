@@ -45,6 +45,8 @@ export interface PluginState {
   readonly pendingDebriefs: string[];
   readonly diagnosticHistory: Map<string, string[][]>;
   readonly recurringGotchaReported: Set<string>;
+  /** True once any knowledge-base search tool ran this session (KB edit gate). */
+  kbConsulted: boolean;
 
   // --- helpers ---
   procedureSignature(filePath: string): string;
@@ -98,6 +100,7 @@ export function createPluginState(): PluginState {
   const pendingDebriefs: string[] = [];
   const diagnosticHistory = new Map<string, string[][]>();
   const recurringGotchaReported = new Set<string>();
+  let kbConsulted = false;
 
   /** Cheap content signature used to avoid re-prompting for unchanged files. */
   function procedureSignature(filePath: string): string {
@@ -371,6 +374,7 @@ export function createPluginState(): PluginState {
   function syncConfig(cwd: string): void {
     activeCwd = cwd;
     config = loadConfig(cwd);
+    kbConsulted = false; // new session → KB consult gate re-arms
   }
 
   function updateConfig(newConfig: ModularConfig): void {
@@ -415,6 +419,12 @@ export function createPluginState(): PluginState {
     pendingDebriefs,
     diagnosticHistory,
     recurringGotchaReported,
+    get kbConsulted() {
+      return kbConsulted;
+    },
+    set kbConsulted(v: boolean) {
+      kbConsulted = v;
+    },
     procedureSignature,
     isManifestSynced,
     buildScorecard,

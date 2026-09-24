@@ -125,3 +125,24 @@ export function guardMonolithDump(source: string, activeCwd: string): GuardBlock
     ].join(" "),
   };
 }
+
+/**
+ * HARD GATE: blocks edit/write of LotusScript sources (.lss / .dxl) until the
+ * 'lotus-notes' MCP knowledge base has been queried this session (kb_search).
+ * Turns the "MANDATORY KB CHECK" prompt guideline into actual enforcement.
+ */
+export function guardKbBeforeEdit(guardPath: string, kbConsulted: boolean, enforce: boolean): GuardBlock | null {
+  if (!enforce || kbConsulted) return null;
+  if (!/\.(lss|dxl)$/i.test(guardPath)) return null;
+
+  return {
+    block: true,
+    reason: [
+      "KB GATE: you are editing LotusScript/DXL source, but the 'lotus-notes' MCP knowledge base has NOT been queried this session (AGENTS.md mandatory rule).",
+      "Do NOT retry this edit unchanged — it will be rejected again.",
+      "Mandatory step first: call the knowledge base search for the API/topic you are about to use:",
+      "  mcp__knowledge_base → tool 'kb_search', args: { collection: 'lotus-notes', query: '<API or topic>' }",
+      "Then re-run this edit.",
+    ].join(" "),
+  };
+}
