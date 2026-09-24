@@ -6,6 +6,9 @@
  *
  * Every session creates one state via `createPluginState()`; nothing here is
  * global, so concurrent/mocked extension registrations stay isolated.
+ *
+ * Heavy helpers live in sibling modules (state-insights.ts,
+ * state-procedure-limits.ts) — this file stays the composition kernel.
  */
 
 import fs from "node:fs";
@@ -14,15 +17,13 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
   FolderLintResult,
-  GotchaItem,
   JevFolderEvalResult,
   LspCheckResult,
   ModularConfig,
 } from "./types.js";
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
-import { getGotchasSummary, searchGotchas } from "../slices/gotchas/index.js";
-import { lintModularFolder, promptProcedureLineReview } from "../slices/linter/index.js";
-import { computeScorecard } from "../slices/scorecard/index.js";
+import { createStateInsights } from "./state-insights.js";
+import { createProcedureLimitGate } from "./state-procedure-limits.js";
 
 export interface PluginState {
   // --- lifecycle plumbing ---
@@ -128,209 +129,24 @@ export function createPluginState(): PluginState {
     }
   }
 
-  /** Builds a deterministic scorecard for one modular agent root. */
-  function buildScorecard(
-    root: string,
-    opts: {
-      lint: FolderLintResult;
-      lsp: LspCheckResult | null;
-      artifact: "written" | "pending";
-      manifestSynced?: boolean;
-      jev?: JevFolderEvalResult | null;
-    }
-  ): AgentScorecard {
-    return computeScorecard({
-      agent: path.basename(root),
-      maxProcedureLines: config.maxProcedureLines,
-      lint: opts.lint,
-      lsp: opts.lsp,
-      lspEnabled: config.enableLsp,
-      enforceCzechComments: config.enforceCzechComments,
-      manifestSynced: opts.manifestSynced ?? isManifestSynced(root),
-      artifact: opts.artifact,
-      jev: opts.jev,
-    });
-  }
-
-  /** Appends to session history and returns the previous scorecard (for the trend line). */
-  function recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined {
-    latestScorecard = scorecard;
-    const history = scoreHistory.get(root) ?? [];
-    const previous = history.at(-1);
-    scoreHistory.set(root, [...history, scorecard].slice(-20));
-    renderStatusline("clean");
-    return previous;
-  }
-
-  /**
-   * Identifiers and procedure names declared by this agent. These are the tokens
-   * most likely to collide with a registered LotusScript trap (reserved words,
-   * built-in function names, risky API usage).
-   */
-  function collectRootTokens(root: string): string[] {
-    const tokens = new Set<string>();
-    try {
-      const declPath = path.join(root, "01_declarations.lss");
-      if (fs.existsSync(declPath)) {
-        const text = fs.readFileSync(declPath, "utf-8");
-        for (const m of text.matchAll(
-          /\b(?:Dim|Static|Const|Global|Type|Class|Sub|Function|Property(?:\s+Get|\s+Set)?)\s+([A-Za-z_][A-Za-z0-9_]*)/gi
-        )) {
-          const name = m[1];
-          if (name) tokens.add(name);
-        }
-        for (const m of text.matchAll(/\bAs\s+([A-Za-z_][A-Za-z0-9_]*)/gi)) {
-          const name = m[1];
-          if (name) tokens.add(name);
-        }
-      }
-      for (const f of fs.readdirSync(root)) {
-        if (!/^(?:sub_|func_).*\.lss$/i.test(f)) continue;
-        tokens.add(f.replace(/\.lss$/i, "").replace(/^(?:sub_|func_)/i, ""));
-      }
-    } catch {
-      // best effort — pre-flight is advisory only
-    }
-    return [...tokens].filter((t) => t.length >= 3);
-  }
-
-  /**
-   * Pre-flight gotcha banner. With `injectPreflightGotchas` it surfaces only the
-   * traps matching this agent's own identifiers; otherwise the generic summary.
-   * Computed once per root per session and cached.
-   */
-  function buildGotchasBanner(root: string): string {
-    if (!config.injectGotchasSummary) return "";
-
-    const cached = preflightBannerCache.get(root);
-    if (cached !== undefined) return cached;
-
-    let banner: string;
-    if (!config.injectPreflightGotchas) {
-      banner = `\n\n${getGotchasSummary(8)}`;
-    } else {
-      const found = new Map<string, GotchaItem>();
-      for (const token of collectRootTokens(root)) {
-        for (const hit of searchGotchas(token, 3)) {
-          if (`${hit.title}\n${hit.body}`.toLowerCase().includes(token.toLowerCase())) {
-            found.set(hit.id, hit);
-          }
-        }
-        if (found.size >= 3) break;
-      }
-
-      if (found.size === 0) {
-        banner = `\n\n${getGotchasSummary(8)}`;
-      } else {
-        const lines = [
-          "⚠️ PRE-FLIGHT GOTCHA CHECK (matches against this agent's own declarations):",
-        ];
-        for (const g of [...found.values()].slice(0, 3)) {
-          const gist = g.body
-            .split("\n")
-            .map((l) => l.trim())
-            .filter(Boolean)
-            .slice(0, 2)
-            .join(" ");
-          lines.push(`  • ${g.title}`);
-          if (gist) lines.push(`    ${gist.slice(0, 200)}`);
-        }
-        lines.push("  Full text: tool 'lotusscript_gotchas' with a keyword, or /ls gotchas <query>.");
-        banner = `\n\n${lines.join("\n")}`;
-      }
-    }
-
-    preflightBannerCache.set(root, banner);
-    return banner;
-  }
-
-  async function verifyProcedureLimits(
-    folder: string,
-    ctx?: ExtensionContext
-  ): Promise<{
-    ok: boolean;
-    message?: string;
-    splitInstructions?: string;
-    warnings: string[];
-    lint: FolderLintResult;
-  }> {
-    const warnings: string[] = [];
-    const lint = lintModularFolder(
-      folder,
-      config.maxProcedureLines,
-      config.enforceCzechComments
-    );
-
-    if (config.enforceCzechComments) {
-      for (const m of lint.missingCommentProcedures) {
-        warnings.push(
-          `Procedure '${m.fileName}' lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
-        );
-      }
-    }
-
-    if (!config.checkProcedureLimits) return { ok: true, warnings, lint };
-
-    for (const item of lint.exceededProcedures) {
-      const key = `${path.resolve(folder)}:${item.fileName}`;
-      if (approvedLineExceptions.has(key)) continue;
-
-      const filePath = path.join(folder, item.fileName);
-      const signature = procedureSignature(filePath);
-
-      // Already rejected for this exact content revision — do NOT re-open the
-      // modal (prevents modal spam / infinite prompting on every unrelated
-      // edit in the same folder). The AI still receives the split directive.
-      if (rejectedLineSignatures.get(key) === signature) {
-        return {
-          ok: false,
-          warnings,
-          lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user already rejected the exception for this revision. Split it into smaller subroutines/functions in 'sub_*.lss' or 'func_*.lss' files.`,
-        };
-      }
-
-      const effectiveCtx = ctx ?? latestUiContext;
-      if (!effectiveCtx || !effectiveCtx.hasUI) {
-        return {
-          ok: false,
-          warnings,
-          lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. Approving an exception requires an interactive UI, which is unavailable. Split the procedure into smaller subroutines/functions.`,
-        };
-      }
-
-      const review = await promptProcedureLineReview(effectiveCtx, item);
-
-      if (review.action === "approve") {
-        approvedLineExceptions.add(key);
-        rejectedLineSignatures.delete(key);
-        effectiveCtx.ui.notify(
-          `✓ Schválena výjimka délky pro ${item.fileName} (${item.lineCount} řádků)`,
-          "info"
-        );
-      } else if (review.action === "split_instructions") {
-        rejectedLineSignatures.set(key, signature);
-        return {
-          ok: false,
-          warnings,
-          lint,
-          splitInstructions: review.instructions,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines (limit ${item.maxLines}). The user rejected the exception and provided splitting instructions: "${review.instructions}"`,
-        };
-      } else {
-        rejectedLineSignatures.set(key, signature);
-        return {
-          ok: false,
-          warnings,
-          lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user rejected the exception and requests splitting it into smaller subroutines/functions according to LotusScript principles (avoiding the 32 KB procedure limit).`,
-        };
-      }
-    }
-
-    return { ok: true, warnings, lint };
-  }
+  // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
+  const insights = createStateInsights({
+    getConfig: () => config,
+    isManifestSynced,
+    renderStatusline,
+    setLatestScorecard: (sc) => {
+      latestScorecard = sc;
+    },
+    scoreHistory,
+    preflightBannerCache,
+  });
+  const limitGate = createProcedureLimitGate({
+    getConfig: () => config,
+    approvedLineExceptions,
+    rejectedLineSignatures,
+    procedureSignature,
+    getLatestUiContext: () => latestUiContext,
+  });
 
   function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
@@ -427,11 +243,11 @@ export function createPluginState(): PluginState {
     },
     procedureSignature,
     isManifestSynced,
-    buildScorecard,
-    recordScorecard,
-    collectRootTokens,
-    buildGotchasBanner,
-    verifyProcedureLimits,
+    buildScorecard: insights.buildScorecard,
+    recordScorecard: insights.recordScorecard,
+    collectRootTokens: insights.collectRootTokens,
+    buildGotchasBanner: insights.buildGotchasBanner,
+    verifyProcedureLimits: limitGate.verifyProcedureLimits,
     renderStatusline,
     syncConfig,
     updateConfig,
