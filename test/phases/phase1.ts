@@ -57,6 +57,15 @@ export async function phase1To4(): Promise<void> {
     throw new Error("Completion contract violation: value must be full prefix + key + trailing space");
   }
 
+  const globalCompletions = completeLsArguments("--global ", DEFAULT_CONFIG);
+  if (!globalCompletions || !globalCompletions.some((c) => c.value === "--global status")) {
+    throw new Error("Expected --global status completion");
+  }
+  const directSettingCompletions = completeLsArguments("checkProcedureLimits ", DEFAULT_CONFIG);
+  if (!directSettingCompletions || !directSettingCompletions.some((c) => c.value === "checkProcedureLimits true")) {
+    throw new Error("Expected direct setting value completion");
+  }
+
   // --------------------------------------------------
   // 3. Test Agent workflow (decompile -> sync -> compile -> overwrite -> LSP)
   // --------------------------------------------------

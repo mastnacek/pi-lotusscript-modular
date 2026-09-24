@@ -77,7 +77,7 @@ export interface PluginState {
   }>;
   renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
   syncConfig(cwd: string): void;
-  updateConfig(newConfig: ModularConfig): void;
+  updateConfig(newConfig: ModularConfig, isGlobal?: boolean, cwd?: string): void;
 }
 
 export function createPluginState(): PluginState {
@@ -193,9 +193,9 @@ export function createPluginState(): PluginState {
     kbConsulted = false; // new session → KB consult gate re-arms
   }
 
-  function updateConfig(newConfig: ModularConfig): void {
+  function updateConfig(newConfig: ModularConfig, isGlobal = false, cwd?: string): void {
     config = newConfig;
-    saveConfig(activeCwd, config);
+    saveConfig(cwd || activeCwd, config, isGlobal);
     renderStatusline("idle");
   }
 

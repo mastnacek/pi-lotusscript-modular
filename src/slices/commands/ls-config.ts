@@ -41,27 +41,47 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
   ctx.ui.notify(lines.join("\n"), "info");
 }
 
-export async function lsLsp(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext): Promise<void> {
+export async function lsLsp(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, isGlobal = false): Promise<void> {
   const config = state.config;
   const val = (parts[1] || "").toLowerCase();
   if (val === "on") config.enableLsp = true;
   else if (val === "off") config.enableLsp = false;
   else config.enableLsp = !config.enableLsp;
-  state.updateConfig(config);
-  ctx.ui.notify(`LSP kontrola syntaxe je nyní ${config.enableLsp ? "ZAPNUTA" : "VYPNUTA"}.`, "info");
+  state.updateConfig(config, isGlobal, ctx.cwd);
+  ctx.ui.notify(`LSP kontrola syntaxe je nyní ${config.enableLsp ? "ZAPNUTA" : "VYPNUTA"} (uloženo ${isGlobal ? "globálně" : "do projektu"}).`, "info");
 }
 
-export async function lsOverwrite(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext): Promise<void> {
+export async function lsOverwrite(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, isGlobal = false): Promise<void> {
   const config = state.config;
   const val = (parts[1] || "").toLowerCase();
   if (val === "on") config.overwriteSourceLss = true;
   else if (val === "off") config.overwriteSourceLss = false;
   else config.overwriteSourceLss = !config.overwriteSourceLss;
-  state.updateConfig(config);
-  ctx.ui.notify(`Přepisování původního .lss souboru je nyní ${config.overwriteSourceLss ? "ZAPNUTO" : "VYPNUTO"}.`, "info");
+  state.updateConfig(config, isGlobal, ctx.cwd);
+  ctx.ui.notify(`Přepisování původního .lss souboru je nyní ${config.overwriteSourceLss ? "ZAPNUTO" : "VYPNUTO"} (uloženo ${isGlobal ? "globálně" : "do projektu"}).`, "info");
 }
 
-export async function lsConfig(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext): Promise<void> {
+export async function lsDirectSetting(state: PluginState, key: string, val: string | undefined, ctx: ExtensionCommandContext, isGlobal = false): Promise<void> {
+  const config = state.config;
+  const spec = findSetting(key);
+  if (!spec) return;
+
+  if (val === undefined || val === "") {
+    ctx.ui.notify(`${spec.key} = ${formatValue(config[spec.key])} (${spec.description})`, "info");
+    return;
+  }
+
+  const parsed = parseValue(spec, val);
+  if (!parsed.ok) {
+    ctx.ui.notify(parsed.error, "error");
+    return;
+  }
+  Object.assign(config, { [spec.key]: parsed.value });
+  state.updateConfig(config, isGlobal, ctx.cwd);
+  ctx.ui.notify(`Uloženo (${isGlobal ? "globálně" : "do projektu"}): ${key} = ${formatValue(parsed.value)}`, "info");
+}
+
+export async function lsConfig(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, isGlobal = false): Promise<void> {
   const config = state.config;
   const action = (parts[1] || "").toLowerCase();
   if (action === "get") {
@@ -93,30 +113,30 @@ export async function lsConfig(state: PluginState, parts: LsParts, ctx: Extensio
       ctx.ui.notify(parsed.error, "error");
       return;
     }
-    (config as any)[spec.key] = parsed.value;
-    state.updateConfig(config);
-    ctx.ui.notify(`Uloženo: ${key} = ${formatValue(parsed.value)}`, "info");
+    Object.assign(config, { [spec.key]: parsed.value });
+    state.updateConfig(config, isGlobal, ctx.cwd);
+    ctx.ui.notify(`Uloženo (${isGlobal ? "globálně" : "do projektu"}): ${key} = ${formatValue(parsed.value)}`, "info");
   } else {
-    ctx.ui.notify("Použití: /ls config [get|set] ...", "warning");
+    ctx.ui.notify("Použití: /ls config [get|set] ... nebo přímo /ls <nastavení> <hodnota>", "warning");
   }
 }
 
 export async function lsHelp(_state: PluginState, _parts: LsParts, ctx: ExtensionCommandContext): Promise<void> {
   const help = [
     "📖 [Příkazy /ls — LotusScript Modular]:",
-    "  /ls status                 — Zobrazit konfiguraci pluginu",
-    "  /ls config get <klíč>      — Vypsat hodnotu nastavení",
-    "  /ls config set <klíč> <v>  — Nastavit hodnotu (true/false)",
-    "  /ls scaffold <typ> [název] — Vytvořit kostru (agent, library, procedure, modular)",
-    "  /ls lsp [on|off]           — Zapnout/vypnout LSP kontrolu",
-    "  /ls overwrite [on|off]     — Zapnout/vypnout přepis .lss souboru",
-    "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
-    "  /ls lint [složka]          — Zkontrolovat délku procedur a komentáře",
-    "  /ls score [složka]         — Zobrazit scorecard a trend agenta",
-    "  /ls jev [on|off|složka]    — Sémantické hodnocení JEV (nový vs starý styl, rizika)",
-    "  /ls pack [složka]          — Sestavit do .lss a smazat modulární složku",
-    "  /ls decompile <soubor>     — Rozložit monolit .lss/.dxl",
-    "  /ls gotchas [dotaz]        — Prohledat centrální bázi 40+ gotchas",
+    "  /ls status                      — Zobrazit konfiguraci pluginu",
+    "  /ls <nastavení> [hodnota]       — Přímé zobrazení nebo nastavení volby",
+    "  /ls --global <nastavení> <hodn> — Uložit nastavení globálně (~/.pi/agent/)",
+    "  /ls scaffold <typ> [název]      — Vytvořit kostru (agent, library, procedure, modular)",
+    "  /ls lsp [on|off]                — Zapnout/vypnout LSP kontrolu",
+    "  /ls overwrite [on|off]          — Zapnout/vypnout přepis .lss souboru",
+    "  /ls compile [složka]            — Ručně sestavit modulárního agenta",
+    "  /ls lint [složka]               — Zkontrolovat délku procedur a komentáře",
+    "  /ls score [složka]              — Zobrazit scorecard a trend agenta",
+    "  /ls jev [on|off|složka]         — Sémantické hodnocení JEV (nový vs starý styl, rizika)",
+    "  /ls pack [složka]               — Sestavit do .lss a smazat modulární složku",
+    "  /ls decompile <soubor>          — Rozložit monolit .lss/.dxl",
+    "  /ls gotchas [dotaz]             — Prohledat centrální bázi 40+ gotchas",
   ].join("\n");
   ctx.ui.notify(help, "info");
 }

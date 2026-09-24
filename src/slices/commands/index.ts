@@ -7,10 +7,11 @@
 import type {
   ExtensionCommandContext,
 } from "@earendil-works/pi-coding-agent";
-import { completeLsArguments } from "../settings/index.js";
+import { completeLsArguments, findSetting } from "../settings/index.js";
 import type { PluginState } from "../../shared/state.js";
 import {
   lsConfig,
+  lsDirectSetting,
   lsHelp,
   lsLsp,
   lsOverwrite,
@@ -49,11 +50,38 @@ export function createLsCommand(state: PluginState): RegisteredLsCommand {
   const { config } = state;
 
   async function handler(args: string, ctx: ExtensionCommandContext): Promise<void> {
-    const parts: LsParts = (args || "").trim().split(/\s+/).filter(Boolean);
+    const rawTokens: LsParts = (args || "").trim().split(/\s+/).filter(Boolean);
+    const isGlobal = rawTokens.some((t) => t.toLowerCase() === "--global");
+    const parts = rawTokens.filter((t) => t.toLowerCase() !== "--global");
     const sub = (parts[0] || "help").toLowerCase();
 
-    const subHandler = SUBCOMMANDS[sub] ?? lsHelp;
-    await subHandler(state, parts, ctx);
+    if (sub === "lsp") {
+      await lsLsp(state, parts, ctx, isGlobal);
+      return;
+    }
+    if (sub === "overwrite") {
+      await lsOverwrite(state, parts, ctx, isGlobal);
+      return;
+    }
+    if (sub === "config") {
+      await lsConfig(state, parts, ctx, isGlobal);
+      return;
+    }
+
+    const subHandler = SUBCOMMANDS[sub];
+    if (subHandler) {
+      await subHandler(state, parts, ctx);
+      return;
+    }
+
+    // Direct setting access: /ls <setting> [value]
+    const directSpec = findSetting(sub);
+    if (directSpec) {
+      await lsDirectSetting(state, sub, parts[1], ctx, isGlobal);
+      return;
+    }
+
+    await lsHelp(state, parts, ctx);
   }
 
   return {
