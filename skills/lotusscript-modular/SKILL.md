@@ -137,21 +137,21 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 
 | Concern | Location |
 | --- | --- |
-| Composition root (pure wiring, 76 lines) | `index.ts` |
-| Decompile/compile/manifest | `src/slices/parser/` |
+| Composition root (pure wiring) | `index.ts` |
+| Decompile/compile/manifest (decompile-lss, decompile-dxl, sync-manifest, compile-agent) | `src/slices/parser/` |
 | Event translation (tool_call/tool_result/settled) | `src/slices/pipeline/` |
 | Instant-failure guards (protected files, monolith dump) | `src/slices/guards/` |
-| `/ls` command switch | `src/slices/commands/` |
+| `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
 | Model tools (compile/decompile/gotchas/scaffold) | `src/slices/tools/` |
 | Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
 | Code templates (scaffolds) | `src/slices/scaffold/templates.ts` |
 | LSP diagnostics | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
-| Linter + procedure-limit modal | `src/slices/linter/` |
+| Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
 | JEV semantic evaluation | `src/slices/evaluator/` |
-| Tests (62 checks) | `test/test_modular_workflow.ts` |
+| Tests (79 checks, one file per phase under the per-file line limit) | `test/test_modular_workflow.ts` + `test/phases/` |
 
 ## Language Policy (hard rule)
 

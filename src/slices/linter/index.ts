@@ -1,3 +1,8 @@
+/**
+ * Linter barrel — checker (pure lint functions) + modal component + prompt
+ * helper. Implementation modules stay under the per-file line limit.
+ */
+
 export {
   lintProcedureFile,
   lintModularFolder,
@@ -5,6 +10,7 @@ export {
 
 export {
   ProcedureLimitComponent,
-  promptProcedureLineReview,
   type ProcedureReviewResult,
 } from "./modal.js";
+
+export { promptProcedureLineReview } from "./prompt-review.js";

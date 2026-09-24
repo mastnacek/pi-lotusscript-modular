@@ -1,6 +1,11 @@
-import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
+/**
+ * Procedure-limit review modal — the TUI overlay component only. The text
+ * input state machine lives in instructions-input.ts, the high-level prompt
+ * helper in line-review-prompt.ts (per-file line limit split).
+ */
+
+import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
-  CURSOR_MARKER,
   type Focusable,
   Key,
   matchesKey,
@@ -9,6 +14,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { ProcedureLintItem } from "../../shared/types.js";
+import { InstructionsInput } from "./instructions-input.js";
 
 export type ProcedureReviewResult =
   | { action: "approve" }
@@ -31,8 +37,7 @@ export class ProcedureLimitComponent implements Focusable {
   focused = true;
 
   private selected = 0; // 0 = approve exception, 1 = reject/split, 2 = split instructions
-  private instructionsText = "";
-  private instructionsCursor = 0;
+  private readonly input = new InstructionsInput();
   private scrollOffset = 0;
 
   private readonly termCols: number;
@@ -84,7 +89,7 @@ export class ProcedureLimitComponent implements Focusable {
       } else {
         this.done({
           action: "split_instructions",
-          instructions: this.instructionsText.trim(),
+          instructions: this.input.text.trim(),
         });
       }
       return true;
@@ -110,63 +115,12 @@ export class ProcedureLimitComponent implements Focusable {
     return false;
   }
 
-  private handleTextEditing(data: string): void {
-    if (matchesKey(data, "backspace")) {
-      if (this.instructionsCursor > 0) {
-        this.instructionsText =
-          this.instructionsText.slice(0, this.instructionsCursor - 1) +
-          this.instructionsText.slice(this.instructionsCursor);
-        this.instructionsCursor--;
-      }
-      return;
-    }
-    if (matchesKey(data, "delete")) {
-      if (this.instructionsCursor < this.instructionsText.length) {
-        this.instructionsText =
-          this.instructionsText.slice(0, this.instructionsCursor) +
-          this.instructionsText.slice(this.instructionsCursor + 1);
-      }
-      return;
-    }
-    if (matchesKey(data, "left")) {
-      this.instructionsCursor = Math.max(0, this.instructionsCursor - 1);
-      return;
-    }
-    if (matchesKey(data, "right")) {
-      this.instructionsCursor = Math.min(
-        this.instructionsText.length,
-        this.instructionsCursor + 1
-      );
-      return;
-    }
-    if (matchesKey(data, "home")) {
-      this.instructionsCursor = 0;
-      return;
-    }
-    if (matchesKey(data, "end")) {
-      this.instructionsCursor = this.instructionsText.length;
-      return;
-    }
-    if (
-      data.length >= 1 &&
-      !data.includes("\x1b") &&
-      !data.includes("\r") &&
-      !data.includes("\n")
-    ) {
-      this.instructionsText =
-        this.instructionsText.slice(0, this.instructionsCursor) +
-        data +
-        this.instructionsText.slice(this.instructionsCursor);
-      this.instructionsCursor += data.length;
-    }
-  }
-
   handleInput(data: string): void {
     if (this.handleScroll(data)) return;
     if (this.handleNavigation(data)) return;
     if (this.handleQuickKeys(data)) return;
     if (this.selected === 2) {
-      this.handleTextEditing(data);
+      this.input.handleInput(data);
     }
   }
 
@@ -195,25 +149,32 @@ export class ProcedureLimitComponent implements Focusable {
     }
   }
 
+  private buildActionRows(rows: string[], actionRows: number[], innerW: number): void {
+    const th = this.theme;
+    const cursor = (idx: number, label: string, hint: string): string => {
+      const styled = this.selected === idx ? th.fg("accent", label) : th.fg("text", label);
+      return `${this.selected === idx ? "  ▶ " : "    "}${styled} ${th.fg("dim", hint)}`;
+    };
+
+    actionRows[0] = rows.length;
+    this.pushWrapped(rows, cursor(0, "✅ [Povolit výjimku]", "— schválit mírné překročení a pokračovat"), innerW);
+
+    actionRows[1] = rows.length;
+    this.pushWrapped(rows, cursor(1, "✂️ [Odmítnout a rozdělit]", "— vrátit AI pokyn k rozdělení na menší sub/funkce"), innerW);
+
+    actionRows[2] = rows.length;
+    const third = cursor(2, "✏️ [Pokyny k rozdělení]", "") + this.renderInputDisplay();
+    this.pushWrapped(rows, third, innerW);
+  }
+
   private renderInputDisplay(): string {
     const th = this.theme;
     if (this.selected === 2) {
-      if (this.instructionsText.length === 0) {
-        const marker = this.focused ? CURSOR_MARKER : "";
-        return `${marker}\x1b[7m \x1b[27m${th.fg("dim", " (zde napište pokyny k rozdělení)")}`;
-      }
-      const before = this.instructionsText.slice(0, this.instructionsCursor);
-      const cursorChar =
-        this.instructionsCursor < this.instructionsText.length
-          ? this.instructionsText[this.instructionsCursor]
-          : " ";
-      const after = this.instructionsText.slice(this.instructionsCursor + 1);
-      const marker = this.focused ? CURSOR_MARKER : "";
-      return `${before}${marker}\x1b[7m${cursorChar}\x1b[27m${after}`;
+      return this.input.render(th, true, this.focused);
     }
-    return this.instructionsText.length === 0
+    return this.input.text.length === 0
       ? th.fg("dim", "Pokyny: (Enter pro zadání)")
-      : `Pokyny: ${this.instructionsText}`;
+      : `Pokyny: ${this.input.text}`;
   }
 
   private buildBody(innerW: number): { rows: string[]; actionRows: number[] } {
@@ -253,26 +214,7 @@ export class ProcedureLimitComponent implements Focusable {
     );
     this.pushWrapped(rows, "", innerW);
 
-    actionRows[0] = rows.length;
-    this.pushWrapped(
-      rows,
-      `${this.selected === 0 ? "  ▶ " : "    "}${this.selected === 0 ? th.fg("accent", "✅ [Povolit výjimku]") : th.fg("text", "✅ [Povolit výjimku]")} ${th.fg("dim", "— schválit mírné překročení a pokračovat")}`,
-      innerW
-    );
-
-    actionRows[1] = rows.length;
-    this.pushWrapped(
-      rows,
-      `${this.selected === 1 ? "  ▶ " : "    "}${this.selected === 1 ? th.fg("accent", "✂️ [Odmítnout a rozdělit]") : th.fg("text", "✂️ [Odmítnout a rozdělit]")} ${th.fg("dim", "— vrátit AI pokyn k rozdělení na menší sub/funkce")}`,
-      innerW
-    );
-
-    actionRows[2] = rows.length;
-    this.pushWrapped(
-      rows,
-      `${this.selected === 2 ? "  ▶ " : "    "}${this.selected === 2 ? th.fg("accent", "✏️ [Pokyny k rozdělení]") : th.fg("text", "✏️ [Pokyny k rozdělení]")} ${this.renderInputDisplay()}`,
-      innerW
-    );
+    this.buildActionRows(rows, actionRows, innerW);
 
     return { rows, actionRows };
   }
@@ -339,56 +281,4 @@ export class ProcedureLimitComponent implements Focusable {
 
   invalidate(): void {}
   dispose(): void {}
-}
-
-/**
- * Prompts user to approve line limit excess or request logical splitting.
- */
-export async function promptProcedureLineReview(
-  ctx: ExtensionContext,
-  item: ProcedureLintItem
-): Promise<ProcedureReviewResult> {
-  if (!ctx.hasUI || (ctx.mode && ctx.mode !== "tui")) {
-    return { action: "reject" };
-  }
-
-  const result = await ctx.ui.custom<ProcedureReviewResult | undefined>(
-    (tui, theme, _keybindings, done) =>
-      new ProcedureLimitComponent(
-        theme,
-        item,
-        done,
-        tui.terminal.columns,
-        tui.terminal.rows
-      ),
-    {
-      overlay: true,
-      overlayOptions: { width: "90%", maxHeight: "90%", margin: 1 },
-    }
-  );
-
-  if (!result || result.action === "reject") {
-    return { action: "reject" };
-  }
-
-  if (result.action === "approve") {
-    return { action: "approve" };
-  }
-
-  if (result.action === "split_instructions") {
-    let instructions = result.instructions.trim();
-    if (!instructions) {
-      const inputVal = await ctx.ui.input(
-        `✏️ Pokyny pro rozdělení procedury '${item.fileName}':`,
-        "Napište, jak má AI proceduru rozdělit (např. vyčleň HTTP volání nebo databázové dotazy)..."
-      );
-      if (!inputVal || !inputVal.trim()) {
-        return { action: "reject" };
-      }
-      instructions = inputVal.trim();
-    }
-    return { action: "split_instructions", instructions };
-  }
-
-  return { action: "reject" };
 }
