@@ -15,7 +15,8 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
 - **Central Gotchas Registry (42 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
-- **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant skeletons (standalone agent, script library, modular procedure, full modular folder) with protected headers, `%Include "lsconst.lss"` and error handlers.
+- **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant skeletons (standalone agent, script library, modular procedure, full modular folder) with protected headers, `%Include "lsconst.lss"` and error handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
+- **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the skill so every new element is machine-recognizable in the design graph.
 - **Comprehensive Skill:** Progressive-disclosure skill (`skills/lotusscript-modular/`) with `references/` for workflow, coding conventions, 42-gotcha index, scaffolding and DXL/ODP editing.
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection before writing or modifying Notes 9.0.1 LotusScript code.
 
@@ -76,7 +77,8 @@ Stored in `.pi/lotusscript-modular.json`:
 - `workflow.md` — modular lifecycle, CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
 - `gotchas-index.md` — 42-entry one-liner index + recording protocol
-- `scaffolding.md` — scaffold command/tool usage and guarantees
+- `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation
+- `naming-conventions.md` — element naming/alias convention (`ag_`, `lu_`, `frm_`, …) and why
 - `dxl-and-odp.md` — DXL design-element editing rules (forms, views, ODP)
 
 ---

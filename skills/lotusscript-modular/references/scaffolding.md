@@ -87,5 +87,25 @@ empty name. The tool never overwrites existing code.
 
 Templates live in `src/slices/scaffold/templates.ts`:
 `agentTemplate`, `libraryTemplate`, `procedureTemplate`,
-`modularFolderTemplate`. Change them there — never patch generated output
+`modularFolderTemplate`. Alias derivation and the Designer registration
+notice live in `src/slices/scaffold/naming.ts` (`suggestAlias`,
+`buildDesignerNotice`). Change them there — never patch generated output
 by hand in skill docs, otherwise the scaffolds and the docs drift apart.
+
+---
+
+## 7. Naming Convention (alias derivation)
+
+The scaffold suggests the alias automatically per
+`references/naming-conventions.md`:
+
+1. Display name → ASCII (diacritics stripped), camelCase split, lowercase
+2. Non-alphanumeric → `_`, collapse repeats
+3. Segments capped (6 chars each, variant tokens like `save`/`mail`/`ifx` kept whole)
+4. Type prefix prepended (`ag_` for agents/modular, `lib_` for libraries)
+5. Total length cap 40 chars
+
+The result is returned as `alias` in the tool `details` and rendered in the
+Designer registration notice. The user may adjust the alias — it must keep
+the `<prefix>_<segments>` shape and be synced into the file header and
+Designer.

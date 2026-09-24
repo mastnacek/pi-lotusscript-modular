@@ -1067,7 +1067,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
               name: targetName,
               targetDir,
             });
-            ctx.ui.notify(`✓ ${res.message}`, "info");
+            const notice = res.noticeCs ? `\n\n${res.noticeCs}` : "";
+            ctx.ui.notify(`✓ ${res.message}${notice}`, "info");
           } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             ctx.ui.notify(`Chyba při vytváření kostry: ${msg}`, "error");
@@ -1633,8 +1634,15 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           params: params.params,
         });
         return {
-          content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}` }],
-          details: { ok: res.ok, type: res.type, createdFiles: res.createdFiles, message: res.message },
+          content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}\n\n${res.noticeEn ?? ""}` }],
+          details: {
+            ok: res.ok,
+            type: res.type,
+            createdFiles: res.createdFiles,
+            message: res.message,
+            alias: res.alias,
+            notice: res.noticeEn,
+          },
         };
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

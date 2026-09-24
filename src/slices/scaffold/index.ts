@@ -6,8 +6,10 @@ import {
   procedureTemplate,
   modularFolderTemplate,
 } from "./templates.js";
+import { suggestAlias, buildDesignerNotice } from "./naming.js";
 
 export * from "./templates.js";
+export { suggestAlias, buildDesignerNotice } from "./naming.js";
 
 export type ScaffoldTargetType = "agent" | "library" | "procedure" | "modular";
 
@@ -16,6 +18,12 @@ export interface ScaffoldResult {
   type: ScaffoldTargetType;
   createdFiles: string[];
   message: string;
+  /** Convention-compliant alias suggestion (empty for procedures). */
+  alias?: string;
+  /** User-facing Designer registration notice (Czech). */
+  noticeCs?: string;
+  /** Agent-facing Designer registration notice (English). */
+  noticeEn?: string;
 }
 
 export function scaffoldLotusScriptArtifact(options: {
@@ -52,11 +60,22 @@ export function scaffoldLotusScriptArtifact(options: {
         author: options.author,
       });
       fs.writeFileSync(targetFile, content, "utf-8");
+      const alias = suggestAlias(rawName, "agent");
+      const info = {
+        elementType: "Agent (standalone .lss)" as const,
+        name: rawName,
+        alias,
+        purpose: options.purpose,
+        targetDir: dir,
+      };
       return {
         ok: true,
         type: "agent",
         createdFiles: [targetFile],
         message: `Agent scaffold created at: ${targetFile}`,
+        alias,
+        noticeCs: buildDesignerNotice(info, "cs"),
+        noticeEn: buildDesignerNotice(info, "en"),
       };
     }
 
@@ -72,11 +91,22 @@ export function scaffoldLotusScriptArtifact(options: {
         author: options.author,
       });
       fs.writeFileSync(targetFile, content, "utf-8");
+      const alias = suggestAlias(rawName, "library");
+      const info = {
+        elementType: "Script Library (.lss)" as const,
+        name: rawName,
+        alias,
+        purpose: options.purpose,
+        targetDir: dir,
+      };
       return {
         ok: true,
         type: "library",
         createdFiles: [targetFile],
         message: `Script library scaffold created at: ${targetFile}`,
+        alias,
+        noticeCs: buildDesignerNotice(info, "cs"),
+        noticeEn: buildDesignerNotice(info, "en"),
       };
     }
 
@@ -99,11 +129,20 @@ export function scaffoldLotusScriptArtifact(options: {
         author: options.author,
       });
       fs.writeFileSync(targetFile, content, "utf-8");
+      const info = {
+        elementType: "Procedure (modular file)" as const,
+        name: fileName,
+        alias: "",
+        purpose: options.purpose,
+        targetDir: dir,
+      };
       return {
         ok: true,
         type: "procedure",
         createdFiles: [targetFile],
         message: `Procedure scaffold (${isFunc ? "Function" : "Sub"}) created at: ${targetFile}`,
+        noticeCs: buildDesignerNotice(info, "cs"),
+        noticeEn: buildDesignerNotice(info, "en"),
       };
     }
 
@@ -124,11 +163,22 @@ export function scaffoldLotusScriptArtifact(options: {
         created.push(filePath);
       }
 
+      const alias = suggestAlias(folderName, "modular");
+      const info = {
+        elementType: "Modular agent folder" as const,
+        name: folderName,
+        alias,
+        purpose: options.purpose,
+        targetDir: targetFolder,
+      };
       return {
         ok: true,
         type: "modular",
         createdFiles: created,
         message: `Modular agent folder scaffolded at: ${targetFolder} (${created.length} files)`,
+        alias,
+        noticeCs: buildDesignerNotice(info, "cs"),
+        noticeEn: buildDesignerNotice(info, "en"),
       };
     }
 

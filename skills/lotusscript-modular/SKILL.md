@@ -35,6 +35,7 @@ A modular agent folder contains `manifest.json`, `main.lss` (virtual index),
 | --- | --- |
 | First contact with a modular folder, or anything about the lifecycle / compile / cleanup | `references/workflow.md` |
 | Before writing any LotusScript code (headers, naming, error handling) | `references/coding-conventions.md` |
+| Before naming any agent/view/form/library, or when creating an element | `references/naming-conventions.md` (aliases: `ag_`, `lu_`, `frm_`, …) |
 | Before writing code in ANY area — quick trigger scan; on any compile/runtime error search here first | `references/gotchas-index.md` (42 entries) |
 | Creating a new agent, library, procedure or modular folder | `references/scaffolding.md` |
 | Editing `.form` / `.view` / `.subform` / `.folder` DXL design elements | `references/dxl-and-odp.md` |
@@ -57,8 +58,13 @@ lotusscript_scaffold(type, name, targetDir?, purpose?, isFunction?, params?, ...
 
 Generates compliant skeletons: header block (NÁZEV/ÚČEL/AUTOR/CHANGELOG),
 `Option Public` + `Option Declare` + `%Include "lsconst.lss"`, `On Error GoTo
-Catch` handlers, synthetic `@script-member-of` headers. Details + parameter
-table: `references/scaffolding.md`.
+Catch` handlers, synthetic `@script-member-of` headers. Every scaffold also
+**derives the convention alias** (`ag_…`/`lib_…` from the name, diacritics
+stripped) and emits a **Designer registration notice** — element name, alias,
+suggested description, paste steps and `Ctrl+Shift+F9` — in Czech for `/ls`
+notifications and in English for tool results. Details + parameter table:
+`references/scaffolding.md`. Alias grammar and prefix table:
+`references/naming-conventions.md`.
 
 ## Definition of Done, Scorecard & Evaluation
 

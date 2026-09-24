@@ -19,7 +19,7 @@ import {
   trendLabel,
 } from "../src/slices/scorecard/index.js";
 import { completeLsArguments } from "../src/slices/settings/index.js";
-import { scaffoldLotusScriptArtifact } from "../src/slices/scaffold/index.js";
+import { scaffoldLotusScriptArtifact, suggestAlias, buildDesignerNotice } from "../src/slices/scaffold/index.js";
 import {
   scanLotusScriptComments,
   buildJevPayload,
@@ -1576,6 +1576,71 @@ End Sub
   const scaffoldToolOk = !!registeredScaffoldTool;
   console.log("70. lotusscript_scaffold tool is registered:", scaffoldToolOk ? "PASS" : "FAIL");
   if (!scaffoldToolOk) throw new Error("lotusscript_scaffold tool was not registered");
+
+  // --------------------------------------------------
+  // 12. Naming conventions: alias derivation + Designer notice
+  // --------------------------------------------------
+  // 71. Alias derivation: diacritics stripped, camelCase split, type prefix
+  const aliasCz = suggestAlias("Aktualizace pracovníků okruhů (save)", "agent");
+  const aliasLib = suggestAlias("VebaApiLib", "library");
+  const aliasOk =
+    /^ag_[a-z0-9_]+$/.test(aliasCz) &&
+    aliasCz.startsWith("ag_") &&
+    aliasCz.includes("save") &&
+    !/[áčďéěíňóřšťúůýž]/.test(aliasCz) &&
+    aliasCz.length <= 40 &&
+    aliasLib.startsWith("lib_");
+  console.log(`71. suggestAlias derives ASCII lowercase aliases (${aliasCz}, ${aliasLib}):`, aliasOk ? "PASS" : "FAIL");
+  if (!aliasOk) throw new Error(`Bad alias derivation: "${aliasCz}" / "${aliasLib}"`);
+
+  // 72. Designer notice (EN, agent-facing): contains alias, steps, description line
+  const noticeEn = buildDesignerNotice(
+    { elementType: "Agent (standalone .lss)", name: "TestAgent", alias: "ag_test_agent", purpose: "Testovací agent pro notice." },
+    "en"
+  );
+  const noticeEnOk =
+    noticeEn.includes("DESIGNER REGISTRATION") &&
+    noticeEn.includes("Alias:    ag_test_agent") &&
+    noticeEn.includes("Ctrl+Shift+F9") &&
+    noticeEn.includes('@Command([ToolsRunMacro]; "ag_test_agent")') &&
+    noticeEn.includes("Comment");
+  console.log("72. Designer notice EN contains alias, steps, invocation, description:", noticeEnOk ? "PASS" : "FAIL");
+  if (!noticeEnOk) throw new Error(`Bad EN notice:\n${noticeEn}`);
+
+  // 73. Designer notice (CS, user-facing): Czech labels, same alias
+  const noticeCs = buildDesignerNotice(
+    { elementType: "Agent (standalone .lss)", name: "TestAgent", alias: "ag_test_agent", purpose: "Testovací agent pro notice." },
+    "cs"
+  );
+  const noticeCsOk =
+    noticeCs.includes("REGISTRACE DO DESIGNERU") &&
+    noticeCs.includes("Alias:    ag_test_agent") &&
+    noticeCs.includes("Účel:") &&
+    noticeCs.includes("Ctrl+Shift+F9");
+  console.log("73. Designer notice CS is user-facing Czech:", noticeCsOk ? "PASS" : "FAIL");
+  if (!noticeCsOk) throw new Error(`Bad CS notice:\n${noticeCs}`);
+
+  // 74. Scaffold result carries alias + both notices
+  const noticeScaffold = scaffoldLotusScriptArtifact({
+    type: "agent",
+    name: "NoticeTestAgent",
+    targetDir: scaffoldOutDir,
+    purpose: "Agent pro test notifikace.",
+  });
+  const noticeScaffoldOk =
+    typeof noticeScaffold.alias === "string" &&
+    noticeScaffold.alias.startsWith("ag_") &&
+    !!noticeScaffold.noticeCs &&
+    !!noticeScaffold.noticeEn &&
+    noticeScaffold.noticeEn!.includes("DESIGNER REGISTRATION");
+  console.log("74. Scaffold result carries alias and Designer notices:", noticeScaffoldOk ? "PASS" : "FAIL");
+  if (!noticeScaffoldOk) throw new Error(`Bad scaffold notice result: ${JSON.stringify(noticeScaffold)}`);
+
+  // 75. Completions include scaffold parent row + naming reference exists
+  const namingRef = path.resolve(path.dirname("."), "skills/lotusscript-modular/references/naming-conventions.md");
+  const namingOk = fs.existsSync(namingRef);
+  console.log("75. references/naming-conventions.md exists:", namingOk ? "PASS" : "FAIL");
+  if (!namingOk) throw new Error("naming-conventions.md missing");
 
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });
