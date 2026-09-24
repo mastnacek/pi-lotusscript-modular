@@ -137,8 +137,13 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 
 | Concern | Location |
 | --- | --- |
-| Composition root (events, commands, tools) | `index.ts` |
+| Composition root (pure wiring, 76 lines) | `index.ts` |
 | Decompile/compile/manifest | `src/slices/parser/` |
+| Event translation (tool_call/tool_result/settled) | `src/slices/pipeline/` |
+| Instant-failure guards (protected files, monolith dump) | `src/slices/guards/` |
+| `/ls` command switch | `src/slices/commands/` |
+| Model tools (compile/decompile/gotchas/scaffold) | `src/slices/tools/` |
+| Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
 | Code templates (scaffolds) | `src/slices/scaffold/templates.ts` |
 | LSP diagnostics | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
