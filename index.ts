@@ -19,6 +19,7 @@ import {
   isEditToolResult,
   isWriteToolResult,
 } from "@earendil-works/pi-coding-agent";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import type {
   AgentScorecard,
@@ -73,6 +74,10 @@ import {
 import {
   evaluateFolderWithJev,
 } from "./src/slices/evaluator/index.js";
+import {
+  scaffoldLotusScriptArtifact,
+  type ScaffoldTargetType,
+} from "./src/slices/scaffold/index.js";
 
 const MUTATING_TOOL_NAMES = new Set([
   "edit",
@@ -1047,6 +1052,29 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
           break;
         }
 
+        case "scaffold": {
+          const type = (parts[1] || "").toLowerCase() as ScaffoldTargetType;
+          const name = parts[2];
+          if (!type || !["agent", "library", "procedure", "modular"].includes(type)) {
+            ctx.ui.notify("Použití: /ls scaffold <agent|library|procedure|modular> [název] [cílová složka]", "warning");
+            return;
+          }
+          const targetName = name || (type === "modular" ? "NewModularAgent" : "NewScript");
+          const targetDir = parts[3] ? path.resolve(ctx.cwd, parts[3]) : ctx.cwd;
+          try {
+            const res = scaffoldLotusScriptArtifact({
+              type,
+              name: targetName,
+              targetDir,
+            });
+            ctx.ui.notify(`✓ ${res.message}`, "info");
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.ui.notify(`Chyba při vytváření kostry: ${msg}`, "error");
+          }
+          break;
+        }
+
         case "lint": {
           const target = parts[1] || ctx.cwd;
           const root = findModularRoot(target);
@@ -1318,6 +1346,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
             "  /ls status                 — Zobrazit konfiguraci pluginu",
             "  /ls config get <klíč>      — Vypsat hodnotu nastavení",
             "  /ls config set <klíč> <v>  — Nastavit hodnotu (true/false)",
+            "  /ls scaffold <typ> [název] — Vytvořit kostru (agent, library, procedure, modular)",
             "  /ls lsp [on|off]           — Zapnout/vypnout LSP kontrolu",
             "  /ls overwrite [on|off]     — Zapnout/vypnout přepis .lss souboru",
             "  /ls compile [složka]       — Ručně sestavit modulárního agenta",
@@ -1551,6 +1580,69 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
         content: [{ type: "text", text: formatted }],
         details: { ok: true, hits },
       };
+    },
+  });
+
+  const ScaffoldParams = Type.Object({
+    type: StringEnum(["agent", "library", "procedure", "modular"] as const, {
+      description: "Type of LotusScript artifact to scaffold",
+    }),
+    name: Type.String({ description: "Name of the script, procedure, library, or modular folder" }),
+    targetDir: Type.Optional(Type.String({ description: "Target directory (defaults to current working directory)" })),
+    purpose: Type.Optional(Type.String({ description: "Purpose description for the header and ' Účel: ... comment" })),
+    author: Type.Optional(Type.String({ description: "Author name for header" })),
+    isFunction: Type.Optional(Type.Boolean({ description: "For type='procedure', whether to generate a Function instead of Sub (default false)" })),
+    parentAgent: Type.Optional(Type.String({ description: "For type='procedure', the parent agent name for @script-member-of header" })),
+    returnType: Type.Optional(Type.String({ description: "For type='procedure' with isFunction=true, return type (e.g. 'String', 'Long')" })),
+    params: Type.Optional(Type.String({ description: "Parameter list for the procedure (e.g. 'doc As NotesDocument')" })),
+  });
+
+  type ScaffoldDetails = {
+    ok: boolean;
+    type?: ScaffoldTargetType;
+    createdFiles?: string[];
+    message?: string;
+  };
+
+  pi.registerTool<typeof ScaffoldParams, ScaffoldDetails>({
+    name: "lotusscript_scaffold",
+    label: "Scaffold LotusScript Code",
+    description: "Generate compliant LotusScript code skeletons (standalone agent, script library, modular procedure, or full modular agent folder) adhering to Domino 9.0.1 coding standards.",
+    parameters: ScaffoldParams,
+    async execute(_toolCallId: string, params: {
+      type: ScaffoldTargetType;
+      name: string;
+      targetDir?: string;
+      purpose?: string;
+      author?: string;
+      isFunction?: boolean;
+      parentAgent?: string;
+      returnType?: string;
+      params?: string;
+    }) {
+      try {
+        const res = scaffoldLotusScriptArtifact({
+          type: params.type,
+          name: params.name,
+          targetDir: params.targetDir,
+          purpose: params.purpose,
+          author: params.author,
+          isFunction: params.isFunction,
+          parentAgent: params.parentAgent,
+          returnType: params.returnType,
+          params: params.params,
+        });
+        return {
+          content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}` }],
+          details: { ok: res.ok, type: res.type, createdFiles: res.createdFiles, message: res.message },
+        };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `Error scaffolding artifact: ${msg}` }],
+          details: { ok: false },
+        };
+      }
     },
   });
 

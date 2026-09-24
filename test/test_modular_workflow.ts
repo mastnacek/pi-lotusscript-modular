@@ -19,6 +19,7 @@ import {
   trendLabel,
 } from "../src/slices/scorecard/index.js";
 import { completeLsArguments } from "../src/slices/settings/index.js";
+import { scaffoldLotusScriptArtifact } from "../src/slices/scaffold/index.js";
 import {
   scanLotusScriptComments,
   buildJevPayload,
@@ -1467,6 +1468,114 @@ End Sub
       `Unexpected LSP pending scorecard: ${JSON.stringify({ scNoLsp, scHarness })}`
     );
   }
+
+  // --------------------------------------------------
+  // 11. Scaffold slice (agent, library, procedure, modular + completions)
+  // --------------------------------------------------
+  const scaffoldOutDir = path.join(testDir, "ScaffoldOut");
+  fs.mkdirSync(scaffoldOutDir, { recursive: true });
+
+  const scaffoldAgent = scaffoldLotusScriptArtifact({
+    type: "agent",
+    name: "ScaffoldAgent",
+    targetDir: scaffoldOutDir,
+    purpose: "Testovací agent vygenerovaný kostrou.",
+  });
+  const agentContent = fs.readFileSync(scaffoldAgent.createdFiles[0]!, "utf-8");
+  const agentOk =
+    agentContent.includes("Option Public") &&
+    agentContent.includes("Option Declare") &&
+    agentContent.includes('%Include "lsconst.lss"') &&
+    agentContent.includes("Účel:") &&
+    agentContent.includes("On Error GoTo Catch");
+  console.log("63. Scaffold agent generates compliant skeleton:", agentOk ? "PASS" : "FAIL");
+  if (!agentOk) throw new Error(`Bad agent scaffold:\n${agentContent}`);
+
+  const scaffoldProc = scaffoldLotusScriptArtifact({
+    type: "procedure",
+    name: "Helper",
+    targetDir: scaffoldOutDir,
+    parentAgent: "ScaffoldAgent",
+    isFunction: true,
+    returnType: "Long",
+    params: "doc As NotesDocument",
+    purpose: "Pomocná funkce pro test kostry.",
+  });
+  const procPath = scaffoldProc.createdFiles[0]!;
+  const procContent = fs.readFileSync(procPath, "utf-8");
+  const procOk =
+    path.basename(procPath) === "func_Helper.lss" &&
+    procContent.includes("@script-member-of: ScaffoldAgent") &&
+    procContent.includes("@procedure: Helper") &&
+    procContent.includes("@parent-declarations: 01_declarations.lss") &&
+    procContent.includes("Function Helper(doc As NotesDocument) As Long") &&
+    procContent.includes("' Účel: Pomocná funkce pro test kostry.");
+  console.log("64. Scaffold procedure generates synthetic header func_Helper.lss:", procOk ? "PASS" : "FAIL");
+  if (!procOk) throw new Error(`Bad procedure scaffold:\n${procContent}`);
+
+  // Scaffolded procedure must pass the plugin linter (comment + size)
+  const lintScaffold = lintModularFolder(scaffoldOutDir, 300, true);
+  const lintScaffoldOk =
+    lintScaffold.missingCommentProcedures.length === 0 &&
+    lintScaffold.exceededProcedures.length === 0;
+  console.log("65. Scaffolded procedure passes the plugin linter:", lintScaffoldOk ? "PASS" : "FAIL");
+  if (!lintScaffoldOk) {
+    throw new Error(`Scaffold failed linter: ${JSON.stringify(lintScaffold)}`);
+  }
+
+  const scaffoldModular = scaffoldLotusScriptArtifact({
+    type: "modular",
+    name: "ScaffoldModularAgent",
+    targetDir: scaffoldOutDir,
+    purpose: "Modulární agent z kostry.",
+  });
+  const modularFiles = scaffoldModular.createdFiles.map((f) => path.basename(f));
+  const modularOk =
+    ["manifest.json", "main.lss", "00_options.lss", "01_declarations.lss", "sub_Process.lss", "99_initialize.lss"]
+      .every((f) => modularFiles.includes(f));
+  console.log("66. Scaffold modular folder creates all 6 files:", modularOk ? "PASS" : "FAIL");
+  if (!modularOk) throw new Error(`Bad modular scaffold: ${modularFiles.join(", ")}`);
+
+  // Modular scaffold compiles through the AgentParser
+  const scaffoldModularRoot = path.join(scaffoldOutDir, "ScaffoldModularAgent");
+  const scaffoldCompiled = AgentParser.compileAgent(scaffoldModularRoot, { overwriteSourceLss: false });
+  const scaffoldCompiledOk = fs.existsSync(scaffoldCompiled);
+  console.log("67. Scaffolded modular folder compiles:", scaffoldCompiledOk ? "PASS" : "FAIL");
+  if (!scaffoldCompiledOk) throw new Error("Scaffolded modular folder failed to compile");
+
+  // Scaffold refuses to overwrite existing artifacts
+  let overwriteRejected = false;
+  try {
+    scaffoldLotusScriptArtifact({ type: "agent", name: "ScaffoldAgent", targetDir: scaffoldOutDir });
+  } catch {
+    overwriteRejected = true;
+  }
+  console.log("68. Scaffold rejects overwriting existing artifact:", overwriteRejected ? "PASS" : "FAIL");
+  if (!overwriteRejected) throw new Error("Scaffold allowed overwrite");
+
+  // Completions expose scaffold subcommand with 4 types
+  const scaffoldCompletions = completeLsArguments("scaffold ", DEFAULT_CONFIG);
+  const scaffoldCompOk =
+    !!scaffoldCompletions &&
+    ["agent", "library", "procedure", "modular"].every((t) =>
+      scaffoldCompletions.some((c) => c.label === t && c.value === `scaffold ${t} `)
+    );
+  console.log("69. /ls scaffold completions expose 4 types with trailing space:", scaffoldCompOk ? "PASS" : "FAIL");
+  if (!scaffoldCompOk) throw new Error(`Bad scaffold completions: ${JSON.stringify(scaffoldCompletions)}`);
+
+  // lotusscript_scaffold tool is registered
+  let registeredScaffoldTool: any = null;
+  const scaffoldToolPi: any = {
+    on: () => {},
+    registerCommand: () => {},
+    registerTool: (def: any) => {
+      if (def.name === "lotusscript_scaffold") registeredScaffoldTool = def;
+    },
+  };
+  lotusscriptModularExtension(scaffoldToolPi);
+  const scaffoldToolOk = !!registeredScaffoldTool;
+  console.log("70. lotusscript_scaffold tool is registered:", scaffoldToolOk ? "PASS" : "FAIL");
+  if (!scaffoldToolOk) throw new Error("lotusscript_scaffold tool was not registered");
 
   // Cleanup
   fs.rmSync(testDir, { recursive: true, force: true });

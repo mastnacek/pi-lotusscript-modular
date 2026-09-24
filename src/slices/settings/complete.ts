@@ -10,6 +10,7 @@ interface Suggestion {
 export const LS_SUBCOMMANDS: readonly Suggestion[] = [
   { value: "status", description: "Zobrazit aktuální konfiguraci pluginu" },
   { value: "config", description: "Zobrazit nebo změnit nastavení (get/set)", space: true },
+  { value: "scaffold", description: "Vytvořit kostru LotusScript kódu (agent, library, procedure, modular)", space: true },
   { value: "lsp", description: "Přepnout LotusScript LSP kontrolu: on | off", space: true },
   { value: "overwrite", description: "Přepnout přepisování .lss souboru: on | off", space: true },
   { value: "compile", description: "Sestavit modulární složku do _compiled.lss", space: true },
@@ -25,6 +26,13 @@ export const LS_SUBCOMMANDS: readonly Suggestion[] = [
 const CONFIG_ACTIONS: readonly Suggestion[] = [
   { value: "get", description: "Vypsat aktuální hodnotu nastavení", space: true },
   { value: "set", description: "Uložit novou hodnotu nastavení", space: true },
+];
+
+const SCAFFOLD_TYPES: readonly Suggestion[] = [
+  { value: "agent", description: "Samostatný LotusScript agent (.lss) s ošetřením chyb", space: true },
+  { value: "library", description: "Knihovna skriptů (Script Library .lss)", space: true },
+  { value: "procedure", description: "Procedura (sub_ nebo func_) do modulární složky", space: true },
+  { value: "modular", description: "Kompletní modulární složka (manifest, options, declarations, subs)", space: true },
 ];
 
 const TOGGLE_VALUES: readonly Suggestion[] = [
@@ -92,6 +100,10 @@ export function completeLsArguments(
 
   if (sub === "lsp" || sub === "overwrite" || sub === "jev") {
     return filter(`${sub} `, TOGGLE_VALUES, afterSub);
+  }
+
+  if (sub === "scaffold") {
+    return filter("scaffold ", SCAFFOLD_TYPES, afterSub);
   }
 
   if (sub === "gotchas") {
