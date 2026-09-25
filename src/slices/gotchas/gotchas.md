@@ -668,3 +668,34 @@ Dim g_status As Long
 ' CORRECT - jen skutečný obsah souboru
 Dim g_status As Long
 ```
+
+---
+
+## InStrRev does not exist in LotusScript — "Variable not declared: INSTRREV"
+
+`InStrRev` is a VBA/VBScript function. LotusScript (including Domino 9.0.1) has **no** reverse `InStr`, so with `Option Declare` it fails to compile:
+
+```lotusscript
+' WRONG:
+i = InStrRev(s, " ")      ' Compile error: "Variable not declared: INSTRREV"
+```
+
+**Workaround** — find the last occurrence by scanning backwards:
+
+```lotusscript
+Dim i As Integer
+Dim iPos As Integer
+
+iPos = 0
+For i = Len(s) To 1 Step -1
+    If Mid$(s, i, 1) = " " Then
+        iPos = i
+        Exit For
+    End If
+Next
+' iPos = pozice posledni mezery (0 = nenalezena)
+```
+
+Practical use: building the "Příjmení Jméno" key from a CN name (`@RightBack(x,' ')` equivalent) — the first word comes from `InStr`, the last word must be found this way.
+
+Same trap family as `CDate` → `CDat` (VBA name that LotusScript doesn't have). Note the plugin's LSP validation can be **disabled**, so a compile-breaking call like this may not be reported by tooling — the Designer compile (`Ctrl+Shift+F9`) is the authority.
