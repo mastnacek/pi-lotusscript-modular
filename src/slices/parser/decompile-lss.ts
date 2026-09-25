@@ -9,6 +9,7 @@ import path from "node:path";
 import type { CodeBlock } from "../../shared/types.js";
 import { detectProcPrefix, sanitizeFileName } from "../../shared/paths.js";
 import { writeMainLss, writeManifest, writeModuleFile } from "./emitters.js";
+import { stripArtifactScaffolding } from "./scaffolding.js";
 
 /**
  * Decompile a bare LotusScript source file (.lss) into a modular folder structure.
@@ -20,7 +21,11 @@ export function decompileLss(lssPath: string, outputDirOverride?: string): strin
   }
 
   const content = fs.readFileSync(resolvedLss, "utf-8");
-  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  // `compileAgent` writes its provenance header + section markers back into the
+  // source .lss (overwriteSourceLss). Strip them before parsing, otherwise every
+  // compile → decompile cycle nests one more header/section block into
+  // 01_declarations.lss and the artifact grows without bound.
+  const lines = stripArtifactScaffolding(content.replace(/\r\n/g, "\n")).split("\n");
   const scriptName = path.basename(resolvedLss, ".lss");
 
   const lssDir = path.dirname(resolvedLss);

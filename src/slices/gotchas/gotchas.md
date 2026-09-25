@@ -635,3 +635,36 @@ Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Lon
 ```
 
 Platí i pro komentáře uvnitř těla obecně - ty se v monolitu i po decompile drží.
+
+---
+
+## `' === SECTION: … ===` a `%REM … Assembled from modular source files` v .lss jsou generované
+
+`compileAgent` zapisuje do sestaveného artefaktu dva druhy vlastního scaffolding:
+provenance hlavičku `%REM … Assembled from modular source files … %END REM`
+a markery `' === SECTION: <soubor> ===` / `' === END SECTION: <soubor> ===`.
+
+Když je artefakt zároveň zdrojem (`overwriteSourceLss: true`, `manifest.sourceDxl`
+míří na tentýž `.lss`), čte ho při dalším cyklu zpátky `decompileLss`. Dekompilátor
+proto oba druhy markerů **odstraňuje ještě před parsováním** a `compileAgent` je
+navíc odstraní z každého modulárního souboru před slepením — jinak se do
+`01_declarations.lss` přidala další kopie hlavičky a pár markerů při každém cyklu
+a artefakt rostl donekonečna.
+
+Praktické důsledky:
+
+- Markery v `01_declarations.lss` jsou vždy chyba. Nikdy je tam nepiš ani
+  nekopíruj — patří výhradně do sestaveného artefaktu.
+- `' === END SECTION: … ===` bez odpovídajícího `' === SECTION: … ===` znamená, že
+  soubor prošel cyklem před opravou; další compile ho sám vyčistí.
+- Uživatelský `%REM` blok s dokumentací zůstává nedotčený — stripping maže jen
+  bloky obsahující marker `Assembled from modular source files`.
+
+```lotusscript
+' WRONG - scaffolding zkopírovaný z artefaktu do modulárního souboru
+' === SECTION: 01_declarations.lss ===
+Dim g_status As Long
+
+' CORRECT - jen skutečný obsah souboru
+Dim g_status As Long
+```

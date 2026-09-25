@@ -222,16 +222,24 @@ export async function phase1To4(): Promise<void> {
   if (!registeredGotchasTool) throw new Error("lotusscript_gotchas tool was not registered");
 
   // 19a. Non-UI tool execution rejects auto-saving
-  const toolNoUiRes = await registeredGotchasTool.execute(
-    "call_1",
-    { action: "add", title: sampleTitle, body: sampleBody },
-    undefined,
-    undefined,
-    { hasUI: false }
-  );
-  console.log("19a. Tool rejects auto-save when no UI:", (!toolNoUiRes.details?.ok && toolNoUiRes.details?.reason === "no_ui") ? "PASS" : "FAIL");
-  if (toolNoUiRes.details?.ok || toolNoUiRes.details?.reason !== "no_ui") {
-    throw new Error("Tool permitted auto-saving without UI");
+  // The tool error contract (commit ce7d788) requires throwing, not returning,
+  // so a missing UI must surface as a thrown error with isError semantics.
+  let toolNoUiError = "";
+  try {
+    await registeredGotchasTool.execute(
+      "call_1",
+      { action: "add", title: sampleTitle, body: sampleBody },
+      undefined,
+      undefined,
+      { hasUI: false }
+    );
+  } catch (err: unknown) {
+    toolNoUiError = err instanceof Error ? err.message : String(err);
+  }
+  const noUiRejected = toolNoUiError.includes("Interactive UI required");
+  console.log("19a. Tool rejects auto-save when no UI:", noUiRejected ? "PASS" : "FAIL");
+  if (!noUiRejected) {
+    throw new Error(`Tool permitted auto-saving without UI: ${JSON.stringify(toolNoUiError)}`);
   }
 
   // 19b. UI execution with rewrite request

@@ -7,6 +7,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { getTimestamp, sanitizeFileName } from "../../shared/paths.js";
 import { syncManifest } from "./sync-manifest.js";
+import {
+  buildArtifactHeader,
+  endSectionTag,
+  sectionTag,
+  stripArtifactScaffolding,
+} from "./scaffolding.js";
 import type { AgentManifest } from "../../shared/types.js";
 
 /**
@@ -64,15 +70,7 @@ export function compileAgent(
 
 /** Concatenates all modular files in compilation order into the artifact body. */
 function assembleCompiledContent(agentDir: string, manifest: AgentManifest): string {
-  const lines: string[] = [
-    `%REM`,
-    `    Agent: ${manifest.agentName}`,
-    `    Assembled from modular source files`,
-    `    Compiled: ${new Date().toISOString()}`,
-    `    Target: Paste entire content into Domino Designer agent`,
-    `%END REM`,
-    "",
-  ];
+  const lines: string[] = buildArtifactHeader(manifest.agentName, new Date().toISOString());
 
   for (const fileName of manifest.compilationOrder) {
     const filePath = path.join(agentDir, fileName);
@@ -80,13 +78,16 @@ function assembleCompiledContent(agentDir: string, manifest: AgentManifest): str
       throw new Error(`Missing component file: ${filePath}`);
     }
 
-    let content = fs.readFileSync(filePath, "utf-8").trim();
+    // Self-healing: a modular file that already carries scaffolding (e.g. an
+    // 01_declarations.lss polluted by an earlier compile → decompile cycle) must
+    // not inject it into the artifact again.
+    let content = stripArtifactScaffolding(fs.readFileSync(filePath, "utf-8")).trim();
 
     content = content.replace(/^'(?: @agent-member-of:| @script-member-of:| @event:| @procedure:| @parent-declarations:)[^\r\n]*\r?\n?/gm, "").trim();
 
-    lines.push(`' === SECTION: ${fileName} ===`);
+    lines.push(sectionTag(fileName));
     lines.push(content);
-    lines.push(`' === END SECTION: ${fileName} ===\n`);
+    lines.push(`${endSectionTag(fileName)}\n`);
   }
 
   return lines.join("\n");
