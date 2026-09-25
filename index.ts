@@ -84,7 +84,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // 4. Custom Tools for the Model
   registerModelTools(pi, state);
 
-  pi.on("session_shutdown", () => {
+  track(pi.on("session_shutdown", () => {
     while (state.unsubscribers.length > 0) state.unsubscribers.pop()?.();
-  });
+  }));
 }

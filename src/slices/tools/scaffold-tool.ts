@@ -49,36 +49,28 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
       returnType?: string;
       params?: string;
     }) {
-      try {
-        const res = scaffoldLotusScriptArtifact({
-          type: params.type,
-          name: params.name,
-          targetDir: params.targetDir,
-          purpose: params.purpose,
-          author: params.author,
-          isFunction: params.isFunction,
-          parentAgent: params.parentAgent,
-          returnType: params.returnType,
-          params: params.params,
-        });
-        return {
-          content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}\n\n${res.noticeEn ?? ""}` }],
-          details: {
-            ok: res.ok,
-            type: res.type,
-            createdFiles: res.createdFiles,
-            message: res.message,
-            alias: res.alias,
-            notice: res.noticeEn,
-          },
-        };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: "text", text: `Error scaffolding artifact: ${msg}` }],
-          details: { ok: false },
-        };
-      }
+      const res = scaffoldLotusScriptArtifact({
+        type: params.type,
+        name: params.name,
+        targetDir: params.targetDir,
+        purpose: params.purpose,
+        author: params.author,
+        isFunction: params.isFunction,
+        parentAgent: params.parentAgent,
+        returnType: params.returnType,
+        params: params.params,
+      });
+      return {
+        content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}\n\n${res.noticeEn ?? ""}` }],
+        details: {
+          ok: res.ok,
+          type: res.type,
+          createdFiles: res.createdFiles,
+          message: res.message,
+          alias: res.alias,
+          notice: res.noticeEn,
+        },
+      };
     },
   });
 }

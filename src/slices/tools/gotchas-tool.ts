@@ -4,6 +4,7 @@
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import type { GotchaItem } from "../../shared/types.js";
 import { addGotcha, promptGotchaReview, searchGotchas, getGotchasSummary } from "../gotchas/index.js";
@@ -11,7 +12,9 @@ import type { PluginState } from "../../shared/state.js";
 
 export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void {
   const GotchasParams = Type.Object({
-    action: Type.Optional(Type.String({ description: "'search', 'summary', or 'add'" })),
+    action: Type.Optional(StringEnum(["search", "summary", "add"] as const, {
+      description: "Action to perform: 'search', 'summary', or 'add'",
+    })),
     query: Type.Optional(Type.String({ description: "Keyword to search (e.g. 'shell', 'forall', 'const', 'computewithform', 'variant')" })),
     title: Type.Optional(Type.String({ description: "Gotcha title (required for action='add')" })),
     body: Type.Optional(Type.String({ description: "Gotcha markdown description (required for action='add')" })),
@@ -44,23 +47,12 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
 
       if (act === "add") {
         if (!params.title || !params.body) {
-          return {
-            content: [{ type: "text", text: "Error: both 'title' and 'body' are required to add a gotcha." }],
-            details: { ok: false },
-          };
+          throw new Error("Both 'title' and 'body' are required to add a gotcha.");
         }
 
         const effectiveCtx = ctx ?? state.latestUiContext;
         if (!effectiveCtx || !effectiveCtx.hasUI) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "Error: Gotcha was not saved because manual user approval is required via interactive UI, but no UI is available in this session.",
-              },
-            ],
-            details: { ok: false, approved: false, reason: "no_ui" },
-          };
+          throw new Error("Interactive UI required for gotcha approval, but no UI is available in this session.");
         }
 
         const review = await promptGotchaReview(effectiveCtx, params.title, params.body);

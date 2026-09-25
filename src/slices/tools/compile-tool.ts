@@ -28,10 +28,7 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
     async execute(_toolCallId: string, params: { folder: string; clean?: boolean }) {
       const modularRoot = findModularRoot(params.folder);
       if (!modularRoot) {
-        return {
-          content: [{ type: "text", text: `Error: directory is not a modular agent root: ${params.folder}` }],
-          details: { ok: false },
-        };
+        throw new Error(`Directory is not a modular agent root: ${params.folder}`);
       }
 
       const shouldClean = params.clean ?? false;
@@ -73,10 +70,7 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
     async execute(_toolCallId: string, params: { path: string; outputDir?: string }) {
       const resolved = path.resolve(params.path);
       if (!fs.existsSync(resolved)) {
-        return {
-          content: [{ type: "text", text: `Error: file not found: ${resolved}` }],
-          details: { ok: false },
-        };
+        throw new Error(`File not found: ${resolved}`);
       }
 
       let outDir = "";
@@ -87,10 +81,7 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
       }
 
       if (!outDir) {
-        return {
-          content: [{ type: "text", text: `Notice: no LotusScript code found in ${resolved}` }],
-          details: { ok: false },
-        };
+        throw new Error(`No LotusScript code found in ${resolved}`);
       }
 
       return {
