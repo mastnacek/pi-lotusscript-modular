@@ -27,9 +27,6 @@
   "pi": {
     "extensions": [
       "./index.ts"
-    ],
-    "skills": [
-      "./skills/lotusscript-modular"
     ]
   },
   "files": [

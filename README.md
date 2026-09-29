@@ -17,8 +17,8 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Central Gotchas Registry (42 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
 - **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant skeletons (standalone agent, script library, modular procedure, full modular folder) with protected headers, `%Include "lsconst.lss"` and error handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
-- **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the skill so every new element is machine-recognizable in the design graph.
-- **Comprehensive Skill:** Progressive-disclosure skill (`skills/lotusscript-modular/`) with `references/` for workflow, coding conventions, 42-gotcha index, scaffolding and DXL/ODP editing.
+- **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
+- **Bundled Reference Docs (not auto-loaded):** On-demand docs (`skills/lotusscript-modular/references/`) for workflow, coding conventions, 42-gotcha index, scaffolding and DXL/ODP editing. The skill is no longer registered as an auto-loading pi skill — the extension tools carry the workflow.
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection before writing or modifying Notes 9.0.1 LotusScript code.
 - **Hard KB Edit Gate:** The KB rule is ENFORCED — `edit`/`write` calls on `.lss`/`.dxl` files are rejected (`block: true`) until `kb_search` (collection `lotus-notes`) has been called this session. Gate re-arms on every new session; disable with `"enforceKbGate": false`.
 
@@ -73,9 +73,9 @@ Stored in `.pi/lotusscript-modular.json`:
 
 ---
 
-## Skill (Progressive Disclosure)
+## Reference Docs (Not Auto-Loaded)
 
-`skills/lotusscript-modular/` — lean router `SKILL.md` + on-demand `references/`:
+`skills/lotusscript-modular/` — on-demand docs used by the extension tooling (scaffold conventions, gotcha index). The `SKILL.md` router is intentionally NOT registered as a pi skill anymore; these files are support material for the tools, not a session skill:
 
 - `workflow.md` — modular lifecycle, CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
