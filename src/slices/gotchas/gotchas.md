@@ -1,47 +1,212 @@
 # LotusScript Gotchas
 
-Common traps and how to avoid them in IBM Notes/Domino 9.0.1.
+Trap catalogue for IBM Notes/Domino 9.0.1 development.
 
 ---
 
-## `Shell` is a built-in function — cannot be used as variable name
+## MANDATORY: always query the knowledge base before writing or changing LotusScript
 
-Compile error: `Unexpected: shell; Expected: Identifier`. `Shell` is a built-in
-LotusScript function (for executing external programs), so `Dim shell` fails at compilation.
-The same restriction applies to other built-in functions (`Dir`, `Format`, `Mid`, `Left`, `Right`, etc.).
+**Do not answer from memory or from this file alone.** Before writing, reviewing
+or refactoring any LotusScript, make **at least one** `kb_search` call against
+the `lotus-notes` collection. This registry is a starting point, not the
+authority — the KB holds 9 110 source documents and several of the traps below
+were only fixed here *after* being checked against it.
 
-**Beware of less obvious string built-ins** — this also applies to your own
-`Function`/`Sub` names, not just variables. Error: `Unexpected: StrRight; Expected: Identifier`.
-Built-ins include `StrLeft`, `StrRight`, `StrLeftBack`, `StrRightBack`, `StrToken`,
-`StrConv`, `StrCompare`. Name custom procedures differently (e.g. `ExtractPathFileName` instead
-of `StrRight`).
-
-```lotusscript
-' WRONG:
-Dim shell As Variant
-Set shell = CreateObject("WScript.Shell")   ' Unexpected: shell
-
-' CORRECT:
-Dim wsh As Variant
-Set wsh = CreateObject("WScript.Shell")
+```
+mcp__knowledge_base -> tool: kb_search
+  { "collection": "lotus-notes", "query": "<API, statement or error message>" }
 ```
 
----
+### What is in the `lotus-notes` collection
 
-## ForAll - DO NOT declare loop alias variable
+| Layer | Files | What it is |
+|---|---|---|
+| `com.ibm.designer.domino.main.doc_*` | 8 243 | IBM API reference (classes, statements, compile errors) |
+| `ln/designer/kapitola-01..13-*.html` | 13 | **IBM white paper "Performance basics for IBM Lotus Notes developers"** (Andre Guirard, IBM, May 2008) — the best-practices book |
+| `<Title>_<UNID>.html` | 867 | **Community articles** scraped from Breaking Par "Tips & Tricks" and the OpenNTF wiki |
 
-```lotusscript
-' WRONG:
-Dim item As Variant
-ForAll item In doc.Items
+The two non-IBM layers are the reason for this rule: they contain material that
+is **not** in the API reference and **not** in this file. A KB search is also the
+only way to confirm a *negative* claim (a function that does not exist, an error
+message's exact wording).
 
-' CORRECT:
-ForAll item In doc.Items   ' Alias is declared automatically by compiler
+### Search recipes that pay off
+
+| Question | Query |
+|---|---|
+| Any class/property/method | `GetAllDocumentsByKey return value empty collection` |
+| A compile error the Designer reported | `Unexpected identifier compile-time error` (search the **exact** message text) |
+| Language behaviour | `LotusScript And Or evaluation operands` |
+| Performance / design | `Performance basics developers LotusScript performance best practices` |
+| "Does X exist?" | search the bare name; an empty result is meaningful evidence |
+| Community tips | search the concept, then read `ln/designer/<Title>_<UNID>.html` |
+
+**Reading scraped articles:** each one opens with a ~4 000-character navigation
+sidebar. `kb_read_source` truncates from the start and will return only the nav —
+extract the body from the file on disk instead:
+
+```
+C:\Users\jaroslav\.claude\mcp\knowledge-base\references\ln\designer\<Title>_<UNID>.html
 ```
 
+### The book, in one page — then verify with the KB
+
+*Performance basics* (Guirard 2008). Its governing principle: *"scripts spend far
+more time opening documents and views than manipulating variable values"* — an
+unnecessary array reference saves a microsecond, an unnecessary view open costs
+seconds. Optimise the big items first; the author explicitly dismisses micro-
+optimisation of loops (`for` vs `while`, globals vs locals).
+
+| Ch. | Topic | One-line takeaway |
+|---|---|---|
+| 2 | General principles | Every non-richtext field is a summary field: hundreds of fields index up to ~30 % slower **even if unused in views**. Don't split 1:N into separate documents — Notes is not relational. Deletion stubs linger 90–120 days, so never "delete all + recreate" nightly. |
+| 3 | Database | Turn off what you don't need: unread marks, "Accessed (In this file)", specialised response hierarchy. Transaction logging — measure both ways. Put `Form = "…"` **first** in selection formulas (Document Table Map). NSFDB2 is usually *slower* than plain NSF. |
+| 4 | Formula | `@Contains` is not an exact-match test — use `=`, `*=` or `@IsMember`. `@Unique` is O(n²). `@DbLookup` cache modes: default `Cache`, `NoCache` (overused by developers), `ReCache` (forgotten, refreshes the cache). Never look up duplicates and de-duplicate afterwards — read a categorized column. |
+| 5 | Forms | Never have a Computed field that merely redisplays another field (stores two copies). `@DbColumn + 1` for sequential numbering is O(n) and not unique across users/replicas — use `@Unique`. |
+| 6 | Views | `@Today`/`@Now` in selection or column formulas invalidates the view index on every open → full database scan. The common `@TextToTime("Today")` workaround is fast **but wrong**. Server-private views cost the Update task even though Designer can't show them. Multiple categorisation ≈ double the work per document. Ascending and descending are two separate re-sorts. |
+| 7 | Code | Don't iterate with `GetNthDocument` — use `GetFirstDocument`/`GetNextDocument`. Hoist `GetView` out of loops. Set `view.AutoUpdate = False` for lookup views. Use collection `*All` methods. Don't `Save` unchanged documents (churn + replication conflicts). `ComputeWithForm` is slow. Action code belongs in agents (`@Command([RunAgent])`). Loading script libraries is superlinear. `Delete` no longer buys memory since 6.0. |
+| 8–9 | Testing | Test on volume, never against a production replica. Use Profile documents for configuration. |
+
+Full text: `ln/designer/kapitola-02..09-*.html`.
+
+### Provenance of the entries below
+
+`[KB]` — verified against the `lotus-notes` collection; the citation is inline.
+No marker — observed on this server but not described by IBM (PowerShell, the
+pi-lotusscript-modular toolchain, LMBCS on Linux, string collation). For those,
+experience is the source, not the KB.
+
 ---
 
-## Const - WITHOUT "As Type"
+## Logical operators `And` / `Or` do NOT short-circuit  `[KB]`
+
+Both operands are **always** evaluated. These are not C's/Java's `&&`/`||` — no
+waiting for the first operand's result:
+
+```lotusscript
+' WRONG - when x Is Nothing, x.Count is still evaluated and throws error 91
+If x Is Nothing Or x.Count = 0 Then ...
+
+' WRONG - same trap with the condition inverted
+If doc.HasItem("X") And doc.GetItemValue("X") <> "" Then ...
+
+' CORRECT - split into branches; the unsafe part never runs
+If x Is Nothing Then
+   bEmpty = True
+Else
+   bEmpty = (x.Count = 0)
+End If
+
+' CORRECT - or evaluate the condition into a variable first
+vCount = ""
+If Not x Is Nothing Then vCount = x.Count
+If vCount = 0 Then ...
+```
+
+IBM states it verbatim in *Performance basics* (ch. 6.6): *"in macro language
+(and in LotusScript), logical operators don't work that way. Both parts of the
+expression are always evaluated."* They even recommend writing "lazy logic" with
+`@If(...)` in views despite it being slower, because skipping an expensive
+function wins on net.
+
+The Language Reference (`Logical Operators`) describes `And`/`Or` only as bit
+operations over both operands — short-circuiting is never mentioned, which is
+precisely why developers coming from other languages trip over it.
+
+---
+
+## `GetAllDocumentsByKey` returns an empty collection on no match — never `Nothing`
+
+Per IBM docs: *"If no documents match, the collection is empty and the count is
+zero."* Testing `Is Nothing` is therefore dead code, and every user gets the
+wrong branch:
+
+```lotusscript
+' WRONG - second branch always runs
+If dc Is Nothing Then
+   MsgBox "Role: WORKER"
+Else
+   MsgBox "Role: SUPERVISOR - " & dc.Count
+End If
+
+' WRONG - And/Or does not short-circuit, see the entry above
+If dc Is Nothing Or dc.Count = 0 Then ...
+
+' CORRECT - two branches, the second is never reached when Nothing
+If dc Is Nothing Then
+   bEmpty = True
+Else
+   bEmpty = (dc.Count = 0)
+End If
+```
+
+`Nothing` comes back only for an invalid view or an empty key — not when the
+category simply doesn't exist. A further trap: `GetAllDocumentsByKey` finds
+nothing if a single column mixes categories and subcategories (`\`), and a
+partial match can silently miss documents across multiple keys.
+
+---
+
+## `List` cannot be used as a Sub/Function parameter data type
+
+```
+Function HtmlBlock(sJmeno As String, chybiMat As List, okruhy As List)
+'                                                       ^^^^^^^^^^^^^^^^^^
+' LSP/Notes: Unexpected: List; Expected: Data type
+```
+
+The `Sub statement` / `Declare statement` reference pages show the syntax
+`[ ( ) | List ]`, but that describes `Declare` in a script library. The Notes
+compiler rejects it in a procedure **definition**, and no KB page claims a list
+can be passed to a procedure.
+
+Workarounds, in order of preference:
+
+1. Declare work maps as **globals in (Declarations)** (like `g_status`) and let
+   helpers read them directly; `Erase` before each use.
+2. Convert the list to arrays (`Dim keys() As String`) and pass arrays — arrays
+   are fine, just don't declare them `ByVal` and don't parenthesise them in the
+   call.
+
+---
+
+## ForAll — do NOT declare the alias variable
+
+```
+FORALL alias variable was previously declared: m
+```
+
+IBM's error text (`doc_H_STR_ITERPREVDECL`): *"You may not have a Dim statement
+for the reference variable of a Forall statement. Either delete the Dim
+statement for x, or use a different name in the Forall."*
+
+```lotusscript
+Dim m As Variant          ' WRONG
+ForAll m In myList        ' error!
+End ForAll
+
+ForAll m In myList        ' CORRECT - the ForAll declares the alias
+   sMat = ListTag(m)
+End ForAll
+```
+
+Same family of errors:
+
+- `Illegal reference to FORALL alias variable` — the alias was read **outside**
+  the loop.
+- `FORALL alias variable already in use` — concurrent (nested) ForAll loops
+  sharing one alias.
+- `FORALL alias variable is not of same data type` — the alias was reused for a
+  different type.
+
+Related, and equally invisible to the LSP: with `Option Declare`, forgetting
+`Dim x() As Type` on an array produces *Variable not declared* at **every** use
+site. After a refactor, check by hand: (1) no `Dim` on ForAll aliases, (2) every
+array has its `Dim` in the same procedure that uses it.
+
+---
+
+## `Const` — syntax has no `As dataType`
 
 ```lotusscript
 ' WRONG:
@@ -53,431 +218,104 @@ Const S$ = "text" ' $ = String
 Const L& = 100    ' & = Long
 ```
 
----
-
-## Option Public/Declare - duplicate occurrences
-
-Error: "Option can be specified only once in a module"
-
-```lotusscript
-' WRONG: Option is already defined in (Globals) -> (Options), and you add it again
-Option Public
-Option Declare
-Sub Click(Source As Button)
-   ...
-End Sub
-
-' CORRECT: Check (Globals) - if already present, DO NOT re-add
-Sub Click(Source As Button)
-   ...
-End Sub
-```
-
-| Location | Option Public/Declare |
-|---|---|
-| Standalone `.lss` file | Recommended |
-| Agent/Form/Button event | Check (Globals) |
+Official syntax: `[ Public | Private ] Const constName = expr` — there is no
+`As dataType` and there cannot be one. The suffix goes on `constName` (or on a
+numeric literal `expr`); without it LotusScript infers the type from the value
+(integer → Integer or Long by magnitude, floating point → Double), and any
+suffix used later must match.
 
 ---
 
-## Opening DB without access - skip safely
+## `EMPTY` cannot be assigned — it is an internal value, not a constant
 
-Depends on HOW you obtain the database — two distinct scenarios:
+`EMPTY` has no literal in LotusScript: it is simply a Variant's initial state.
+IBM, in *Built-in constants*: *"LotusScript also includes an internal value
+named EMPTY. This is the initial value of a Variant variable. … To test a
+variable for the EMPTY value, use the IsEmpty function. **You cannot assign
+EMPTY as a value.**"*
 
-### Scenario 1: `New NotesDatabase(server, file)` constructor
-
-The constructor automatically attempts to open the database. If it fails, `IsOpen` returns `False`.
-**Error handling is NOT required** (per IBM `IsOpen` documentation).
-
-```lotusscript
-' CORRECT: constructor + IsOpen = safe without error handler
-Dim db As New NotesDatabase("server/ORG", "mail\user.nsf")
-If db.IsOpen Then
-   ' DB is open, process documents
-Else
-   ' DB could not be opened (ACL denied, file does not exist, etc.)
-End If
-```
-
-### Scenario 2: `NotesDbDirectory` iteration
-
-`GetFirstDatabase` / `GetNextDatabase` DO NOT open the database!
-However, you do not need to call `Open()` — instantiate a NEW object via constructor.
-
-#### Recommended pattern: constructor (clean, no error handler required)
+So this fails regardless of `Option Declare`:
 
 ```lotusscript
-Set currentDb = dbDir.GetFirstDatabase(DATABASE)
-While Not (currentDb Is Nothing)
-   ' Create new object via constructor - opens safely
-   Dim tempDb As New NotesDatabase(server, currentDb.FilePath)
-   If tempDb.IsOpen Then
-      ' Safely work with tempDb
-   End If
-   Set currentDb = dbDir.GetNextDatabase
-Wend
+' WRONG
+Dim v As Variant
+v = Empty
+
+' CORRECT - Dim is enough, the variable starts out EMPTY
+Dim v As Variant
+If IsEmpty(v) Then Print "empty"
 ```
 
-#### Alternative: Inline Resume Next (legacy approach)
-
-```lotusscript
-On Error Resume Next
-Call db.Open("", "")
-If Err = 0 Then
-   ' OK - work with db
-Else
-   ' Skip - no access (Err contains error code)
-End If
-On Error GoTo 0   ' IMPORTANT: restore error handling!
-```
-
-**Warning:** Do not forget `On Error GoTo 0` after the block, otherwise all errors
-in the remainder of the script will be silenced!
-
-### Error Codes
-
-| Situation | Error Code |
-|---|---|
-| ACL access denied | 4005 / 4060 |
-| Database does not exist | 4005 |
-| Database corrupted | 4000 |
-
-### Summary
-
-| How DB is obtained | Opens automatically? | Error handler required? |
-|---|---|---|
-| `New NotesDatabase(srv, file)` | Yes (constructor) | No — `IsOpen` is sufficient |
-| `dbDir.GetFirstDatabase` | No | Required if calling `Open()` |
-| `db.OpenByReplicaID(srv, rid)` | Yes | No — `IsOpen` is sufficient |
+Contrast with `NULL`, which **can** be assigned — but only to a Variant that
+does not hold an object reference.
 
 ---
 
-## Empty cannot be assigned when Option Declare is active
+## `doc.Created` / `LastModified` / `LastAccessed` return Variant, not NotesDateTime
 
 ```lotusscript
-' WRONG:
-Dim folderRefs As Variant
-folderRefs = Empty   ' Compile error: "Empty not declared"
-
-' CORRECT:
-Dim folderRefs As Variant
-' folderRefs is automatically Empty after Dim - no need to assign
-If IsEmpty(folderRefs) Then Print "is empty"
-```
-
----
-
-## doc.Created / LastModified / LastAccessed return Variant DATE, NOT NotesDateTime
-
-```lotusscript
-' WRONG:
-Function FormatDT(dt As NotesDateTime) As String  ' Type mismatch!
+' WRONG: Type mismatch
+Function FormatDT(dt As NotesDateTime) As String
 Print FormatDT(doc.Created)
 
-' CORRECT: doc.Created returns a Variant of subtype DATE
-Dim dateVar As Variant
-dateVar = doc.Created
-If Not IsEmpty(dateVar) Then
-    Print Format$(dateVar, "yyyy-mm-dd") & "T" & Format$(dateVar, "hh:nn:ss")
-End If
-```
-
-**Note:** `NotesItem.DateTimeValue` returns a `NotesDateTime` object — that is fine.
-However, `NotesDocument.Created / LastModified / LastAccessed` return a `Variant (Date)`!
-
----
-
-## Built-in constants — do not re-declare
-
-Notes provides pre-defined constants. When `Option Declare` is on, you MUST NOT redeclare them:
-
-```lotusscript
-' WRONG:
-Const EMBED_ATTACHMENT% = 1454   ' "Name already declared"
-
-' CORRECT:
-' EMBED_ATTACHMENT (1454) is a built-in constant - simply use it directly
-If eObj.Type = EMBED_ATTACHMENT Then ...
-```
-
-Other built-ins include: `EMBED_OBJECT`, `EMBED_OBJECTLINK`, `DATABASE`, `TEMPLATE`,
-`REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE`.
-
----
-
-## Workflow applications — date fields MUST include time
-
-When storing the timestamp of an action (approval, dispatch, assignment), **always store the time alongside the date**. Otherwise, audit duration tracking is lost.
-
-```lotusscript
-' WRONG: date only without time — duration information lost
-doc.ReplaceItemValue "ApprovedDate", Date$   ' Returns only date e.g. "11.02.2026"
-
-' CORRECT: date + time — exact audit trail
-doc.ReplaceItemValue "ApprovedDate", Now     ' Returns "11.02.2026 20:53:14"
-
-' CORRECT alternative: via NotesDateTime (recommended for portability)
-Dim dtNow As New NotesDateTime("")
-Call dtNow.SetNow
-Set doc.ReplaceItemValue("ApprovedDate", dtNow)
-```
-
-| Function | Return Value |
-|---|---|
-| `Date$` | Date only (`"11.02.2026"`) |
-| `Time$` | Time only (`"20:53:14"`) |
-| `Now` | Date + Time (`11.02.2026 20:53:14`) |
-| `NotesDateTime.SetNow` | Full Notes date/time object |
-
----
-
-## CDate does not exist — in LotusScript it is CDat
-
-`CDate` is VBA/VBScript syntax. LotusScript uses `CDat` (without the "e").
-
-```lotusscript
-' WRONG:
+' CORRECT - Variant of subtype Date
 Dim d As Variant
-d = CDate("01.01.2026")   ' "Variable not declared: CDATE"
-
-' CORRECT:
-Dim d As Variant
-d = CDat("01.01.2026")    ' OK
-```
-
----
-
-## Split() returns Variant, not String() — "Illegal reference to array"
-
-In LotusScript, `Split()` returns a `Variant` wrapping an array of strings. Assigning it to `Dim x() As String` fails.
-
-```lotusscript
-' WRONG:
-Dim keys() As String
-keys = Split(keyNames, ",")   ' "Illegal reference to array"
-
-' CORRECT:
-Dim keys As Variant
-keys = Split(keyNames, ",")
-If IsArray(keys) Then
-    Dim i As Long
-    For i = LBound(keys) To UBound(keys)
-        Print keys(i)
-    Next
+d = doc.Created
+If Not IsEmpty(d) Then
+   Print Format$(d, "yyyy-mm-dd") & "T" & Format$(d, "hh:nn:ss")
 End If
 ```
 
----
+This is IBM's own pattern — in *Examples: Created property (NotesDocument)* the
+value goes into `Dim createDate As Variant` before `Messagebox`. Same for
+`NotesDatabase.Created`.
 
-## EmbeddedObjects returns EMPTY, not empty array — ForAll will crash
-
-`rtitem.EmbeddedObjects` returns `EMPTY` (not an empty array) when the richtext item has no attachments. Running `ForAll` over `EMPTY` throws a runtime error.
-
-```lotusscript
-' WRONG: crashes if body has no attachments
-ForAll o In rtitem.EmbeddedObjects
-    count = count + 1
-End ForAll
-
-' CORRECT: guard with IsEmpty before looping
-If Not IsEmpty(rtitem.EmbeddedObjects) Then
-    ForAll o In rtitem.EmbeddedObjects
-        If o.Type = EMBED_ATTACHMENT Then count = count + 1
-    End ForAll
-End If
-```
+Note: `NotesItem.DateTimeValue` genuinely returns a `NotesDateTime` object; only
+the document/database properties behave this way.
 
 ---
 
-## GetFirstItem("Body") - RICHTEXT vs TEXT -> Type mismatch on AppendRTItem
+## `NotesDateTime`: `GMTTime`/`LocalTime` are String, `LSGMTTime`/`LSLocalTime` are Variant Date
 
-`GetFirstItem` returns a `NotesRichTextItem` only if the item in NSF is actually rich text.
-Emails sent by background agents frequently store `Body` as plain `TEXT` -> `GetFirstItem` returns a generic `NotesItem`.
-Calling `rtitem.AppendRTItem(item)` with a plain `NotesItem` throws **Type mismatch**.
-
-```lotusscript
-' WRONG: throws Type mismatch if Body is plain Text
-Dim body As NotesRichTextItem
-Set body = doc.GetFirstItem("Body")
-Call combinedRT.AppendRTItem(body)
-
-' CORRECT: verify item.Type == 1 (RICHTEXT)
-Dim item As NotesItem
-Set item = doc.GetFirstItem("Body")
-If Not (item Is Nothing) Then
-    If item.Type = 1 Then   ' 1 = RICHTEXT
-        Call combinedRT.AppendRTItem(item)
-    Else                    ' 1280 = TEXT
-        Call combinedRT.AppendText(item.Text)
-    End If
-End If
-```
-
----
-
-## Removing embedded object DURING ForAll iteration -> skips objects
-
-Deleting embedded objects from a collection while iterating over it via `ForAll` results in skipped elements.
-Store references/names first, then delete in a separate pass.
-
-```lotusscript
-' WRONG: deleting during iteration skips every second object
-ForAll o In rtitem.EmbeddedObjects
-    Call o.Remove
-End ForAll
-
-' CORRECT: collect names first, then remove
-Dim names List As String
-If Not IsEmpty(rtitem.EmbeddedObjects) Then
-    ForAll o In rtitem.EmbeddedObjects
-        If o.Type = EMBED_ATTACHMENT Then names(o.Name) = o.Name
-    End ForAll
-    ForAll n In names
-        Dim obj As NotesEmbeddedObject
-        Set obj = rtitem.GetEmbeddedObject(n)
-        If Not (obj Is Nothing) Then Call obj.Remove
-    End ForAll
-End If
-```
-
----
-
-## CopyAllItems invalidates existing item references
-
-After `doc.CopyAllItems(targetDoc, True)`, items in the target document are replaced.
-References obtained prior to `CopyAllItems` (`Set item = doc.GetFirstItem(...)`) become invalid.
-
-**CRITICAL:** `CopyItemToDocument` on a `RichTextItem` **DOES NOT COPY ATTACHMENTS!** (IBM documentation).
-Attachments reside as separate internal `$FILE` items in the document.
-To duplicate a document including attachments, use `CopyAllItems`.
-
----
-
-## Evaluate(@Contains) - formula injection via special characters
-
-If an email Subject contains quotes `"` or pipes `|`, embedding it into a formula string breaks parsing.
-
-```lotusscript
-' WRONG: Subject with quotes -> syntax error in formula
-y = Evaluate(|@Contains("| & searchStr & |";"| & sourceStr & |")|)
-
-' CORRECT: sanitize input or perform comparison in pure LotusScript
-If InStr(1, sourceStr, searchStr, 5) > 0 Then ...
-```
-
----
-
-## $AssistMail - agent processing its own error emails -> infinite loop
-
-If an agent sends an error notification email -> the email lands in the monitored database -> the agent picks it up -> crashes -> sends another error email -> infinite loop.
-
-Emails sent by Domino agents carry item `$AssistMail = "1"` (or `SentByAgent = "1"`). Always filter them out:
-
-```lotusscript
-If doc.HasItem("$AssistMail") Or doc.HasItem("SentByAgent") Then Exit Sub
-```
-
----
-
-## EmbeddedObjects - check o.Type before ExtractFile
-
-`EmbeddedObjects` returns ALL embedded items: file attachments, OLE objects, and object links.
-Only file attachments (`EMBED_ATTACHMENT = 1454`) support `Name` and `ExtractFile`.
-
-```lotusscript
-' WRONG: assumes everything is a file
-ForAll o In rtitem.EmbeddedObjects
-    Call o.ExtractFile("C:\temp\" & o.Name)   ' Error on OLE objects
-End ForAll
-
-' CORRECT:
-ForAll o In rtitem.EmbeddedObjects
-    If o.Type = EMBED_ATTACHMENT Then
-        Call o.ExtractFile("C:\temp\" & o.Name)
-    End If
-End ForAll
-```
-
----
-
-## String(count, charCode) requires ASCII range — Unicode causes "Illegal function call"
-
-`String(count, asciiCharCode)` — the second parameter must be in range **0-255** (single byte).
-Supplying Unicode codepoints like `9644` throws runtime **Error 5: Illegal function call**.
-
-```lotusscript
-' WRONG:
-separator = String(40, 9644)   ' Error 5
-
-' CORRECT:
-separator = String(40, "-")
-' Or for Unicode:
-separator = String(40, UChr(&H2500))
-```
-
----
-
-## NotesDateTime.GMTTime/LocalTime return STRING, LSGMTTime/LSLocalTime return Variant DATE
-
-| Property | Return Type | Purpose |
+| Property | Returns | Use for |
 |---|---|---|
-| `GMTTime` | **String** (`"04/23/2026 07:19:01 GMT"`) | Display only |
-| `LocalTime` | **String** (`"04/23/2026 09:19:01 CEDT"`) | Display only |
-| `LSGMTTime` | **Variant (Date)** | Mathematical date comparisons in UTC |
-| `LSLocalTime` | **Variant (Date)** | Mathematical date comparisons in local time |
+| `GMTTime` | **String** (`"04/23/2026 07:19:01 GMT"`) | display only |
+| `LocalTime` | **String** (`"04/23/2026 09:19:01 CEDT"`) | display only |
+| `LSGMTTime` | **Variant (Date)** | arithmetic/comparison in UTC |
+| `LSLocalTime` | **Variant (Date)** | arithmetic/comparison in local time |
+
+IBM describes `LSGMTTime` as converting a `NotesDateTime` "to a LotusScript
+variant of type DATE".
 
 ---
 
-## Format$(date, "yyyy-mm-dd...") is LOCALE-dependent
+## `String(count, charCode)` is ANSI-only — use `UString` for Unicode
 
-LotusScript `Format$` interprets date masks according to the Windows/Domino system locale.
-On non-English operating systems (e.g. Czech locale), mask `"yyyy"` may not be recognized as year.
+`String()` takes single-byte codes; a Unicode codepoint (e.g. `9644` = U+25AC)
+raises **Error 5: Illegal function call**. The documented Unicode-capable
+function is `UString`, which accepts a Unicode code **0–65535** or the first
+character of a string:
 
 ```lotusscript
-' Safe, locale-independent ISO date assembly:
-Function IsoDate(dt As Variant) As String
-    IsoDate = Right("0000" & Year(dt), 4) & "-" & _
-              Right("00" & Month(dt), 2) & "-" & _
-              Right("00" & Day(dt), 2)
-End Function
+' WRONG - ANSI path, out of range throws Error 5
+sep = String(40, 9644)
+' STILL WRONG - String() only reads the first character, UChr doesn't help
+sep = String(40, UChr(&H2500))
+
+' CORRECT - ANSI character
+sep = String(40, "-")
+' CORRECT - Unicode via UString (code or character)
+sep = UString(40, &H2500)
+sep = UString(40, UChr(&H2500))
 ```
 
 ---
 
-## CLng(timestamp ms since 1970) -> Overflow (error 6)
+## `Chr` vs `UChr` — Unicode characters
 
-Millisecond timestamps since Unix epoch exceed 1.7 x 10^12, whereas LotusScript `Long` has a maximum value of ~2.1 x 10^9.
-Calling `CLng(msTimestamp)` immediately causes a runtime **Overflow (Error 6)**. Use `Double` for epoch arithmetic.
-
----
-
-## Agent Use "DominoApiLib" -> Variable not declared on ALL DApi_ functions
-
-If an agent fails to recognize any procedure from an included Script Library, check:
-1. `Use "LibraryName"` must be placed in **(Options)**, never inside `Sub Initialize`.
-2. The Script Library must be compiled with **Save + Ctrl+Shift+F9**.
-3. In the calling agent, run **Ctrl+Shift+F9** to recompile all dependencies.
-
----
-
-## Changing Form from Memo to another -> DUPLICATES (zombie mail-routing fields)
-
-When an agent changes `doc.Form = "CustomForm"` on an incoming email (Memo),
-you **must delete mail routing items**! Otherwise, Notes sees `DefaultMailSaveOptions = "1"` or `MailOptions` upon user Save and routes a duplicate back into the mail-in database.
-
-```lotusscript
-doc.Form = "CustomForm"
-Call doc.RemoveItem("MailOptions")
-Call doc.RemoveItem("DefaultMailSaveOptions")
-Call doc.RemoveItem("SaveOptions")
-```
-
----
-
-## UChr vs Chr — Unicode in LotusScript
-
-`Chr(n)` only accepts values 0-255 (ANSI). For Unicode codepoints above `&H00FF`, use `UChr`.
-For string lengths, use `Len` or `UArray`.
+`Chr(n)` accepts only 0–255 (ANSI). For codepoints above `&H00FF` use `UChr`,
+which returns the Unicode character for a code (`UChr` → Variant of DataType 8,
+`UChr$` → String). `Uni` is the inverse.
 
 ```lotusscript
 ' WRONG:
@@ -489,213 +327,613 @@ c = UChr(&H010D)  ' "č"
 
 ---
 
-## PowerShell 5.1 — SignedCms (PKCS#7/CMS) requires `Add-Type`
-
-In Windows PowerShell 5.1 (.NET Framework), the assembly containing `SignedCms` is not loaded by default.
-Always execute:
-```powershell
-Add-Type -AssemblyName System.Security
-```
-before calling `[System.Security.Cryptography.Pkcs.SignedCms]`.
-
----
-
-## PowerShell 5.1 vs 7 — stdout encoding
-
-Windows PowerShell 5.1 defaults console pipes to OEM codepage (e.g. CP852/CP1250), breaking UTF-8 strings.
-To ensure pure UTF-8 output:
-```powershell
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$OutputEncoding = [System.Text.Encoding]::UTF8
-```
-
----
-
-## PowerShell `switch` + `continue` does not stop fall-through
-
-Inside PowerShell `switch`, `continue` acts like `break` for the current condition but does NOT skip outer iterations in a loop. Use `break` explicitly if matching only one case.
-
----
-
-## PowerShell `ConvertFrom-Json` auto-parses ISO 8601 into DateTime
-
-Strings formatted like `"2026-04-23T09:17:17Z"` are automatically converted by PowerShell to `[DateTime]` objects, which later stringify using localized system formatting. To preserve literal ISO format, use custom regex parsing or format strings explicitly.
-
----
-
-## Domino 9.0.1 FP4 Linux — REQUEST_CONTENT encodes via LMBCS, not UTF-8
-
-Web agents running on Linux Domino 9.0.1 FP4 reading `REQUEST_CONTENT` from POST bodies can interpret multi-byte characters as LMBCS rather than raw UTF-8. Convert bytes using byte-level stream processing or Java helper servlets when handling JSON payloads.
-
----
-
-## DXL import — straight quote `"` inside Formula text terminates string
-
-In Notes Formula Language, double quote `"` is the string delimiter.
-When editing form/view DXL XML representations, unescaped double quotes inside formulas prematurely terminate the string and cause invalid DXL import errors. Use `@Char(34)` or balance braces `{...}`.
-
----
-
-## Formula — listing specific days from range + "compute once" trap in input translation
-
-To list each day in a date range, `@Explode([Start - End])` returns a multi-value text list of individual days.
-Beware that Input Translation formulas execute on document save, whereas default value formulas execute only on document creation.
-
----
-
-## `Trim`/`Trim$` strips only SPACES, not tab/CR/LF
-
-LotusScript `Trim`, `LTrim`, and `RTrim` remove only the **ASCII space character (Chr 32)**.
-They do not remove tabs (`Chr 9`), linefeeds (`Chr 10`), or carriage returns (`Chr 13`).
-Text consisting solely of tabs or newlines will evaluate as non-empty.
+## `Split()` returns a Variant, not `String()` — "Illegal reference to array"
 
 ```lotusscript
-Function FullTrim(ByVal s As String) As String
-    s = Replace(s, Chr$(9), " ")
-    s = Replace(s, Chr$(10), " ")
-    s = Replace(s, Chr$(13), " ")
-    FullTrim = Trim$(s)
+' WRONG:
+Dim keys() As String
+keys = Split(keyNames, ",")   ' "Illegal reference to array"
+
+' CORRECT:
+Dim keys As Variant
+keys = Split(keyNames, ",")
+If IsArray(keys) Then
+   Dim i As Long
+   For i = LBound(keys) To UBound(keys)
+      Print keys(i)
+   Next
+End If
+```
+
+IBM's own example (`Examples: Split function`) uses `Dim ret As Variant` and
+`ret = split(teststr, delim)`.
+
+---
+
+## `CDate` does not exist — LotusScript uses `CDat`
+
+`CDate` is VBA/VBScript syntax; with `Option Declare` it fails to compile.
+
+```lotusscript
+' WRONG:
+d = CDate("01.01.2026")   ' "Variable not declared: CDATE"
+
+' CORRECT:
+d = CDat("01.01.2026")    ' raises an error if the string is not a date
+```
+
+`CDat` converts a numeric or string value to a date/time value.
+
+---
+
+## `InStrRev` does not exist — there is no reverse `InStr` in LotusScript
+
+```lotusscript
+' WRONG:
+i = InStrRev(s, " ")      ' "Variable not declared: INSTRREV"
+```
+
+Scan backwards instead — e.g. to build a `"Příjmení Jméno"` key:
+
+```lotusscript
+Dim i As Integer
+Dim iPos As Integer
+iPos = 0
+For i = Len(s) To 1 Step -1
+   If Mid$(s, i, 1) = " " Then
+      iPos = i
+      Exit For
+   End If
+Next
+```
+
+Same trap family as `CDate` → `CDat`. Note that the plugin's LSP validation can
+be disabled, so a compile-breaking call like this may go unreported by tooling —
+the Designer compile (`Ctrl+Shift+F9`) is the authority.
+
+---
+
+## `Trim` / `Trim$` strips only SPACES
+
+IBM defines `Trim` as "removes leading and trailing **spaces**". Tabs
+(`Chr 9`), linefeeds (`Chr 10`) and carriage returns (`Chr 13`) are left alone,
+so whitespace-only text evaluates as non-empty.
+
+For general whitespace there is a **built-in `FullTrim`** ("eliminates
+duplicate, trailing and leading whitespace", works on strings and arrays):
+
+```lotusscript
+s = FullTrim(s)   ' also collapses runs of inner whitespace
+s = Trim$(s)      ' leading/trailing spaces only
+```
+
+---
+
+## `Shell` is a built-in function — cannot be used as a variable name
+
+Compile error: `Unexpected: shell; Expected: Identifier`. The restriction applies
+to all built-ins (`Dir`, `Format`, `Mid`, `Left`, `Right`, `StrLeft`, `StrRight`,
+`StrLeftBack`, `StrRightBack`, `StrToken`, `StrConv`, `StrCompare` …) and to your
+own procedure names.
+
+```lotusscript
+' WRONG:
+Dim shell As Variant
+Set shell = CreateObject("WScript.Shell")
+
+' CORRECT:
+Dim wsh As Variant
+Set wsh = CreateObject("WScript.Shell")
+```
+
+IBM also notes `Shell` "must be called from within an expression or an assignment
+statement, so that its return value is used", and that on platforms other than
+UNIX/AIX it does not wait for the program to finish.
+
+---
+
+## Built-in constants — do not re-declare
+
+With `Option Declare`, redeclaring a Notes constant gives "Name already
+declared":
+
+```lotusscript
+' WRONG:
+Const EMBED_ATTACHMENT% = 1454
+
+' CORRECT - just use it
+If eObj.Type = EMBED_ATTACHMENT Then ...
+```
+
+The Language Reference lists the language built-ins as `NOTHING`, `NULL`, `PI`,
+`TRUE`, `FALSE` (plus internal `EMPTY`, which is not assignable). Class-level
+constants such as `EMBED_ATTACHMENT`, `EMBED_OBJECT`, `EMBED_OBJECTLINK`,
+`DATABASE`, `TEMPLATE`, `REPLICA_CANDIDATE`, `TEMPLATE_CANDIDATE` come from the
+Notes class reference.
+
+---
+
+## `MB_*` / `PICKLIST_*` need `%Include "lsconst.lss"` — they are not built-in
+
+`MB_ICONSTOP`, `MB_ICONQUESTION`, `PICKLIST_NAMES` and friends live in
+LSCONST.LSS, unlike `EMBED_ATTACHMENT` or `DATABASE`. Include them in **(Options)**:
+
+```lotusscript
+%Include "lsconst.lss"
+```
+
+Community alternative (`Overcoming the infamous {Public symbol is declared in
+another module: V_EMPTY}`, OpenNTF): a shared **script library** starting with
+`Option Public`, with constants declared neither `Public` nor `Private`, then
+`Use "LsConst"` from every form, view and library. That gives complete reuse
+without the `%Include` redeclaration collisions.
+
+---
+
+## `LSI_THREAD_*` are already defined — "Name previously declared"
+
+`LSI_THREAD_PROC` and `LSI_THREAD_MODULE` (used with `GetThreadInfo`) are defined
+in **LSPRVAL.LSS**, which Designer includes automatically. Declaring them
+manually is a compile error.
+
+---
+
+## `Option ...` belongs in (Options), never in (Declarations)
+
+`Option Declare`, `Option Public`, `Use`, `%Include` must sit in the **(Options)**
+event. Placing them in **(Declarations)** fails compilation immediately.
+
+Each `Option` may appear only once per module — if (Globals) already defines it,
+do not repeat it in the agent body:
+
+```
+Error: "Option can be specified only once in a module"
+```
+
+| Location | `Option Public`/`Declare` |
+|---|---|
+| Standalone `.lss` | recommended |
+| Agent / form / button event | check (Globals) first |
+
+---
+
+## Opening a database without access — skip safely
+
+### Scenario 1: `New NotesDatabase(server, file)` constructor
+
+The constructor attempts to open the database; on failure `IsOpen` returns
+`False`. **No error handler is required** (per the `IsOpen` docs).
+
+```lotusscript
+Dim db As New NotesDatabase("server/ORG", "mail\user.nsf")
+If db.IsOpen Then
+   ' process documents
+Else
+   ' ACL denied, file missing, ...
+End If
+```
+
+### Scenario 2: `NotesDbDirectory` iteration
+
+`GetFirstDatabase` / `GetNextDatabase` do **not** open the database, but you
+still don't need `Open()` — instantiate a new object via the constructor:
+
+```lotusscript
+Set currentDb = dbDir.GetFirstDatabase(DATABASE)
+While Not (currentDb Is Nothing)
+   Dim tempDb As New NotesDatabase(server, currentDb.FilePath)
+   If tempDb.IsOpen Then
+      ' work with tempDb
+   End If
+   Set currentDb = dbDir.GetNextDatabase
+Wend
+```
+
+If you must call `Open()`, use `On Error Resume Next` and **always restore
+handling** — otherwise every later error is silently swallowed:
+
+```lotusscript
+On Error Resume Next
+Call db.Open("", "")
+If Err = 0 Then
+   ' OK
+End If
+On Error GoTo 0   ' IMPORTANT
+```
+
+| How the DB is obtained | Opens automatically? | Error handler needed? |
+|---|---|---|
+| `New NotesDatabase(srv, file)` | Yes (constructor) | No — `IsOpen` suffices |
+| `dbDir.GetFirstDatabase` | No | Required only if you call `Open()` |
+| `db.OpenByReplicaID(srv, rid)` | Yes | No — `IsOpen` suffices |
+
+Typical error codes: ACL denied 4005 / 4060, database missing 4005, corrupt 4000.
+
+---
+
+## Deleting documents during view iteration → infinite loop or corrupted index
+
+Deleting as you walk a view and then re-reading the "first document" to refresh
+the iterator can loop forever or fail: Domino does not necessarily update the
+view index instantly, so the next call hands you **the document you just
+deleted**, and removing it again breaks the agent. Heavy index churn can also
+corrupt the index. Collect first, delete afterwards:
+
+```lotusscript
+' WRONG - relies on instant index update
+Do While Not (doc Is Nothing)
+   Call doc.Remove
+   Set doc = view.GetFirstDocument
+Loop
+
+' CORRECT - collect, then delete in a second pass
+```
+
+The same class of trap applies to `ForAll` over embedded objects: removing during
+iteration skips elements. Store names first, then remove.
+
+---
+
+## Boolean parameters are silently coerced
+
+LotusScript accepts almost anything in a `Boolean` parameter without complaint:
+`"0"` is falsy, `"Neco"` is truthy. For generic procedures, take a default when
+the incoming value isn't a Boolean:
+
+```lotusscript
+Sub DoThing(ByVal bJeVedouci As Boolean)
+   If TypeName(bJeVedouci) <> "BOOLEAN" Then bJeVedouci = False
+```
+
+---
+
+## Memory footprint: `Byte` vs `Integer` vs `Boolean`
+
+`Byte` is 0–255 and takes **1 byte**; `Integer` is −32 768…32 767 and takes
+**2 bytes**. Across arrays with thousands of elements the difference adds up.
+
+| Type | Range | Bytes |
+|---|---|---|
+| `Byte` | 0 … 255 | 1 |
+| `Boolean` | True/False | 1 |
+| `Integer` | −32 768 … 32 767 | 2 |
+
+Since ND6 there is also a real `Boolean` type (previously Integer/Variant was
+used) and `ArrayUnique(array, comparisonMode)`.
+
+Related: `CLng(timestampMs)` overflows immediately — millisecond epochs exceed
+`Long`'s ~2.1 × 10⁹ ceiling (**Error 6**). Use `Double` for epoch arithmetic.
+
+---
+
+## Recursive sorts can exhaust the stack
+
+`QuickSort` is recursive and can fail with "out of stack space" on large
+collections. `BubbleSort` never does, but is slow. Run QuickSort and fall back to
+BubbleSort on that error.
+
+---
+
+## `EmbeddedObjects` returns `EMPTY`, not an empty array
+
+When a rich text item has no attachments, `rtitem.EmbeddedObjects` returns
+`EMPTY`, and a bare `ForAll` over it fails at runtime:
+
+```lotusscript
+' WRONG - crashes when there are no attachments
+ForAll o In rtitem.EmbeddedObjects
+   count = count + 1
+End ForAll
+
+' CORRECT
+If Not IsEmpty(rtitem.EmbeddedObjects) Then
+   ForAll o In rtitem.EmbeddedObjects
+      If o.Type = EMBED_ATTACHMENT Then count = count + 1
+   End ForAll
+End If
+```
+
+`EmbeddedObjects` returns *all* embedded items — attachments, OLE objects and
+object links. Only `EMBED_ATTACHMENT` supports `Name` and `ExtractFile`, so
+always check `o.Type` first.
+
+---
+
+## `GetFirstItem("Body")` — RICHTEXT vs TEXT → Type mismatch on `AppendRTItem`
+
+`GetFirstItem` returns a `NotesRichTextItem` only if the stored item really is
+rich text. Memos created by background agents often store `Body` as plain TEXT,
+giving a generic `NotesItem`; `AppendRTItem` then throws **Type mismatch**.
+
+```lotusscript
+' WRONG if Body is plain text:
+Dim body As NotesRichTextItem
+Set body = doc.GetFirstItem("Body")
+Call combinedRT.AppendRTItem(body)
+
+' CORRECT
+Dim item As NotesItem
+Set item = doc.GetFirstItem("Body")
+If Not (item Is Nothing) Then
+   If item.Type = 1 Then          ' 1 = RICHTEXT
+      Call combinedRT.AppendRTItem(item)
+   Else                           ' 1280 = TEXT
+      Call combinedRT.AppendText(item.Text)
+   End If
+End If
+```
+
+---
+
+## `CopyAllItems` invalidates item references; `CopyItemToDocument` drops attachments
+
+After `doc.CopyAllItems(targetDoc, True)` the target's items are replaced, so
+references taken before the call become invalid.
+
+**`CopyItemToDocument` on a `NotesRichTextItem` does not copy attachments** —
+attachments live in separate `$FILE` items. To duplicate a document including its
+attachments, use `CopyAllItems`.
+
+---
+
+## `ComputeWithForm` recalculates every computed field — and it is slow
+
+`doc.ComputeWithForm(False, False)` runs all default-value, input-translation and
+validation formulas across the whole form. If any of them is an `@DbLookup` into
+another database, historical values on older documents can be overwritten by
+current lookup results.
+
+IBM's *Performance basics* (ch. 7.4) adds that it is "rather slow compared with
+manually calculating and assigning the new field value" — in a slow agent,
+replace it with a few explicit assignments.
+
+---
+
+## Changing "owner" is not enough when rights are computed
+
+When document security (`Authors`, `Readers`) is computed from composite roles
+(`@Unique("[admin]":Manager:Approver)`), changing an informational `Owner` field
+without updating `Authors` or recalculating rights leaves the document
+inaccessible to the new recipient.
+
+---
+
+## Changing `Form` from Memo → duplicates (zombie mail routing)
+
+Changing `doc.Form` on an incoming memo without removing the mail-routing items
+causes Notes to route the document again when the user saves, producing a
+duplicate in the mail-in database:
+
+```lotusscript
+doc.Form = "CustomForm"
+Call doc.RemoveItem("MailOptions")
+Call doc.RemoveItem("DefaultMailSaveOptions")
+Call doc.RemoveItem("SaveOptions")
+```
+
+---
+
+## `$AssistMail` — agent processing its own error mail → infinite loop
+
+An agent that mails on error receives that mail in the monitored database, fails
+again, and loops. Mails sent by Domino agents carry `$AssistMail` (or
+`SentByAgent`); always filter them:
+
+```lotusscript
+If doc.HasItem("$AssistMail") Or doc.HasItem("SentByAgent") Then Exit Sub
+```
+
+---
+
+## `Evaluate` with user text → formula injection
+
+Quotes or pipes in an email subject break a formula built by concatenation:
+
+```lotusscript
+' WRONG - a subject containing " or | breaks parsing
+y = Evaluate(|@Contains("| & searchStr & |";"| & sourceStr & |")|)
+
+' CORRECT - sanitise, or do the comparison in plain LotusScript
+If InStr(1, sourceStr, searchStr, 5) > 0 Then ...
+```
+
+---
+
+## `Use "SomeLibrary"` → "Variable not declared" on every function
+
+If an agent doesn't recognise any procedure from an included script library:
+
+1. `Use "LibraryName"` must be in **(Options)**, never inside `Sub Initialize`.
+2. The library must be saved and compiled (`Ctrl+Shift+F9`).
+3. The calling agent must be recompiled too.
+
+If the error persists, the library itself may be corrupt: comment out the `Use`,
+recompile, add a line to the library's (Options) to force a recompile and save.
+If Designer's "Recompile all LotusScript" hangs, kill Notes, run fixup + compact
+on the database, then save the library again.
+
+---
+
+## `NotesDXLExporter` and large attachments → hangs on base64
+
+`NotesDXLExporter` serialises binary attachments (`$FILE` items) into base64 XML;
+on documents with very large attachments this exhausts memory and takes forever.
+
+Note that `OmitItemNames` is an **array of String**, not a scalar:
+
+```lotusscript
+' WRONG
+exporter.OmitItemNames = "$FILE"
+
+' CORRECT
+exporter.OmitItemNames = Array("$FILE")
+exporter.OmitRichtextAttachments = True   ' attachments inside rich text
+exporter.OmitMiscFileObjects = True       ' $FILE items
+exporter.OmitRichtextPictures = True
+exporter.OmitOLEObjects = True
+exporter.RestrictToItemNames = Array("Body")
+```
+
+`OmitItemNames` takes precedence over `RestrictToItemNames`. IBM warns that
+omitting items means a later **import creates only partial copies** of the
+documents.
+
+---
+
+## `Format$(date, mask)` is locale-dependent
+
+LotusScript's `Format$` interprets date masks per the OS/Domino locale; on
+non-English systems `"yyyy"` may not be recognised as the year. Build ISO dates
+explicitly:
+
+```lotusscript
+Function IsoDate(dt As Variant) As String
+   IsoDate = Right("0000" & Year(dt), 4) & "-" & _
+             Right("00" & Month(dt), 2) & "-" & _
+             Right("00" & Day(dt), 2)
 End Function
 ```
 
 ---
 
-## `If ch >= " "` does NOT reliably filter control characters
+## Workflow applications — always store date **and** time
 
-Relational string comparisons in LotusScript (`>=`, `<`) follow **locale collation** rules (ICU), not binary codepoint values. Certain control characters can evaluate as greater than space in specific locales. Use `Asc(ch) >= 32` or `Uni(ch) >= 32` for binary safety.
-
----
-
-## NotesDXLExporter.Export(doc) on documents with large attachments -> hangs (serializes base64)
-
-By default, `NotesDXLExporter` serializes all binary attachments (`$FILE` items) into base64 XML.
-On documents with multi-gigabyte attachments, this causes memory exhaustion and long hangs.
-Set `exporter.OmitItemNames = "$FILE"` or export design elements only.
-
----
-
-## MB_* / PICKLIST_* constants are not built-in — fails compilation without %Include "lsconst.lss"
-
-Constants such as `MB_ICONSTOP`, `MB_ICONINFORMATION`, and `PICKLIST_NAMES` are defined in `lsconst.lss`.
-Unlike `EMBED_ATTACHMENT` or `DATABASE`, they are not hardcoded into the compiler runtime.
-Include `%Include "lsconst.lss"` in **(Options)** if referencing them.
-
----
-
-## Const LSI_THREAD_* in Designer -> "Name previously declared"
-
-`LSI_THREAD_PROC` and `LSI_THREAD_MODULE` (used with `GetThreadInfo`) are already defined in `LSPRVAL.LSS`, which Domino Designer includes automatically. Declaring them manually causes compile error `"Name previously declared"`.
-
----
-
-## `Option ...` in (Declarations) -> compile error; belongs in (Options)
-
-When copying monolithic LotusScript into Domino Designer, ensure compiler directives (`Option Declare`, `Option Public`, `Use`, `%Include`) are placed in the **(Options)** event. Placing them in **(Declarations)** causes immediate syntax compilation failure.
-
----
-
-## ComputeWithForm recalculates ALL computed form fields
-
-`doc.ComputeWithForm(False, False)` executes all default values, translation formulas, and validation formulas across the entire form.
-If the form contains `@DbLookup` calls into external databases or dynamic tables, existing historical values on older documents may be overwritten by current lookup results.
-
----
-
-## Changing "owner" is insufficient when permissions rely on other fields
-
-In Domino workflow applications, document security (`Authors` and `Readers` fields) is often computed from composite security roles (e.g. `@Unique("[admin]":Manager:Approver)`).
-Simply changing an informational field like `Owner` without updating the underlying `Authors` item or recalculating rights leaves the document inaccessible to the new recipient.
-
-
----
-
-## Komentář ' Účel: před deklarací procedury zmizí při recompile/decompile
-
-## Komentář nad deklarací se přesune do 01_declarations.lss
-
-V modulární složce LotusScript agenta (pi-lotusscript-modular) se komentář
-napsaný **před** `Function`/`Sub` v souboru procedury při sestavení přesune do
-`01_declarations.lss` (jako blok `' === SECTION: ... ===`) a v souboru procedury
-po dalším decompile zmizí.
-
-Důsledek: linter ve scorecardu ("Czech purpose comments") počítá jen komentáře,
-které v souboru procedury zůstanou. Po cyklu compile → decompile se proto hlásí
-chybějící popis, i když byl napsán — a scorecard spadne o 2 body.
+Store the timestamp of an action (approval, dispatch, assignment) with the time
+included, or audit durations are lost.
 
 ```lotusscript
-' WRONG - po recompile/decompile zmizí ze souboru procedury
-' Účel: Načte rozeslané bezpečnostní listy.
+' WRONG - date only, duration lost
+doc.ReplaceItemValue "ApprovedDate", Date$
+
+' CORRECT
+doc.ReplaceItemValue "ApprovedDate", Now
+
+' CORRECT alternative - portable
+Dim dtNow As New NotesDateTime("")
+Call dtNow.SetNow
+Set doc.ReplaceItemValue("ApprovedDate", dtNow)
+```
+
+| Function | Returns |
+|---|---|
+| `Date$` | date only |
+| `Time$` | time only |
+| `Now` | date + time |
+| `NotesDateTime.SetNow` | full date/time object |
+
+---
+
+## String comparison follows collation, not code points
+
+Relational string operators (`>=`, `<`) use locale collation rules, so certain
+control characters can compare as greater-than-space in some locales. For
+binary-safe filtering use `Asc(ch) >= 32` (or `Uni(ch) >= 32`).
+
+---
+
+## DXL import — a bare `"` inside formula text terminates the string
+
+In formula language `"` is the string delimiter. When hand-editing DXL, an
+unescaped quote inside a formula truncates the string and breaks the import. Use
+`@Char(34)` or brace-delimited `{...}` text.
+
+---
+
+## Formula — `@Explode` over a date range, and the input-translation trap
+
+`@Explode([Start - End])` returns a multi-value text list of individual days in
+a range. Beware that **input translation** runs on every save, whereas **default
+value** formulas run only on document creation.
+
+---
+
+## [toolchain] A `Účel:` comment above a procedure disappears on recompile
+
+In the pi-lotusscript-modular agent layout, a comment written **before**
+`Function`/`Sub` is moved into `01_declarations.lss` during assembly and is gone
+from the procedure file after the next decompile. The scorecard linter counts
+comments that remain in the procedure file, so a compile→decompile cycle reports
+a missing description that was actually written.
+
+```lotusscript
+' WRONG - lost from the procedure file after a recompile/decompile cycle
+' Účel: Load distributed safety sheets.
 Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
 
-' CORRECT - zůstává v těle procedury a linter ho vidí i po cyklu
+' CORRECT - lives in the body, survives the cycle
 Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
 
-	' Účel: Načte rozeslané bezpečnostní listy.
-	Dim pocet As Long
-```
-
-Platí i pro komentáře uvnitř těla obecně - ty se v monolitu i po decompile drží.
-
----
-
-## `' === SECTION: … ===` a `%REM … Assembled from modular source files` v .lss jsou generované
-
-`compileAgent` zapisuje do sestaveného artefaktu dva druhy vlastního scaffolding:
-provenance hlavičku `%REM … Assembled from modular source files … %END REM`
-a markery `' === SECTION: <soubor> ===` / `' === END SECTION: <soubor> ===`.
-
-Když je artefakt zároveň zdrojem (`overwriteSourceLss: true`, `manifest.sourceDxl`
-míří na tentýž `.lss`), čte ho při dalším cyklu zpátky `decompileLss`. Dekompilátor
-proto oba druhy markerů **odstraňuje ještě před parsováním** a `compileAgent` je
-navíc odstraní z každého modulárního souboru před slepením — jinak se do
-`01_declarations.lss` přidala další kopie hlavičky a pár markerů při každém cyklu
-a artefakt rostl donekonečna.
-
-Praktické důsledky:
-
-- Markery v `01_declarations.lss` jsou vždy chyba. Nikdy je tam nepiš ani
-  nekopíruj — patří výhradně do sestaveného artefaktu.
-- `' === END SECTION: … ===` bez odpovídajícího `' === SECTION: … ===` znamená, že
-  soubor prošel cyklem před opravou; další compile ho sám vyčistí.
-- Uživatelský `%REM` blok s dokumentací zůstává nedotčený — stripping maže jen
-  bloky obsahující marker `Assembled from modular source files`.
-
-```lotusscript
-' WRONG - scaffolding zkopírovaný z artefaktu do modulárního souboru
-' === SECTION: 01_declarations.lss ===
-Dim g_status As Long
-
-' CORRECT - jen skutečný obsah souboru
-Dim g_status As Long
+   ' Účel: Load distributed safety sheets.
+   Dim pocet As Long
 ```
 
 ---
 
-## InStrRev does not exist in LotusScript — "Variable not declared: INSTRREV"
+## [toolchain] `' === SECTION: … ===` and `%REM … Assembled from modular source files` are generated
 
-`InStrRev` is a VBA/VBScript function. LotusScript (including Domino 9.0.1) has **no** reverse `InStr`, so with `Option Declare` it fails to compile:
+`compileAgent` writes two kinds of scaffolding into the assembled artifact: a
+provenance header `%REM … Assembled from modular source files … %END REM`, and
+`' === SECTION: <file> ===` / `' === END SECTION: <file> ===` markers.
 
-```lotusscript
-' WRONG:
-i = InStrRev(s, " ")      ' Compile error: "Variable not declared: INSTRREV"
+When the artifact is also the source (`overwriteSourceLss: true`), the
+decompiler strips both before parsing, and `compileAgent` strips them from each
+modular file before concatenation — otherwise `01_declarations.lss` accumulates
+another copy on every cycle and the artifact grows without bound.
+
+Practical consequences:
+
+- Section markers in `01_declarations.lss` are always a bug. Never write or copy
+  them there; they belong only in the assembled artifact.
+- An `' === END SECTION: … ===` without its opening marker means the file went
+  through a cycle before the fix; the next compile cleans it.
+- A user `%REM` documentation block is untouched — stripping only removes blocks
+  containing the `Assembled from modular source files` marker.
+
+---
+
+## PowerShell 5.1 — `SignedCms` (PKCS#7/CMS) requires `Add-Type`
+
+In Windows PowerShell 5.1 (.NET Framework) the assembly isn't loaded by default:
+
+```powershell
+Add-Type -AssemblyName System.Security
+[System.Security.Cryptography.Pkcs.SignedCms]
 ```
 
-**Workaround** — find the last occurrence by scanning backwards:
+## PowerShell 5.1 vs 7 — stdout encoding
 
-```lotusscript
-Dim i As Integer
-Dim iPos As Integer
+Windows PowerShell 5.1 defaults console pipes to the OEM code page (CP852/CP1250),
+which mangles UTF-8 strings:
 
-iPos = 0
-For i = Len(s) To 1 Step -1
-    If Mid$(s, i, 1) = " " Then
-        iPos = i
-        Exit For
-    End If
-Next
-' iPos = pozice posledni mezery (0 = nenalezena)
+```powershell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 ```
 
-Practical use: building the "Příjmení Jméno" key from a CN name (`@RightBack(x,' ')` equivalent) — the first word comes from `InStr`, the last word must be found this way.
+## PowerShell `switch` + `continue` doesn't stop fall-through
 
-Same trap family as `CDate` → `CDat` (VBA name that LotusScript doesn't have). Note the plugin's LSP validation can be **disabled**, so a compile-breaking call like this may not be reported by tooling — the Designer compile (`Ctrl+Shift+F9`) is the authority.
+Inside `switch`, `continue` acts like `break` for the current condition but does
+not skip outer loop iterations. Use `break` when only one case should match.
+
+## PowerShell `ConvertFrom-Json` auto-parses ISO 8601 into `DateTime`
+
+Strings like `"2026-04-23T09:17:17Z"` become `[DateTime]` objects and stringify
+with localized formatting. Parse explicitly or use a format string if the literal
+ISO form matters.
+
+---
+
+## Domino 9.0.1 FP4 on Linux — `REQUEST_CONTENT` is LMBCS, not UTF-8
+
+Web agents reading `REQUEST_CONTENT` from POST bodies can decode multi-byte
+characters as LMBCS. Convert at the byte level (or via a Java helper servlet)
+when handling JSON payloads.
+
+---
+
+## ForAll vs For: no measurable difference
+
+A community benchmark (3 000 items × 5 iterations, *Comparing Forall To For
+Loops*) found **no noticeable performance difference**. Don't spend effort there
+— it independently confirms the white paper's position that micro-optimisation of
+loops is not where the wins are.
