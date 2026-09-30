@@ -1,8 +1,8 @@
-# LotusScript Gotchas — Index (42 entries)
+# LotusScript Gotchas — Index (48 entries)
 
 Always scan this list before writing LotusScript in an affected area. Full
-bodies with ŠPATNĚ/SPRÁVNĚ code pairs live in the plugin catalogue
-(`src/slices/gotchas/gotchas.md`, 42 entries) — query at runtime with:
+bodies with WRONG/CORRECT code pairs live in the plugin catalogue
+(`src/slices/gotchas/gotchas.md`, 48 entries) — query at runtime with:
 
 ```
 lotusscript_gotchas(action: "search", query: "<keyword>")
@@ -20,8 +20,8 @@ every hit before fixing.
 | 3 | `Const X As Integer = 5` | Const has no `As Type` — use suffix `%` `$` `&` |
 | 4 | Adding `Option Public/Declare` to agent/form event | Check (Globals)(Options) first — duplicate Option = compile error |
 | 5 | Opening DB you may lack access to | `New NotesDatabase` + `IsOpen` = no error handler; `dbDir.Get*Database` needs handler; ACL err 4005/4060 |
-| 6 | `folderRefs = Empty` under Option Declare | Variant is Empty after Dim — assigning Empty = compile error |
-| 7 | Reading `doc.Created` / `LastModified` / `LastAccessed` | Returns Variant DATE, NOT NotesDateTime — wrap with `New NotesDateTime(dt)` |
+| 6 | Writing `v = Empty` | `EMPTY` has no literal at all — it is a Variant's initial state; use `IsEmpty` |
+| 7 | Reading `doc.Created` / `LastModified` / `LastAccessed` | Returns Variant DATE, NOT NotesDateTime — assign to a Variant, then `Format$` |
 | 8 | Re-declaring built-in constants (`TRUE`, `PI`, …) | Built-in constants exist — do not re-declare |
 | 9 | Workflow app date fields | Date fields MUST include time — date-only fields break sorting/workflow |
 | 10 | Writing `CDate(...)` | Does not exist — use `CDat` |
@@ -33,37 +33,43 @@ every hit before fixing.
 | 16 | `Evaluate(|@Contains(...)|)` with user input | Formula injection via quotes/special chars — sanitize or use pure LotusScript `InStr` |
 | 17 | Agent mailing errors with `$AssistMail` field | Agent processes its own error email → infinite loop; use a marker field to skip |
 | 18 | `ExtractFile` on every `EmbeddedObject` | Check `o.Type = EMBED_ATTACHMENT` first — OLE objects throw |
-| 19 | `String(count, charCode)` outside ASCII | Unicode code → `Illegal function call` (Error 5); use `String$(count, UChr(...))` |
+| 19 | `String(count, charCode)` outside ASCII | Unicode code → `Illegal function call` (Error 5); use `UString(count, code)` — `String$(n, UChr(x))` is still wrong |
 | 20 | Reading `NotesDateTime.GMTTime/LocalTime` | Returns STRING; `LSGMTTime/LSLocalTime` return Variant DATE |
 | 21 | `Format$(date, ...)` | Locale-dependent — dates may render per server/user locale |
 | 22 | `CLng(timestamp ms since 1970)` | Overflow (Error 6) — LotusScript Long is 32-bit; use Double or scale down |
 | 23 | Agent `Use "DominoApiLib"` | `Variable not declared` on all DApi_ functions — Use belongs in (Options), check library scope |
-| 24 | Changing `Form` from Memo | Duplicates zombie mail-routing fields (`$AssistMail`, `PostedDate`…) — strip routing fields on form change |
+| 24 | Changing `Form` from Memo | Duplicates zombie mail-routing fields — remove `MailOptions`, `DefaultMailSaveOptions`, `SaveOptions` |
 | 25 | `Chr(&H010D)` for Unicode | Illegal function call — use `UChr` for >255 codepoints |
 | 26 | PowerShell 5.1 PKCS#7/CMS signing | `SignedCms` requires `Add-Type -AssemblyName System.Security` |
 | 27 | PowerShell 5.1 vs 7 mixed stdout | Encoding differs (UTF-16 vs UTF-8) — pin executable + `[Console]::OutputEncoding` |
 | 28 | PowerShell `switch` + `continue` | `continue` does not stop fall-through without `break` |
 | 29 | PowerShell `ConvertFrom-Json` on ISO 8601 | Auto-parses into DateTime — use `-AsHashtable`/raw parse when string needed |
 | 30 | Domino 9.0.1 FP4 Linux `REQUEST_CONTENT` | Encodes via LMBCS, not UTF-8 — convert explicitly |
-| 31 | Straight quote `"` inside Formula in DXL | Terminates the string — escape or use `&quot;` / alternate delimiters |
+| 31 | Straight quote `"` inside Formula in DXL | Terminates the string — use `@Char(34)` or brace-delimited `{...}` text |
 | 32 | Formula listing days + "compute once" | Input translation with compute-once flag freezes stale list |
-| 33 | `Trim`/`Trim$` expecting all whitespace | Strips SPACES only — handle tab/CR/LF explicitly |
+| 33 | `Trim`/`Trim$` expecting all whitespace | Strips SPACES only — use the built-in `FullTrim` for tabs/CR/LF |
 | 34 | `If ch >= " "` to filter control chars | Unreliable collation — compare `Asc(ch)` against explicit ranges |
-| 35 | `NotesDXLExporter.Export(doc)` with big attachments | Hangs — serializes base64; extract attachments separately first |
+| 35 | `NotesDXLExporter.Export(doc)` with big attachments | Hangs serialising base64 — set `OmitRichtextAttachments` / `OmitMiscFileObjects`; `OmitItemNames` is an **array**, not a scalar |
 | 36 | `MB_*` / `PICKLIST_*` constants | Not built-in — add `%Include "lsconst.lss"` or compile fails |
 | 37 | `Const LSI_THREAD_*` in Designer | Designer auto-includes them → `Name previously declared` |
 | 38 | `Option ...` in (Declarations) | Compile error — Option statements belong in (Options) |
 | 39 | `ComputeWithForm` on existing docs | Recalculates ALL computed form fields — may overwrite data |
 | 40 | Changing "owner" field for permissions | Insufficient when ACL/roles key on other fields — check all auth fields |
-| 41 | Comment `' Účel:` above procedure declaration | May vanish during recompile/decompile — keep it in the synthetic header block or inside procedure |
+| 41 | Comment `' Účel:` above procedure declaration | Moves into `01_declarations.lss` on decompile — put the comment **inside the procedure body** |
 | 42 | Comment above declarations | Gets moved into `01_declarations.lss` on decompile |
+| 43 | Writing `If x Is Nothing Or x.Count = 0` | `And`/`Or` do **not** short-circuit — both operands always evaluate (error 91); split into branches |
+| 44 | Passing a `List` to a Sub/Function | `Unexpected: List; Expected: Data type` — make work maps globals in (Declarations) |
+| 45 | Testing `GetAllDocumentsByKey` result with `Is Nothing` | No match returns an **empty collection**, never `Nothing` — test `Count = 0` |
+| 46 | Deleting documents while iterating a view | Can infinite-loop or corrupt the index — collect first, delete in a second pass |
+| 47 | Boolean parameter in a generic procedure | LotusScript silently coerces (`"0"` false, `"Neco"` true) — `TypeName` guard for a default |
+| 48 | Recursive `QuickSort` on big collections | "out of stack space" — fall back to `BubbleSort` on that error |
 
 ## Recording NEW gotchas (strict protocol)
 
 When you hit a compile/runtime error or pitfall not covered by this index:
 
 1. Search first: `lotusscript_gotchas(action: "search", query: "<error text>")`.
-2. If genuinely new, draft title (trigger-phrased) + body (ŠPATNĚ/SPRÁVNĚ pair
+2. If genuinely new, draft title (trigger-phrased) + body (WRONG/CORRECT pair
    + one-line rule) and call `lotusscript_gotchas(action: "add", title, body)`.
 3. The user approves via interactive modal — never write gotchas without
    approval, never retry after rejection.
