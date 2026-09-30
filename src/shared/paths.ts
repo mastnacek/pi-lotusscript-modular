@@ -25,6 +25,39 @@ export function decodeXml(str: string): string {
     .replace(/&amp;/g, "&");
 }
 
+/** Inserts `_n` before the extension: `sub_click.lss` + 2 → `sub_click_2.lss`. */
+function insertOrdinal(fileName: string, n: number): string {
+  const dot = fileName.lastIndexOf(".");
+  if (dot <= 0) return `${fileName}_${n}`;
+  return `${fileName.slice(0, dot)}_${n}${fileName.slice(dot)}`;
+}
+
+/**
+ * Makes a list of candidate module file names collision-free, preserving order.
+ *
+ * A DXL form carries one `<code event='click'>` block per button, and a form
+ * flattened into a single .lss carries one `Sub Click` body per button. Both
+ * decompilers used to derive the module name from the event/procedure name
+ * alone, so the second block overwrote the first and the modular folder
+ * silently lost a button — the manifest then listed the same file twice.
+ *
+ * The FIRST occurrence keeps the plain name, so folders for single-event agents
+ * stay byte-identical to before; later ones get `_2`, `_3`, … Counting is
+ * case-insensitive, otherwise `Click` and `click` would still collide.
+ *
+ * Deterministic in the input order, which keeps compile → decompile round trips
+ * stable: the same source always yields the same module names.
+ */
+export function makeUniqueFileNames(fileNames: string[]): string[] {
+  const seen = new Map<string, number>();
+  return fileNames.map((name) => {
+    const key = name.toLowerCase();
+    const ordinal = (seen.get(key) ?? 0) + 1;
+    seen.set(key, ordinal);
+    return ordinal === 1 ? name : insertOrdinal(name, ordinal);
+  });
+}
+
 export function detectProcPrefix(code: string): string {
   const lines = code.split(/\r?\n/);
   for (const line of lines) {

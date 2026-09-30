@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { CodeBlock } from "../../shared/types.js";
-import { decodeXml, detectProcPrefix, sanitizeFileName } from "../../shared/paths.js";
+import { decodeXml, detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../shared/paths.js";
 import { writeMainLss, writeManifest, writeModuleFile } from "./emitters.js";
 
 /**
@@ -116,6 +116,13 @@ function parseDxlBlocks(xml: string): CodeBlock[] {
 
     blocks.push({ event, code, kind, fileName });
   }
+
+  // A form has one <code event='click'> per button, so the raw names above
+  // collide. Assign unique names in source order so no block is overwritten.
+  const unique = makeUniqueFileNames(blocks.map((b) => b.fileName));
+  blocks.forEach((b, i) => {
+    b.fileName = unique[i]!;
+  });
 
   return blocks;
 }

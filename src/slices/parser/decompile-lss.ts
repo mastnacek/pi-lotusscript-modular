@@ -7,7 +7,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { CodeBlock } from "../../shared/types.js";
-import { detectProcPrefix, sanitizeFileName } from "../../shared/paths.js";
+import { detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../shared/paths.js";
 import { writeMainLss, writeManifest, writeModuleFile } from "./emitters.js";
 import { stripArtifactScaffolding } from "./scaffolding.js";
 
@@ -125,6 +125,14 @@ export function decompileLss(lssPath: string, outputDirOverride?: string): strin
     declLines.push(...pendingDocLines, line);
     pendingDocLines = [];
   }
+
+  // A form flattened into one .lss has one `Sub Click` body per button, so the
+  // names derived above collide. Assign unique names in source order so no body
+  // is overwritten. Also covers repeated `Sub Initialize` / `Sub Terminate`.
+  const uniqueProcNames = makeUniqueFileNames(procs.map((p) => p.fileName));
+  procs.forEach((p, i) => {
+    p.fileName = uniqueProcNames[i]!;
+  });
 
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
