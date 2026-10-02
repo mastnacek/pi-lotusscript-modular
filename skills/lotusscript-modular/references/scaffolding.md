@@ -62,7 +62,7 @@ empty name. The tool never overwrites existing code.
 
 | Skeleton | Guarantee |
 | --- | --- |
-| `agent` | Rendered from `~/.pi/lotusscript/template.lss`: `Option Public` + `Option Declare`, NÁZEV/ÚČEL/AUTOR/VYTVOŘENO header, `VERZE` + `CHANGELOG`, `On Error GoTo` handler with `Exit Sub`, `SendErrorEmail` notifier |
+| `agent` | Rendered from the plugin's `src/slices/scaffold/template.lss`: `Option Public` + `Option Declare`, NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI header, `VERZE` + `CHANGELOG`, `On Error GoTo` handler with `Exit Sub`, `SendErrorEmail` notifier driven by `ERROR_NOTIFY_EMAIL$` |
 | `library` | Same header, plus `Public Const LIB_VERSION` injected after `Option Declare` |
 | `procedure` | Synthetic `@script-member-of`/`@procedure`/`@parent-declarations` header, `' Účel:` line, `Catch:` re-raise with `Erl` context |
 | `modular` | Complete folder: `00_options.lss`, `01_declarations.lss` (`g_session`/`g_db`), `sub_Process.lss`, `99_initialize.lss`, synced `manifest.json` + `main.lss` |

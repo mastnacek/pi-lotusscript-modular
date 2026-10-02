@@ -53,18 +53,26 @@ New code starts from a scaffold, never hand-written headers:
 
 ```
 /ls scaffold agent|library|procedure|modular <Název>
-lotusscript_scaffold(type, name, targetDir?, purpose?, isFunction?, params?, ...)
+lotusscript_scaffold(type, name, targetDir?, purpose?, author?, isFunction?, params?, date?, ...)
 ```
 
-Generates compliant skeletons: header block (NÁZEV/ÚČEL/AUTOR/CHANGELOG),
-`Option Public` + `Option Declare` + `%Include "lsconst.lss"`, `On Error GoTo
-Catch` handlers, synthetic `@script-member-of` headers. Every scaffold also
-**derives the convention alias** (`ag_…`/`lib_…` from the name, diacritics
-stripped) and emits a **Designer registration notice** — element name, alias,
-suggested description, paste steps and `Ctrl+Shift+F9` — in Czech for `/ls`
-notifications and in English for tool results. Details + parameter table:
-`references/scaffolding.md`. Alias grammar and prefix table:
-`references/naming-conventions.md`.
+`agent` and `library` render the shipped `src/slices/scaffold/template.lss`:
+header block (NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI), `VERZE` + `CHANGELOG`,
+`Option Public` + `Option Declare`, an `On Error GoTo ErrorHandler` block and a
+`SendErrorEmail` helper whose recipient comes from `ERROR_NOTIFY_EMAIL$` in the
+file header. `procedure` and `modular` emit synthetic `@script-member-of` headers
+instead. Every scaffold also **derives the convention alias** (`ag_…`/`lib_…`
+from the name, diacritics stripped) and emits a **Designer registration
+notice** — element name, alias, suggested description, paste steps and
+`Ctrl+Shift+F9` — in Czech for `/ls` notifications and in English for tool
+results. Pass `date` to pin `YYYY-MM-DD` and get a byte-reproducible scaffold.
+Details + parameter table: `references/scaffolding.md`. Alias grammar and prefix
+table: `references/naming-conventions.md`.
+
+Do not add `%Include "lsconst.lss"` to a scaffolded agent: the template already
+declares `LSI_THREAD_*` itself, and the include would collide (gotcha #39). The
+whole `Const LSI_THREAD_*` block must be deleted when pasting into a Script
+Library or any Designer element, because `LSPRVAL.LSS` is auto-included there.
 
 ## Definition of Done, Scorecard & Evaluation
 
@@ -144,7 +152,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
 | Model tools (compile/decompile/gotchas/scaffold) | `src/slices/tools/` |
 | Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
-| Code templates (scaffolds) | `src/slices/scaffold/templates.ts` |
+| Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
 | LSP diagnostics | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
 | Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
