@@ -47,8 +47,6 @@ const SUBCOMMANDS: Record<string, LsSubHandler> = {
 };
 
 export function createLsCommand(state: PluginState): RegisteredLsCommand {
-  const { config } = state;
-
   async function handler(args: string, ctx: ExtensionCommandContext): Promise<void> {
     const rawTokens: LsParts = (args || "").trim().split(/\s+/).filter(Boolean);
     const isGlobal = rawTokens.some((t) => t.toLowerCase() === "--global");
@@ -87,7 +85,8 @@ export function createLsCommand(state: PluginState): RegisteredLsCommand {
   return {
     description: "Správa modulárních LotusScript agentů, LSP a Gotchas báze",
     getArgumentCompletions: (prefix: string) => {
-      return completeLsArguments(prefix, config);
+      // Read the live config per call — updateConfig() replaces the object.
+      return completeLsArguments(prefix, state.config);
     },
     handler,
   };

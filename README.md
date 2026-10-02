@@ -31,7 +31,8 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 
 - `/ls status` — Zobrazit aktuální konfiguraci pluginu
 - `/ls config get <klíč>` — Vypsat hodnotu nastavení
-- `/ls config set <klíč> <hodnota>` — Uložit novou hodnotu nastavení
+- `/ls <nastavení> [on|off]` — Přímé zobrazení nebo nastavení libovolného přepínače z katalogu (totéž co `/ls config set`, kratší zápis)
+- `/ls config set <klíč> <hodnota>` — Uložit novou hodnotu nastavení (u přepínačů `on` / `off`, v pickeru označená `✓` jako aktivní)
 - `/ls scaffold <agent|library|procedure|modular> [název]` — Vytvořit kostru LotusScript kódu
 - `/ls lsp [on|off]` — Přepnout kontrolu syntaxe přes LotusScript LSP
 - `/ls overwrite [on|off]` — Přepnout přepisování původního .lss souboru

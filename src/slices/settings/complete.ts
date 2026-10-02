@@ -5,7 +5,15 @@ interface Suggestion {
   value: string;
   description: string;
   space?: boolean;
+  label?: string;
 }
+
+/** Dedicated toggle subcommands that map onto a boolean setting from the catalogue. */
+const TOGGLE_KEYS = new Map<string, keyof ModularConfig>([
+  ["lsp", "enableLsp"],
+  ["overwrite", "overwriteSourceLss"],
+  ["jev", "useJevEvaluation"],
+]);
 
 const DIRECT_SETTING_SUBCOMMANDS: readonly Suggestion[] = SETTING_SPECS.map((s) => ({
   value: s.key,
@@ -43,10 +51,7 @@ const SCAFFOLD_TYPES: readonly Suggestion[] = [
   { value: "modular", description: "Kompletní modulární složka (manifest, options, declarations, subs)", space: true },
 ];
 
-const TOGGLE_VALUES: readonly Suggestion[] = [
-  { value: "on", description: "Zapnout" },
-  { value: "off", description: "Vypnout" },
-];
+
 
 const GOTCHAS_TOPICS: readonly Suggestion[] = [
   { value: "summary", description: "Zobrazit souhrn klíčových chyb" },
@@ -65,10 +70,46 @@ function filter(base: string, suggestions: readonly Suggestion[], prefix: string
     .filter((s) => s.value.startsWith(prefix))
     .map((s) => ({
       value: `${base}${s.value}${s.space ? " " : ""}`,
-      label: s.value,
+      label: s.label ?? s.value,
       description: s.description,
     }));
   return items.length > 0 ? items : null;
+}
+
+/** Boolean setting picker: on|off, active choice marked in label + description. */
+function toggleItems(
+  base: string,
+  key: keyof ModularConfig,
+  current: ModularConfig,
+  prefix: string
+): SettingsCompletion[] | null {
+  const on = current[key] === true;
+  const help = findSetting(key)?.valueHelp;
+  return filter(base, [
+    {
+      value: "on",
+      label: on ? "on ✓" : "on",
+      description: `${help?.true ?? "Zapnout"}${on ? " · ● AKTIVNÍ" : " · ○ VYPNUTO"}`,
+    },
+    {
+      value: "off",
+      label: on ? "off" : "off ✓",
+      description: `${help?.false ?? "Vypnout"}${on ? " · ○ VYPNUTO" : " · ● AKTIVNÍ"}`,
+    },
+  ], prefix);
+}
+
+/** Parent rows naming a boolean setting carry the live state too. */
+function annotateState(items: SettingsCompletion[] | null, current: ModularConfig): SettingsCompletion[] | null {
+  return items?.map((item) => {
+    const token = item.value.trim().toLowerCase();
+    const key: keyof ModularConfig | undefined =
+      TOGGLE_KEYS.get(token) ??
+      (findSetting(token)?.kind === "boolean" ? (token as keyof ModularConfig) : undefined);
+    if (!key) return item;
+    const marker = current[key] === true ? " · ● ZAPNUTO" : " · ○ VYPNUTO";
+    return { ...item, description: `${item.description}${marker}` };
+  }) ?? null;
 }
 
 function completeKeys(base: string, current: ModularConfig, prefix: string): SettingsCompletion[] | null {
@@ -80,16 +121,17 @@ function completeKeys(base: string, current: ModularConfig, prefix: string): Set
   return items.length > 0 ? items : null;
 }
 
-function completeValues(base: string, key: string, prefix: string): SettingsCompletion[] | null {
+function completeValues(
+  base: string,
+  key: string,
+  current: ModularConfig,
+  prefix: string
+): SettingsCompletion[] | null {
   const spec = findSetting(key);
   if (!spec) return null;
 
   if (spec.kind === "boolean") {
-    const booleans: readonly Suggestion[] = [
-      { value: "true", description: spec.valueHelp?.true ?? "Povolit" },
-      { value: "false", description: spec.valueHelp?.false ?? "Zakázat" },
-    ];
-    return filter(base, booleans, prefix);
+    return toggleItems(base, spec.key, current, prefix);
   }
 
   if (spec.kind === "number") {
@@ -117,7 +159,7 @@ export function completeLsArguments(
     const hasTrailingSpace = trimmed.length > 8 || /\s$/.test(prefix);
 
     if (!hasTrailingSpace && afterGlobal === "") {
-      return filter("", LS_SUBCOMMANDS, trimmed);
+      return annotateState(filter("", LS_SUBCOMMANDS, trimmed), current);
     }
 
     const subCompletions = completeLsArgumentsClean(afterGlobal, current);
@@ -138,7 +180,13 @@ function completeLsArgumentsClean(
   current: ModularConfig
 ): SettingsCompletion[] | null {
   if (!trimmed.includes(" ")) {
-    return filter("", LS_SUBCOMMANDS, trimmed);
+    // Lazy parameter completion: a fully typed non-terminal token already yields
+    // its parameter list — after a trailing-space Tab the picker never reopens.
+    const typed = trimmed.toLowerCase();
+    const toggleKey = TOGGLE_KEYS.get(typed);
+    if (toggleKey) return toggleItems(`${typed} `, toggleKey, current, "");
+    if (findSetting(typed)) return completeValues(`${typed} `, typed, current, "");
+    return annotateState(filter("", LS_SUBCOMMANDS, trimmed), current);
   }
 
   const [sub] = trimmed.split(/\s+/);
@@ -146,8 +194,9 @@ function completeLsArgumentsClean(
 
   const afterSub = trimmed.slice(sub.length).trimStart();
 
-  if (sub === "lsp" || sub === "overwrite" || sub === "jev") {
-    return filter(`${sub} `, TOGGLE_VALUES, afterSub);
+  const toggleKey = TOGGLE_KEYS.get(sub.toLowerCase());
+  if (toggleKey) {
+    return toggleItems(`${sub} `, toggleKey, current, afterSub);
   }
 
   if (sub === "scaffold") {
@@ -161,7 +210,7 @@ function completeLsArgumentsClean(
   // Direct setting completions (e.g. /ls checkProcedureLimits <true|false>)
   const directSpec = findSetting(sub);
   if (directSpec) {
-    return completeValues(`${sub} `, sub, afterSub);
+    return completeValues(`${sub} `, sub, current, afterSub);
   }
 
   if (sub === "config") {
@@ -185,7 +234,7 @@ function completeLsArgumentsClean(
       const [key] = afterAction.split(/\s+/);
       if (!key) return null;
       const afterKey = afterAction.slice(key.length).trimStart();
-      return completeValues(`config set ${key} `, key, afterKey);
+      return completeValues(`config set ${key} `, key, current, afterKey);
     }
   }
 

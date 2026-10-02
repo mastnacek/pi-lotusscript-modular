@@ -62,8 +62,22 @@ export async function phase1To4(): Promise<void> {
     throw new Error("Expected --global status completion");
   }
   const directSettingCompletions = completeLsArguments("checkProcedureLimits ", DEFAULT_CONFIG);
-  if (!directSettingCompletions || !directSettingCompletions.some((c) => c.value === "checkProcedureLimits true")) {
-    throw new Error("Expected direct setting value completion");
+  // on|off picker with the live value marked (skill: command-completions.md)
+  if (!directSettingCompletions || !directSettingCompletions.some((c) => c.value === "checkProcedureLimits on" && c.label === "on ✓")) {
+    throw new Error(`Expected on|off completion with active marker: ${JSON.stringify(directSettingCompletions)}`);
+  }
+  if (directSettingCompletions.some((c) => c.value.endsWith(" true") || c.value.endsWith(" false"))) {
+    throw new Error("Boolean settings must complete as on|off, not true|false");
+  }
+  // Lazy level: fully typed non-terminal token yields its parameters
+  const lazyToggle = completeLsArguments("lsp", DEFAULT_CONFIG);
+  if (!lazyToggle?.some((c) => c.value === "lsp off" && c.label === "off ✓")) {
+    throw new Error("Expected /ls lsp to complete its on|off parameters without a trailing space");
+  }
+  // Parent rows carry the live state
+  const rootToggle = completeLsArguments("", DEFAULT_CONFIG)?.find((c) => c.value === "lsp ");
+  if (!rootToggle?.description.includes("· ○ VYPNUTO")) {
+    throw new Error("Expected parent row to be annotated with the current state");
   }
 
   // --------------------------------------------------
