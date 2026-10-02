@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   autoDraftRecurringGotchas: true,
   useJevEvaluation: false,
   jevModel: "typesafe/jev-1.13",
+  showTelemetryPanel: true,
 };
 
 export const GLOBAL_CONFIG_FILE = path.join(

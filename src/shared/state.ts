@@ -17,6 +17,8 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
   FolderLintResult,
+  HookName,
+  HookTelemetry,
   JevFolderEvalResult,
   LspCheckResult,
   ModularConfig,
@@ -24,6 +26,10 @@ import type {
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
 import { createStateInsights } from "./state-insights.js";
 import { createProcedureLimitGate } from "./state-procedure-limits.js";
+import {
+  createTelemetry,
+  renderTelemetryPanel as renderTelemetryPanelWidget,
+} from "./state-telemetry.js";
 
 export interface PluginState {
   // --- lifecycle plumbing ---
@@ -48,6 +54,8 @@ export interface PluginState {
   readonly recurringGotchaReported: Set<string>;
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
+  /** Live session counters for the in-TUI telemetry panel. */
+  readonly telemetry: HookTelemetry;
 
   // --- helpers ---
   procedureSignature(filePath: string): string;
@@ -76,6 +84,10 @@ export interface PluginState {
     lint: FolderLintResult;
   }>;
   renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
+  /** Count a hook invocation and refresh the telemetry panel. */
+  countHook(name: HookName): void;
+  /** Re-apply the telemetry widget (config toggles, manual refresh). */
+  renderTelemetryPanel(): void;
   syncConfig(cwd: string): void;
   updateConfig(newConfig: ModularConfig, isGlobal?: boolean, cwd?: string): void;
 }
@@ -102,6 +114,7 @@ export function createPluginState(): PluginState {
   const diagnosticHistory = new Map<string, string[][]>();
   const recurringGotchaReported = new Set<string>();
   let kbConsulted = false;
+  const telemetry = createTelemetry();
 
   /** Cheap content signature used to avoid re-prompting for unchanged files. */
   function procedureSignature(filePath: string): string {
@@ -191,12 +204,23 @@ export function createPluginState(): PluginState {
     activeCwd = cwd;
     config = loadConfig(cwd);
     kbConsulted = false; // new session → KB consult gate re-arms
+    Object.assign(telemetry, createTelemetry()); // session-scoped counters reset
+  }
+
+  function countHook(name: HookName): void {
+    telemetry.hookCalls[name]++;
+    renderTelemetryPanel();
+  }
+
+  function renderTelemetryPanel(): void {
+    renderTelemetryPanelWidget(latestUiContext, () => telemetry, () => config);
   }
 
   function updateConfig(newConfig: ModularConfig, isGlobal = false, cwd?: string): void {
     config = newConfig;
     saveConfig(cwd || activeCwd, config, isGlobal);
     renderStatusline("idle");
+    renderTelemetryPanel(); // showTelemetryPanel may have been toggled
   }
 
   return {
@@ -241,6 +265,7 @@ export function createPluginState(): PluginState {
     set kbConsulted(v: boolean) {
       kbConsulted = v;
     },
+    telemetry,
     procedureSignature,
     isManifestSynced,
     buildScorecard: insights.buildScorecard,
@@ -249,6 +274,8 @@ export function createPluginState(): PluginState {
     buildGotchasBanner: insights.buildGotchasBanner,
     verifyProcedureLimits: limitGate.verifyProcedureLimits,
     renderStatusline,
+    countHook,
+    renderTelemetryPanel,
     syncConfig,
     updateConfig,
   };

@@ -169,6 +169,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     kind: "string",
     description: "Vlastní API klíč pro OpenRouter (pokud není nastaven v OPENROUTER_API_KEY)",
   },
+  {
+    key: "showTelemetryPanel",
+    kind: "boolean",
+    description: "Zobrazovat telemetrický panel nad editorem (haky, čtení, brány, délka kódu)",
+    valueHelp: {
+      true: "Zapnuto — panel se živými počítadly nad editorem",
+      false: "Vypnuto — skrýt panel",
+    },
+  },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {

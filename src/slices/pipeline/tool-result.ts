@@ -185,6 +185,15 @@ async function recompileAndReport(
     state.renderStatusline("clean");
   }
 
+  // Telemetry: recompile count + code-length snapshot for the TUI panel.
+  state.telemetry.recompiles++;
+  state.telemetry.lastProcCount = limitCheck.lint.allItems.length;
+  state.telemetry.lastLongestProc = limitCheck.lint.allItems.reduce(
+    (max, item) => Math.max(max, item.lineCount),
+    0
+  );
+  state.telemetry.lastLspOk = config.enableLsp ? (lspResult ? lspResult.ok : null) : null;
+
   const overwriteNotice = config.overwriteSourceLss ? " (source .lss updated)" : "";
   const cleanupNotice = config.cleanupOnSettled
     ? "\nℹ️ (the temporary modular folder is deleted automatically once the agent finishes)"

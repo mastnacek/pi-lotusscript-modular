@@ -28,6 +28,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   // for the rest of the session (recorded before any early return below).
   if (/kb_search|knowledge_base/i.test(rawName) || /kb_search|knowledge_base/i.test(base)) {
     state.kbConsulted = true;
+    state.telemetry.kbSearches++;
   }
 
   const input = event.input as Record<string, unknown> | undefined;
@@ -42,10 +43,16 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   if ((base === "edit" || base === "write") && input && pathKey) {
     const guardPath = path.resolve(input[pathKey] as string);
     const guard = guardProtectedFiles(guardPath);
-    if (guard) return guard;
+    if (guard) {
+      state.telemetry.protectedBlocks++;
+      return guard;
+    }
     // HARD GATE: .lss/.dxl edits require a lotus-notes KB query first.
     const kbGuard = guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
-    if (kbGuard) return kbGuard;
+    if (kbGuard) {
+      state.telemetry.kbGateBlocks++;
+      return kbGuard;
+    }
   }
 
   if (!state.config.autoDecompileOnRead) return;
@@ -59,7 +66,10 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
     const sources = collectShellLikeSources(input);
     for (const source of sources) {
       const guard = guardMonolithDump(source, state.activeCwd);
-      if (guard) return guard;
+      if (guard) {
+        state.telemetry.dumpBlocks++;
+        return guard;
+      }
     }
   }
   if (!input || !pathKey) return;
@@ -73,6 +83,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   const existingDir = paths.getExistingModularDir(resolved);
   if (existingDir) {
     state.readModularDirs.add(existingDir);
+    state.telemetry.readsModular++;
     input[pathKey] = path.join(existingDir, "main.lss");
     return;
   }
@@ -81,6 +92,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
     try {
       const outDir = AgentParser.decompileLss(resolved);
       state.readModularDirs.add(outDir);
+      state.telemetry.readsRedirected++;
       input[pathKey] = path.join(outDir, "main.lss");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -91,6 +103,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
       const outDir = AgentParser.decompileDxl(resolved);
       if (outDir) {
         state.readModularDirs.add(outDir);
+        state.telemetry.readsRedirected++;
         input[pathKey] = path.join(outDir, "main.lss");
       }
     } catch (err: unknown) {

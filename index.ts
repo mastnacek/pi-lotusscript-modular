@@ -30,25 +30,38 @@ import { createLsCommand } from "./src/slices/commands/index.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
+  // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
+  // global extensions; hooks, guards and the telemetry panel must not fire there.
+  if (process.env.PI_SUBAGENT === "true" || Boolean(process.env.PI_CHILD_SESSION)) {
+    return;
+  }
+
   const state = createPluginState();
   const { track } = state;
 
   track(pi.on("session_start", (_event, ctx: ExtensionContext) => {
     state.latestUiContext = ctx;
     state.syncConfig(ctx.cwd);
+    state.countHook("session_start"); // also renders the telemetry panel
     state.renderStatusline("idle");
   }));
 
   track(pi.on("turn_end", () => {
+    state.countHook("turn_end");
     state.renderStatusline("idle");
   }));
 
   track(pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
-    await handleAgentSettled(state, ctx);
+    try {
+      await handleAgentSettled(state, ctx);
+    } finally {
+      state.countHook("agent_settled");
+    }
   }));
 
   // Prompt injection: debrief handoff + enforce KB query + inject gotchas reminder
   track(pi.on("before_agent_start", (event) => {
+    state.countHook("before_agent_start");
     const pendingDebrief = state.pendingDebriefs.length > 0 ? state.pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) state.pendingDebriefs.length = 0;
     const debriefMessage = pendingDebrief
@@ -70,12 +83,16 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
   track(pi.on("tool_call", (event) => {
-    return handleToolCall(state, event);
+    const result = handleToolCall(state, event);
+    state.countHook("tool_call");
+    return result;
   }));
 
   // 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
   track(pi.on("tool_result", async (event, ctx: ExtensionContext) => {
-    return await handleToolResult(state, event, ctx);
+    const result = await handleToolResult(state, event, ctx);
+    state.countHook("tool_result");
+    return result;
   }));
 
   // 3. Unified `/ls` Command with Lazy Menus

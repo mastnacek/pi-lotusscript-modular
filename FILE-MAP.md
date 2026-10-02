@@ -18,7 +18,7 @@ Totals: 60 TypeScript modules, 7 Markdown docs, 2 data assets, 13 test files.
 
 | File | Lines | Purpose |
 |---|---:|---|
-| `index.ts` | 90 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice's registration into the `ExtensionAPI` and holds the subagent-recursion guard. |
+| `index.ts` | 107 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice's registration into the `ExtensionAPI`, holds the subagent-recursion guard (`PI_SUBAGENT`/`PI_CHILD_SESSION` early return), and counts every hook invocation for the telemetry panel. |
 | `package.json` | — | Manifest. `"type": "module"`; core packages in `peerDependencies: {"*": "*"}` (never `dependencies`); `files: [index.ts, src, skills, README.md, LICENSE, package.json]`; `test` script runs the tsx harness. |
 | `tsconfig.json` | — | TypeScript config used by `npx tsc --noEmit`. |
 | `AGENTS.md` | — | Repo-local agent instructions. |
@@ -56,12 +56,13 @@ Imported by slices. No slice may import another slice.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `types.ts` | 168 | `ModularConfig`, `CommentStyle`, `CommentAnalysis`, `JevProcedureEval`, `JevFolderEvalResult`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FolderLintResult`, `CodeBlock`, `AgentManifest`, `LspCheckResult`, `GotchaItem`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (18 settings). |
+| `types.ts` | 209 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `JevProcedureEval`, `JevFolderEvalResult`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FolderLintResult`, `CodeBlock`, `AgentManifest`, `LspCheckResult`, `GotchaItem`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (19 settings). |
 | `config.ts` | 94 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. |
 | `paths.ts` | 235 | `sanitizeFileName`, `getTimestamp`, `decodeXml`, `makeUniqueFileNames`, `detectProcPrefix`, `findModularRoot`, `getExistingModularDir`, `isMonolithicLss`, `isMonolithicDxl`, `MonolithicReadHit`, `findMonolithicScriptReads` | Path/protocol kernel: modular-root discovery, monolithic-vs-modular detection, DXL entity decoding, unique-name suffixing, timestamp format. |
-| `state.ts` | 255 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. |
+| `state.ts` | 282 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry` + `countHook` (panel refresh on every hook). |
 | `state-insights.ts` | 170 | `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Derived session insights (what has been decompiled, touched, compiled). |
 | `state-procedure-limits.ts` | 117 | `ProcedureLimitDeps`, `VerifyLimitsResult`, `ProcedureLimitGate`, `createProcedureLimitGate` | Anti-loop gate: enforces `maxProcedureLines` and prevents repeated lint prompts within a session. |
+| `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, monolithic/modular reads, KB-gate/dump/protected blocks, recompiles and code length. |
 
 ---
 
@@ -111,8 +112,8 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### pipeline — event translation
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `tool-call.ts` | 101 | `handleToolCall` | Redirects reads of monolithic scripts into ephemeral decompilation. |
-| `tool-result.ts` | 245 | `handleToolResult` | Post-edit recompile, lint gate, scorecard injection. |
+| `tool-call.ts` | 114 | `handleToolCall` | Redirects reads of monolithic scripts into ephemeral decompilation. Increments the telemetry counters (KB searches, gate blocks, redirects). |
+| `tool-result.ts` | 254 | `handleToolResult` | Post-edit recompile, lint gate, scorecard injection. Feeds recompile/code-length/LSP outcome into telemetry. |
 | `settled.ts` | 97 | `handleAgentSettled` | Cleanup when the agent finishes — deletes the ephemeral folder. |
 | `guidelines.ts` | 48 | `buildPromptGuidelines` | Builds the system-prompt text: DoD, rubric, top gotchas, KB prompt (names the collection's three layers and the Guirard chapters). |
 | `recurring-gotcha.ts` | 70 | `draftRecurringGotcha` | Auto-drafts a gotcha when the same diagnostic repeats. |
@@ -156,7 +157,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### settings — slash-command completion
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `catalogue.ts` | 218 | `SettingKind`, `SettingSpec`, `SETTING_SPECS`, `findSetting`, `parseValue`, `formatValue` | Declarative catalogue of every `ModularConfig` setting. |
+| `catalogue.ts` | 227 | `SettingKind`, `SettingSpec`, `SETTING_SPECS`, `findSetting`, `parseValue`, `formatValue` | Declarative catalogue of every `ModularConfig` setting (incl. `showTelemetryPanel`). |
 | `complete.ts` | 193 | `LS_SUBCOMMANDS`, `completeLsArguments` | Multi-level autocompletion with the trailing-space contract. |
 | `index.ts` | 10 | re-export | Barrel. |
 
@@ -176,7 +177,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 
 ## 6. Tests
 
-Harness: `test/test_modular_workflow.ts` (56 lines) runs numbered assertions across phases. `npm test` → 85 assertions.
+Harness: `test/test_modular_workflow.ts` (58 lines) runs numbered assertions across phases. `npm test` → 94 assertions.
 
 | File | Lines | Covers |
 |---|---:|---|
@@ -193,6 +194,7 @@ Harness: `test/test_modular_workflow.ts` (56 lines) runs numbered assertions acr
 | `test/phases/phase13.ts` | 216 | Phases 13a/13b (63–75b): scaffold slice + naming conventions. Includes 63b (determinism + placeholder substitution) and 75b (formula-language.md exists and cites the KB layers). |
 | `test/phases/phase14.ts` | 136 | Phase 14 (76–79): artifact-scaffolding round-trip idempotency. Regression guard for the scaffolding-accumulation bug. |
 | `test/phases/phase15.ts` | 198 | Phase 15 (80–84): repeated-event module names. Regression guard for the lost-button bug. |
+| `test/phases/phase16.ts` | 104 | Phase 16 (85a–87b): hook telemetry — counters through `handleToolCall`, panel line content + width safety at 40 cols, `countHook` totals + `syncConfig` reset. |
 
 > **Review note:** test 63b reads `getBundledTemplatePath()` — the file the scaffolder actually uses. That was deliberately changed when the global seed was removed; previously the tests validated the bundled copy while a stale global file did the work.
 
@@ -237,4 +239,4 @@ read them before judging whether a slice is correct.
 - Installed copy: `~/.pi/agent/git/github.com/mastnacek/pi-lotusscript-modular` (a git working tree).
 - As of writing, the installed checkout is **behind** the repo — it predates the `template.lss` work entirely. Run `pi update` to reconcile.
 - Repo is clean and in sync with `origin/main` at `f684b55`.
-- Verification commands: `npx tsc --noEmit`, `npm test` (85 assertions).
+- Verification commands: `npx tsc --noEmit`, `npm test` (94 assertions).

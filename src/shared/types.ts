@@ -44,6 +44,47 @@ export interface ModularConfig {
   openrouterApiKey?: string;
   /** JEV model identifier on OpenRouter */
   jevModel: string;
+  /** Show the in-TUI telemetry panel (hook usage, reads, gate blocks, code length) above the editor */
+  showTelemetryPanel: boolean;
+}
+
+/** Names of the pi event hooks this plugin subscribes to. */
+export type HookName =
+  | "session_start"
+  | "turn_end"
+  | "agent_settled"
+  | "before_agent_start"
+  | "tool_call"
+  | "tool_result";
+
+/**
+ * Live session telemetry rendered by the in-TUI panel (`setWidget` aboveEditor).
+ * Mutated by the pipeline handlers, read by the panel component on every frame —
+ * never persisted, reset at each `session_start`.
+ */
+export interface HookTelemetry {
+  /** Invocation count per subscribed hook. */
+  hookCalls: Record<HookName, number>;
+  /** Monolithic .lss/.dxl reads auto-decompiled and redirected to main.lss. */
+  readsRedirected: number;
+  /** Reads redirected to an already-existing modular folder. */
+  readsModular: number;
+  /** kb_search calls observed this session (satisfies the KB edit gate). */
+  kbSearches: number;
+  /** Edit/write calls blocked until a KB query runs (enforceKbGate). */
+  kbGateBlocks: number;
+  /** Monolith dump attempts blocked in shell-like tools. */
+  dumpBlocks: number;
+  /** Edits of protected files (main.lss / manifest.json / *_compiled.lss) blocked. */
+  protectedBlocks: number;
+  /** Edit-triggered recompiles of a modular root. */
+  recompiles: number;
+  /** Procedure count in the last recompiled folder (null before the first compile). */
+  lastProcCount: number | null;
+  /** Longest procedure line count (null before the first compile). */
+  lastLongestProc: number | null;
+  /** Last LSP outcome (null = LSP disabled or not run yet). */
+  lastLspOk: boolean | null;
 }
 
 export type CommentStyle = "new" | "old" | "mixed" | "none";
