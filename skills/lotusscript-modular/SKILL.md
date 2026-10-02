@@ -39,12 +39,16 @@ A modular agent folder contains `manifest.json`, `main.lss` (virtual index),
 | Before writing code in ANY area — quick trigger scan; on any compile/runtime error search here first | `references/gotchas-index.md` (59 entries) |
 | Creating a new agent, library, procedure or modular folder | `references/scaffolding.md` |
 | Editing `.form` / `.view` / `.subform` / `.folder` DXL design elements | `references/dxl-and-odp.md` |
+| Writing or reviewing `@formulas` (view selection/columns, form fields, agents, DXL, `Evaluate`) | `references/formula-language.md` |
 
 Runtime lookups that beat any doc file:
 
 ```
 lotusscript_gotchas(action: "search", query: "<keyword or error text>")
-knowledge_base kb_search(collection: "lotus-notes", query: "<topic>")   # Designer HTML reference
+knowledge_base kb_search(collection: "lotus-notes", query: "<topic>")
+# 3 layers: IBM 9.0.1 API reference (8 243 docs), Guirard "Performance basics"
+# book (kapitola-01..13: formulas ch.4, views ch.6, code ch.7), ~850 community
+# articles. Layers, recipes and per-chapter map: references/gotchas-index.md §KB.
 ```
 
 ## Scaffold Fast Path

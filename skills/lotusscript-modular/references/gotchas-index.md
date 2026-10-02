@@ -13,6 +13,22 @@ On **any compile/runtime error**: search the gotcha base with the exact error
 text (`lotusscript_gotchas(action: "search", query: "<error text>")`) and read
 every hit before fixing.
 
+## The `lotus-notes` KB — layers and recipes
+
+Every LotusScript/Formula change is verified against the `lotus-notes`
+collection: `kb_search(collection: "lotus-notes", query: "<topic>")`. It holds
+three layers — pick the query wording to hit the right one:
+
+| Layer | Files | Use it for |
+|---|---:|---|
+| IBM 9.0.1 API reference (`com.ibm.designer…doc_*`) | 8 243 | Any class, property, method, statement; the **exact** error text |
+| Guirard, *Performance basics for IBM Lotus Notes developers* (`kapitola-01..13-*.html`) | 13 | Performance and design — formulas ch. 4, views ch. 6, code ch. 7 |
+| Community articles, Breaking Par / OpenNTF (`<Title>_<UNID>.html`) | ~850 | Patterns and tricks that are not in the IBM docs |
+
+Recipes: compile errors → search the exact message; “does X exist?” → search
+the bare name (an empty result is evidence); performance → the book chapters.
+Formula work → read `references/formula-language.md` first.
+
 | # | Trigger / when it bites | Rule (one-liner) |
 | --- | --- | --- |
 | 1 | Using `Shell`, `Dir`, `StrRight`… as identifier | Built-ins are reserved — rename your var/function (`Unexpected: Identifier`) |

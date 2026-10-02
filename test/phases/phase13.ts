@@ -203,4 +203,14 @@ export async function phase13b(scaffoldOutDir: string): Promise<void> {
   const namingOk = fs.existsSync(namingRef);
   console.log("75. references/naming-conventions.md exists:", namingOk ? "PASS" : "FAIL");
   if (!namingOk) throw new Error("naming-conventions.md missing");
+
+  // 75b. The formula-language reference exists and names the KB collection
+  const formulaRef = path.resolve(process.cwd(), "skills/lotusscript-modular/references/formula-language.md");
+  const formulaText = fs.existsSync(formulaRef) ? fs.readFileSync(formulaRef, "utf-8") : "";
+  const formulaOk =
+    !!formulaText &&
+    formulaText.includes("collection: \"lotus-notes\"") &&
+    formulaText.includes("kapitola-04");
+  console.log("75b. references/formula-language.md exists and cites the KB layers:", formulaOk ? "PASS" : "FAIL");
+  if (!formulaOk) throw new Error("formula-language.md missing or lacks KB citation");
 }

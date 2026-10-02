@@ -57,7 +57,10 @@ the stripped doc, then process files.
 
 ## 5. Related Assets
 
+- Column/value/hide-when formulas: `references/formula-language.md`
+- Knowledge base: `kb_search(collection: "lotus-notes", query: "<topic>")` —
+  three layers: IBM 9.0.1 API reference (8 243 docs, incl. the DXL/DTD pages),
+  the Guirard *Performance basics* book (`kapitola-01..13-*.html`), ~850
+  community articles. Layers and recipes: `references/gotchas-index.md` §KB.
 - Full DXL form/view skill (legacy, richer examples):
   `~/.claude/skills/notes-dxl/SKILL.md`
-- Designer HTML reference: `knowledge_base` MCP collection `lotus-notes`
-  (`kb_search(collection: "lotus-notes", query: "<topic>")`)

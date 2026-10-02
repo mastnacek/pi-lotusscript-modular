@@ -11,7 +11,7 @@ export function buildPromptGuidelines(config: ModularConfig): string[] {
 
   if (config.enforceKbPrompt) {
     guidelines.push(
-      "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict." +
+      "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict. The collection has three layers: the complete IBM Domino Designer 9.0.1 API reference (com.ibm.designer… doc_* files), the Guirard white paper 'Performance basics for IBM Lotus Notes developers' (kapitola-01..13: formulas ch.4, views ch.6, code ch.7), and ~850 community articles (Title_UNID.html). For compile errors search the exact error text; for performance questions query the book chapters." +
         (config.enforceKbGate
           ? " This is ENFORCED: edit/write calls on .lss/.dxl files are rejected until kb_search has been called in this session."
           : "")
@@ -20,7 +20,7 @@ export function buildPromptGuidelines(config: ModularConfig): string[] {
 
   if (config.injectGotchasSummary) {
     guidelines.push(
-      `LOTUSSCRIPT GOTCHAS: 40+ known LotusScript traps are registered in the global plugin. Top gotchas include: built-in keywords as names (Shell/Mid/Format), ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects. Use tool 'lotusscript_gotchas' to check specific gotchas.`
+      `LOTUSSCRIPT GOTCHAS: a registry of known LotusScript and Formula traps is available in the global plugin. Top gotchas include: built-in keywords as names (Shell/Mid/Format), ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects. Use tool 'lotusscript_gotchas' to check specific gotchas.`
     );
   }
 

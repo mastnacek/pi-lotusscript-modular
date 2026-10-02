@@ -37,13 +37,14 @@ the code in §4–§6 is what actually executes.
 
 | File | Lines | Purpose |
 |---|---:|---|
-| `SKILL.md` | 191 | Frontmatter (`name: lotusscript-modular`) + the operating manual: Scaffold Fast Path, Definition of Done, file-map table of `src/slices/*`. Loaded by pi's skill discovery. |
+| `SKILL.md` | 195 | Frontmatter (`name: lotusscript-modular`) + the operating manual: Scaffold Fast Path, Definition of Done, file-map table of `src/slices/*`, KB-lookup block naming the collection's three layers. Loaded by pi's skill discovery. |
 | `references/workflow.md` | 122 | Modular workflow reference — the decompile → edit → compile lifecycle and when the plugin intervenes. |
 | `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
-| `references/gotchas-index.md` | 85 | Index of the 59 bundled gotchas, pointing at `gotchas.md`. |
+| `references/gotchas-index.md` | 101 | Index of the 59 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
 | `references/naming-conventions.md` | 117 | Alias grammar and the type→prefix table (`ag_`, `lib_`, …). |
-| `references/dxl-and-odp.md` | 62 | DXL/ODP design-element reference for the decompile path. |
+| `references/dxl-and-odp.md` | 65 | DXL/ODP design-element reference for the decompile path. |
+| `references/formula-language.md` | 150 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, `@Today` in views, formula/DXL escaping. Names the KB layers and cites `kapitola-04..07`. |
 
 > **Review note:** `SKILL.md` was stale until commit `f684b55` — it still promised `%Include "lsconst.lss"` and an `On Error GoTo Catch` label, neither of which the template emits. Worth re-reading `SKILL.md` §"Scaffold Fast Path" against `template.lss` on any future template change; the two are kept in sync by hand.
 
@@ -113,7 +114,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 | `tool-call.ts` | 101 | `handleToolCall` | Redirects reads of monolithic scripts into ephemeral decompilation. |
 | `tool-result.ts` | 245 | `handleToolResult` | Post-edit recompile, lint gate, scorecard injection. |
 | `settled.ts` | 97 | `handleAgentSettled` | Cleanup when the agent finishes — deletes the ephemeral folder. |
-| `guidelines.ts` | 48 | `buildPromptGuidelines` | Builds the system-prompt text: DoD, rubric, top gotchas, KB prompt. |
+| `guidelines.ts` | 48 | `buildPromptGuidelines` | Builds the system-prompt text: DoD, rubric, top gotchas, KB prompt (names the collection's three layers and the Guirard chapters). |
 | `recurring-gotcha.ts` | 70 | `draftRecurringGotcha` | Auto-drafts a gotcha when the same diagnostic repeats. |
 | `read-banner.ts` | 52 | `readBanner` | Banner shown when a monolithic script is read. |
 | `shared.ts` | 19 | `ToolResultEventResultShape`, `baseToolName` | Small shared helpers. |
@@ -175,7 +176,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 
 ## 6. Tests
 
-Harness: `test/test_modular_workflow.ts` (56 lines) runs numbered assertions across phases. `npm test` → 84 assertions.
+Harness: `test/test_modular_workflow.ts` (56 lines) runs numbered assertions across phases. `npm test` → 85 assertions.
 
 | File | Lines | Covers |
 |---|---:|---|
@@ -189,7 +190,7 @@ Harness: `test/test_modular_workflow.ts` (56 lines) runs numbered assertions acr
 | `test/phases/phase10.ts` | 132 | Phase 10 (44–47): recurring-failure gotcha drafting. |
 | `test/phases/phase11.ts` | 186 | Phases 11a (48–54): JEV evaluator — comment parsing, string-literal immunity, payload, parsing, fallback, scorecard integration. |
 | `test/phases/phase12.ts` | 223 | Phases 12a/12b (55–62): shell/code-execution read guards, English language guard, unmeasured-LSP pending semantics. |
-| `test/phases/phase13.ts` | 204 | Phases 13a/13b (63–75): scaffold slice + naming conventions. Includes 63b (determinism + placeholder substitution). |
+| `test/phases/phase13.ts` | 216 | Phases 13a/13b (63–75b): scaffold slice + naming conventions. Includes 63b (determinism + placeholder substitution) and 75b (formula-language.md exists and cites the KB layers). |
 | `test/phases/phase14.ts` | 136 | Phase 14 (76–79): artifact-scaffolding round-trip idempotency. Regression guard for the scaffolding-accumulation bug. |
 | `test/phases/phase15.ts` | 198 | Phase 15 (80–84): repeated-event module names. Regression guard for the lost-button bug. |
 
@@ -236,4 +237,4 @@ read them before judging whether a slice is correct.
 - Installed copy: `~/.pi/agent/git/github.com/mastnacek/pi-lotusscript-modular` (a git working tree).
 - As of writing, the installed checkout is **behind** the repo — it predates the `template.lss` work entirely. Run `pi update` to reconcile.
 - Repo is clean and in sync with `origin/main` at `f684b55`.
-- Verification commands: `npx tsc --noEmit`, `npm test` (84 assertions).
+- Verification commands: `npx tsc --noEmit`, `npm test` (85 assertions).

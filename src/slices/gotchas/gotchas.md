@@ -23,7 +23,7 @@ mcp__knowledge_base -> tool: kb_search
 |---|---|---|
 | `com.ibm.designer.domino.main.doc_*` | 8 243 | IBM API reference (classes, statements, compile errors) |
 | `ln/designer/kapitola-01..13-*.html` | 13 | **IBM white paper "Performance basics for IBM Lotus Notes developers"** (Andre Guirard, IBM, May 2008) — the best-practices book |
-| `<Title>_<UNID>.html` | 867 | **Community articles** scraped from Breaking Par "Tips & Tricks" and the OpenNTF wiki |
+| `<Title>_<UNID>.html` | 854 | **Community articles** scraped from Breaking Par "Tips & Tricks" and the OpenNTF wiki |
 
 The two non-IBM layers are the reason for this rule: they contain material that
 is **not** in the API reference and **not** in this file. A KB search is also the
@@ -36,6 +36,7 @@ message's exact wording).
 |---|---|
 | Any class/property/method | `GetAllDocumentsByKey return value empty collection` |
 | A compile error the Designer reported | `Unexpected identifier compile-time error` (search the **exact** message text) |
+| Formula performance | `@DbLookup cache NoCache ReCache FailSilent computed field` — guide: skill `references/formula-language.md` |
 | Language behaviour | `LotusScript And Or evaluation operands` |
 | Performance / design | `Performance basics developers LotusScript performance best practices` |
 | "Does X exist?" | search the bare name; an empty result is meaningful evidence |
