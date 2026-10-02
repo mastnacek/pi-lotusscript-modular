@@ -15,6 +15,8 @@ export interface ScaffoldOptions {
   agentName?: string; // For modular procedures
   returnType?: string; // For functions
   params?: string; // Procedure parameters
+  /** Fixed YYYY-MM-DD; omit to use today. Set it to make scaffolds byte-reproducible. */
+  date?: string;
 }
 
 export function formatCurrentDate(): string {
@@ -26,13 +28,35 @@ export function formatCurrentDate(): string {
 }
 
 /**
+ * Fills a user-owned template.lss (bundled or seeded to ~/.pi/lotusscript)
+ * with header values. Pure: no filesystem access, so the same inputs always
+ * produce the same output.
+ */
+export function fillTemplate(raw: string, options: ScaffoldOptions & { libraryVersion?: string }): string {
+  const date = options.date || formatCurrentDate();
+  let out = raw
+    .replace("<nazev-souboru>.lss", options.name.replace(/\.lss$/i, ""))
+    .replace("<Stručný popis>", options.purpose || "Stručný popis účelu skriptu.")
+    .replace("<Jméno>", options.author || "AI Developer")
+    .replaceAll("<YYYY-MM-DD>", date);
+
+  if (options.libraryVersion) {
+    out = out.replace(
+      /^Option Declare.*$/m,
+      (m) => `${m}\n\n' (Declarations) - Verze knihovny\nPublic Const LIB_VERSION = "${options.libraryVersion}"`,
+    );
+  }
+  return out;
+}
+
+/**
  * Standalone Agent Skeleton (.lss)
  */
 export function agentTemplate(options: ScaffoldOptions): string {
   const name = options.name.replace(/\.lss$/i, "");
   const author = options.author || "AI Developer";
   const purpose = options.purpose || "Popis účelu agenta.";
-  const date = formatCurrentDate();
+  const date = options.date || formatCurrentDate();
 
   return `' POZOR: Option Public/Declare nepatří do jednotlivých eventů, pokud už jsou v (Globals) -> (Options)!
 Option Public
@@ -111,7 +135,7 @@ export function libraryTemplate(options: ScaffoldOptions): string {
   const name = options.name.replace(/\.lss$/i, "");
   const author = options.author || "AI Developer";
   const purpose = options.purpose || "Knihovna sdílených funkcí.";
-  const date = formatCurrentDate();
+  const date = options.date || formatCurrentDate();
 
   return `Option Public
 Option Declare

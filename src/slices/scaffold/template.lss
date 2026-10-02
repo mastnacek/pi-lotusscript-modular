@@ -1,0 +1,55 @@
+' POZOR: Option Public/Declare - SMAŽ pokud už jsou v (Globals) → (Options)!
+' Samostatný .lss soubor = nech, Form/Agent event = zkontroluj (Globals)
+Option Public
+Option Declare
+
+'**********************************************************************
+' NÁZEV: <nazev-souboru>.lss
+' ÚČEL: <Stručný popis>
+' AUTOR: <Jméno>
+' VYTVOŘENO: <YYYY-MM-DD>
+'
+' VERZE: 0.1
+' CHANGELOG:
+'   0.1 (<YYYY-MM-DD>) - Základní implementace
+'**********************************************************************
+
+'===== KONSTANTY =====
+Const ERROR_NOTIFY_EMAIL$ = "sluzbyict@veba.cz"
+Const LSI_THREAD_PROC = 1
+Const LSI_THREAD_MODULE = 10
+
+'===== POMOCNÉ FUNKCE =====
+
+Sub SendErrorEmail(notifyEmail As String)
+	On Error Resume Next
+	Dim errNum As Integer, errLine As Long, errMsg As String
+	errNum = Err : errLine = Erl : errMsg = Error$
+
+	Dim mailDb As New NotesDatabase("domino/VEBA", "mail.box")
+	Dim memo As New NotesDocument(mailDb)
+	memo.Form = "Memo"
+	memo.SendTo = notifyEmail
+	memo.Subject = "CHYBA: " & GetThreadInfo(LSI_THREAD_MODULE)
+	memo.Body = "Cas: " & Now & Chr(10) & _
+	            "Radek: " & errLine & Chr(10) & _
+	            "Chyba #" & errNum & ": " & errMsg
+	Call memo.Send(False)
+End Sub
+
+'===== HLAVNÍ RUTINA =====
+
+Sub Initialize
+	Dim session As New NotesSession
+	Dim db As NotesDatabase
+
+	On Error GoTo ErrorHandler
+
+	' TODO: Hlavní kód zde
+
+	Exit Sub
+
+ErrorHandler:
+	Call SendErrorEmail(ERROR_NOTIFY_EMAIL)
+	Exit Sub
+End Sub

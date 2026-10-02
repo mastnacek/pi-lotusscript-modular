@@ -8,6 +8,8 @@ import { AgentParser } from "../../src/slices/parser/index.js";
 import { lintModularFolder } from "../../src/slices/linter/index.js";
 import {
   scaffoldLotusScriptArtifact,
+  fillTemplate,
+  getBundledTemplatePath,
   suggestAlias,
   buildDesignerNotice,
 } from "../../src/slices/scaffold/index.js";
@@ -28,14 +30,30 @@ export async function phase13a(): Promise<string> {
     purpose: "Testovací agent vygenerovaný kostrou.",
   });
   const agentContent = fs.readFileSync(scaffoldAgent.createdFiles[0]!, "utf-8");
+  // Invariants true for both the user template and the built-in fallback.
   const agentOk =
     agentContent.includes("Option Public") &&
     agentContent.includes("Option Declare") &&
-    agentContent.includes('%Include "lsconst.lss"') &&
-    agentContent.includes("Účel:") &&
-    agentContent.includes("On Error GoTo Catch");
+    agentContent.includes("Sub Initialize") &&
+    agentContent.includes("On Error GoTo") &&
+    agentContent.includes("Testovací agent vygenerovaný kostrou.");
   console.log("63. Scaffold agent generates compliant skeleton:", agentOk ? "PASS" : "FAIL");
   if (!agentOk) throw new Error(`Bad agent scaffold:\n${agentContent}`);
+
+  // Determinism: fixed date + pure substitution => byte-identical output.
+  const rawTpl = fs.readFileSync(getBundledTemplatePath(), "utf-8");
+  const fillA = fillTemplate(rawTpl, { name: "Det", purpose: "Test", author: "Jaroslav", date: "2026-01-01" });
+  const fillB = fillTemplate(rawTpl, { name: "Det", purpose: "Test", author: "Jaroslav", date: "2026-01-01" });
+  const deterministic =
+    fillA === fillB &&
+    !fillA.includes("<nazev-souboru>") &&
+    !fillA.includes("<YYYY-MM-DD>") &&
+    !fillA.includes("<Jméno>") &&
+    !fillA.includes("<Stručný popis>") &&
+    fillA.includes("CHANGELOG") &&
+    fillA.includes("' AUTOR: Jaroslav");
+  console.log("63b. fillTemplate is deterministic and fills every placeholder:", deterministic ? "PASS" : "FAIL");
+  if (!deterministic) throw new Error(`Bad fillTemplate output:\n${fillA}`);
 
   const scaffoldProc = scaffoldLotusScriptArtifact({
     type: "procedure",

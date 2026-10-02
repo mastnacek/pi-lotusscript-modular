@@ -22,6 +22,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
     parentAgent: Type.Optional(Type.String({ description: "For type='procedure', the parent agent name for @script-member-of header" })),
     returnType: Type.Optional(Type.String({ description: "For type='procedure' with isFunction=true, return type (e.g. 'String', 'Long')" })),
     params: Type.Optional(Type.String({ description: "Parameter list for the procedure (e.g. 'doc As NotesDocument')" })),
+    date: Type.Optional(Type.String({ description: "Fixed YYYY-MM-DD for the versioned header. Set it to make the scaffold byte-reproducible; omit for today." })),
   });
 
   type ScaffoldDetails = {
@@ -48,6 +49,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
       parentAgent?: string;
       returnType?: string;
       params?: string;
+      date?: string;
     }) {
       const res = scaffoldLotusScriptArtifact({
         type: params.type,
@@ -59,6 +61,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
         parentAgent: params.parentAgent,
         returnType: params.returnType,
         params: params.params,
+        date: params.date,
       });
       return {
         content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}\n\n${res.noticeEn ?? ""}` }],
