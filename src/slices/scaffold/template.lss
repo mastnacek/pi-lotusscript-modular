@@ -8,6 +8,7 @@ Option Declare
 ' ÚČEL: <Stručný popis>
 ' AUTOR: <Jméno>
 ' VYTVOŘENO: <YYYY-MM-DD>
+' ZÁVISLOSTI: (doplň seznam knihoven/agentů, nebo smaž tento řádek)
 '
 ' VERZE: 0.1
 ' CHANGELOG:
@@ -21,8 +22,14 @@ Const MAIL_SERVER$ = "domino/VEBA"
 Const MAIL_DB$ = "mail.box"
 
 ' GetThreadInfo indexy - Option Declare vyžaduje konstanty místo čísel.
-' POZOR: stejné názvy jsou i oficiálně v lsprcval.lss (přes lsconst.lss).
-' Nepřidávej %Include "lsconst.lss" - vznikla by duplicitní deklarace.
+'
+' !!! Při vkládání tohoto souboru do SCRIPT LIBRARY nebo design elementu
+' !!! v Designeru tento celý blok SMAŽ (4 řádky Const LSI_THREAD_*).
+' !!! Designer vkládá LSPRVAL.LSS automaticky a vlastní deklarace končí
+' !!! chybou "Name previously declared: LSI_THREAD_PROC" (gotcha #39).
+' !!! Bez toho bloku fungují - jen pro samostatné .lss mimo Designer.
+' !!! MB_* a PICKLIST_* jsou z jiného souboru: v Script Library potřebují
+' !!! %Include "lsconst.lss", v design elementu je Designer dodá sám.
 Const LSI_THREAD_PROC = 1			' GetThreadInfo(1)  - aktuální procedura
 Const LSI_THREAD_MODULE = 10		' GetThreadInfo(10) - aktuální modul
 Const LSI_THREAD_CALLPROC = 11		' GetThreadInfo(11) - volající procedura
