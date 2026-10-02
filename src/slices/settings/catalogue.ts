@@ -160,6 +160,15 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     },
   },
   {
+    key: "useJevRouting",
+    kind: "boolean",
+    description: "Jev routovací brána: posoudit uživatelský požadavek, než se spustí LotusScript workflow (jen když selže deterministický test)",
+    valueHelp: {
+      true: "Zapnuto — při každém požadavku bez .lss/.dxl/.ls signálu se zeptá Jev; Tier 0 test je zdarma a Jev nemá právo veta",
+      false: "Vypnuto — žádný modelový dotaz, routování jen podle souborů a příkazů",
+    },
+  },
+  {
     key: "jevModel",
     kind: "string",
     description: "Model JEV na OpenRouteru pro Decisions API (výchozí: typesafe/jev-1.13)",

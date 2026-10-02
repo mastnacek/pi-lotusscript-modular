@@ -27,6 +27,7 @@ import {
   handleToolResult,
 } from "./src/slices/pipeline/index.js";
 import { createLsCommand } from "./src/slices/commands/index.js";
+import { routeRequest } from "./src/slices/routing/index.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
@@ -60,7 +61,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   }));
 
   // Prompt injection: debrief handoff + enforce KB query + inject gotchas reminder
-  track(pi.on("before_agent_start", (event) => {
+  track(pi.on("before_agent_start", async (event, ctx: ExtensionContext) => {
     state.countHook("before_agent_start");
     const pendingDebrief = state.pendingDebriefs.length > 0 ? state.pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) state.pendingDebriefs.length = 0;
@@ -77,6 +78,15 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (!event.systemPromptOptions?.promptGuidelines) return debriefMessage;
 
     event.systemPromptOptions.promptGuidelines.push(...buildPromptGuidelines(state.config));
+
+    // Optional Jev routing gate. Tier 0 is free and runs first; the model is
+    // only consulted when no deterministic signal fired. Fails open.
+    const verdict = await routeRequest(event.prompt, state.config, ctx);
+    state.telemetry.routeChecks++;
+    state.telemetry.routeHits += verdict.guideline ? 1 : 0;
+    if (verdict.guideline) {
+      event.systemPromptOptions.promptGuidelines.push(verdict.guideline);
+    }
 
     return debriefMessage;
   }));

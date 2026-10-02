@@ -101,8 +101,8 @@ export async function phase7(): Promise<void> {
   // 33. Rubric is injected into the system prompt
   const { pi: rubricPi, handlers: rubricHandlers } = mockPi(["before_agent_start"]);
   lotusscriptModularExtension(rubricPi);
-  const promptEvent: any = { systemPromptOptions: { promptGuidelines: [] } };
-  rubricHandlers["before_agent_start"](promptEvent);
+  const promptEvent: any = { prompt: "", systemPromptOptions: { promptGuidelines: [] } };
+  await rubricHandlers["before_agent_start"](promptEvent);
   const guidelines: string[] = promptEvent.systemPromptOptions.promptGuidelines;
   const rubricInjected = guidelines.some((g) => g.includes("DEFINITION OF DONE"));
   console.log("33. before_agent_start injects the grading rubric:", rubricInjected ? "PASS" : "FAIL");

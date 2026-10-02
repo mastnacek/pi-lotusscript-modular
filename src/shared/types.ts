@@ -40,6 +40,8 @@ export interface ModularConfig {
   autoDraftRecurringGotchas: boolean;
   /** Evaluate procedures with JEV model on OpenRouter for semantic comment & gotcha analysis */
   useJevEvaluation: boolean;
+  /** Jev request-routing gate on user prompts (off = no model call). */
+  useJevRouting: boolean;
   /** Custom OpenRouter API key override (falls back to process.env.OPENROUTER_API_KEY or ~/.pi/agent/auth.json) */
   openrouterApiKey?: string;
   /** JEV model identifier on OpenRouter */
@@ -71,6 +73,10 @@ export interface HookTelemetry {
   readsModular: number;
   /** kb_search calls observed this session (satisfies the KB edit gate). */
   kbSearches: number;
+  /** Routing-gate evaluations (useJevRouting). */
+  routeChecks: number;
+  /** Routing-gate verdicts that produced a guideline. */
+  routeHits: number;
   /** Edit/write calls blocked until a KB query runs (enforceKbGate). */
   kbGateBlocks: number;
   /** Monolith dump attempts blocked in shell-like tools. */

@@ -71,8 +71,8 @@ export async function phase9(): Promise<void> {
   const settleCtx: any = { hasUI: false, cwd: TEST_DIR, ui: { notify: () => {} } };
   await debriefSettled({}, settleCtx);
 
-  const debriefEvent: any = { systemPromptOptions: { promptGuidelines: [] } };
-  const debriefTurn = debriefBeforeStart(debriefEvent);
+  const debriefEvent: any = { prompt: "", systemPromptOptions: { promptGuidelines: [] } };
+  const debriefTurn = await debriefBeforeStart(debriefEvent);
   const debriefContent: string = debriefTurn?.message?.content ?? "";
   const debriefOk =
     debriefTurn?.message?.customType === "lotusscript-debrief" &&
@@ -83,7 +83,7 @@ export async function phase9(): Promise<void> {
   if (!debriefOk) throw new Error(`Debrief handoff failed: ${JSON.stringify(debriefTurn)}`);
 
   // 42b. Debrief is consumed exactly once
-  const secondTurn: any = debriefBeforeStart({ systemPromptOptions: { promptGuidelines: [] } });
+  const secondTurn: any = await debriefBeforeStart({ prompt: "", systemPromptOptions: { promptGuidelines: [] } });
   const consumed = secondTurn === undefined;
   console.log("42b. Debrief is consumed once (no repeat injection):", consumed ? "PASS" : "FAIL");
   if (!consumed) throw new Error(`Debrief repeated: ${JSON.stringify(secondTurn)}`);
@@ -105,7 +105,7 @@ export async function phase9(): Promise<void> {
     isError: false,
   });
   await cleanHandlers["agent_settled"]({}, { hasUI: false, cwd: TEST_DIR, ui: { notify: () => {} } });
-  const cleanTurn: any = cleanHandlers["before_agent_start"]({ systemPromptOptions: { promptGuidelines: [] } });
+  const cleanTurn: any = await cleanHandlers["before_agent_start"]({ prompt: "", systemPromptOptions: { promptGuidelines: [] } });
   const noDebrief = cleanTurn === undefined;
   console.log("43. No debrief when Definition of Done is satisfied:", noDebrief ? "PASS" : "FAIL");
   if (!noDebrief) throw new Error(`Unexpected debrief for clean agent: ${JSON.stringify(cleanTurn)}`);

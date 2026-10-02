@@ -1,11 +1,14 @@
 import fs from "node:fs";
-import { homedir } from "node:os";
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   JevFolderEvalResult,
   JevProcedureEval,
 } from "../../shared/types.js";
+import {
+  getOpenRouterApiKey,
+  OPENROUTER_DECISIONS_URL,
+} from "../../shared/jev-client.js";
 import {
   extractProcedureSnippet,
   scanLotusScriptComments,
@@ -17,51 +20,8 @@ import {
   parseJevResponse,
 } from "./jev.js";
 
-const OPENROUTER_DECISIONS_URL = "https://openrouter.ai/api/alpha/decisions";
+export { getOpenRouterApiKey };
 
-/**
- * Resolves OpenRouter API key from env, auth.json, or explicit config.
- */
-export async function getOpenRouterApiKey(
-  explicitKey?: string,
-  ctx?: ExtensionContext
-): Promise<string | undefined> {
-  if (explicitKey && explicitKey.trim()) return explicitKey.trim();
-
-  const envKey = process.env.OPENROUTER_API_KEY;
-  if (envKey && envKey.trim()) return envKey.trim();
-
-  // ~/.pi/agent/auth.json
-  try {
-    const authPath = path.join(homedir(), ".pi", "agent", "auth.json");
-    if (fs.existsSync(authPath)) {
-      const raw = fs.readFileSync(authPath, "utf-8");
-      const auth = JSON.parse(raw);
-      const or = auth.openrouter;
-      if (typeof or === "string" && or) return or;
-      if (typeof or?.access === "string" && or.access) return or.access;
-      if (typeof or?.apiKey === "string" && or.apiKey) return or.apiKey;
-    }
-  } catch {
-    // Non-fatal
-  }
-
-  // ctx.modelRegistry
-  if (ctx?.modelRegistry) {
-    try {
-      const reg = ctx.modelRegistry as any;
-      const provider = reg.getProvider?.("openrouter");
-      if (provider) {
-        const auth = await reg.getProviderAuth?.("openrouter");
-        if (auth?.apiKey) return auth.apiKey;
-      }
-    } catch {
-      // Non-fatal
-    }
-  }
-
-  return undefined;
-}
 
 /**
  * Evaluates a single procedure file using JEV or deterministic fallback.

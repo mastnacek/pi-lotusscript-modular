@@ -26,6 +26,7 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
     `- Scorecard (hodnocení): ${config.enableScorecard ? "ZAPNUTO" : "VYPNUTO"}`,
     `- Rubrika Definition of Done: ${config.enforceGradingRubric ? "ZAPNUTO" : "VYPNUTO"}`,
     `- Sémantické hodnocení JEV: ${config.useJevEvaluation ? "ZAPNUTO" : "VYPNUTO"}`,
+    `- Jev routovací brána: ${config.useJevRouting ? "ZAPNUTO" : "VYPNUTO"} (Tier 0 zdarma, model jen při tichu)`,
     `- JEV model: ${config.jevModel}`,
     `- Předletová kontrola gotchas: ${config.injectPreflightGotchas ? "ZAPNUTO" : "VYPNUTO"}`,
     `- Auto-návrh gotchy z opakované chyby: ${config.autoDraftRecurringGotchas ? "ZAPNUTO" : "VYPNUTO"}`,

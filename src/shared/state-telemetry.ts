@@ -30,6 +30,8 @@ export function createTelemetry(): HookTelemetry {
     readsRedirected: 0,
     readsModular: 0,
     kbSearches: 0,
+    routeChecks: 0,
+    routeHits: 0,
     kbGateBlocks: 0,
     dumpBlocks: 0,
     protectedBlocks: 0,
