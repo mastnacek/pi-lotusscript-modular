@@ -151,10 +151,32 @@ const MODULAR_PART_NAME =
 
 /**
  * Positive read-intent signals: a tool that can dump file CONTENT.
- * Metadata-only commands (wc, ls, dir, stat, find, git) are intentionally absent.
+ * Metadata-only commands (wc, ls, dir, stat, find, git plumbing) are intentionally
+ * absent.
+ *
+ * Two word-boundary traps are closed here, both observed on real sessions:
+ *  - `\bcat\b` matched `git cat-file`, so the guard reported a content dump for a
+ *    blob-size query.
+ *  - `\bhead\b` (case-insensitive) matched the git revision `HEAD`, so
+ *    `git show --stat HEAD` was blocked with a false "you are dumping" reason.
+ * Verb tokens must therefore not continue into `-`, `.` or a word character, and
+ * `head` is matched lowercase-only because `HEAD` is a revision, not a command.
  */
-const CONTENT_READ_INTENT =
-  /(?:\bcat\b|\bsed\b|\bhead\b|\btail\b|\bmore\b|\bless\b|\bawk\b|\bperl\b|\bpython3?\b|\bnode\b|\bruby\b|\bphp\b|Get-Content|\bgc\b|Select-String|\brg\b|\bgrep\b|\bfindstr\b|readFileSync|readFile\b|read_text|readlines|\bopen\s*\(|\btype\s+["']?[A-Za-z0-9_.\\/:-]+\.(?:lss|dxl))/i;
+const READ_VERB_SHELL =
+  /(?<![-\w.])(?:cat|sed|tail|more|less|awk|perl|python3?|node|ruby|php|get-content|gc|select-string|rg|grep|findstr|type)(?![-\w.])/i;
+const READ_VERB_HEAD = /(?<![-\w.])head(?![-\w.])/;
+const READ_MEMBER =
+  /(?:readfilesync|readfile|read_text|readlines|open)\s*[\(/]/i;
+const TYPE_DUMP = /(?<![-\w.])type\s+["']?[A-Za-z0-9_.\\/:-]+\.(?:lss|dxl)/i;
+
+function hasContentReadIntent(text: string): boolean {
+  return (
+    READ_VERB_SHELL.test(text) ||
+    READ_VERB_HEAD.test(text) ||
+    READ_MEMBER.test(text) ||
+    TYPE_DUMP.test(text)
+  );
+}
 
 /** Extracts every `.lss` / `.dxl` path token from arbitrary command text. */
 function extractScriptPathTokens(text: string): string[] {
@@ -201,7 +223,7 @@ function extractDirectoryHints(text: string, base: string): string[] {
  * read-time auto-decompilation.
  */
 export function findMonolithicScriptReads(text: string, cwd?: string): MonolithicReadHit[] {
-  if (!text || !CONTENT_READ_INTENT.test(text)) return [];
+  if (!text || !hasContentReadIntent(text)) return [];
 
   const base = path.resolve(cwd || process.cwd());
   const bases = [base, ...extractDirectoryHints(text, base)];
@@ -232,4 +254,43 @@ export function findMonolithicScriptReads(text: string, cwd?: string): Monolithi
   }
 
   return hits;
+}
+
+/**
+ * True when a modular folder is still byte-for-byte the decompile output the
+ * plugin produced. Compares every entry's mtime against the folder's own
+ * `manifest.json` `decompileTimestamp`.
+ *
+ * This is deliberately git-free: LotusScript has no VCS, and the plugin must
+ * not depend on the operator's repository to know what it owns. Anything the
+ * plugin can observe changing on disk (an editor save, a shell that restores
+ * files into the folder) makes the folder dirty and therefore untouchable.
+ */
+export function isPristineModularDir(modDir: string): boolean {
+  const manifestPath = path.join(modDir, "manifest.json");
+  if (!fs.existsSync(manifestPath)) return false;
+
+  let stamp = Number.NaN;
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as { decompileTimestamp?: string };
+    stamp = Date.parse(manifest.decompileTimestamp ?? "");
+  } catch {
+    return false;
+  }
+  if (Number.isNaN(stamp)) return false;
+
+  // Filesystem mtime granularity is coarser than the ISO stamp: the decompile
+  // itself writes files a few ms after the stamp is taken.
+  // ponytail: 250 ms window — writes landing inside it read as pristine. Raise it
+  // only if a real slow-FS agent ever trips a false "dirty".
+  const toleranceMs = 250;
+  for (const name of fs.readdirSync(modDir)) {
+    const entry = path.join(modDir, name);
+    try {
+      if (fs.statSync(entry).mtimeMs > stamp + toleranceMs) return false;
+    } catch {
+      return false;
+    }
+  }
+  return true;
 }

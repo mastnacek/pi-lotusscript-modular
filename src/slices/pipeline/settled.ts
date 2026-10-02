@@ -11,6 +11,7 @@ import { AgentParser } from "../parser/index.js";
 import { checkLotusScriptDiagnostics } from "../lsp/index.js";
 import { trendLabel } from "../scorecard/index.js";
 import type { PluginState } from "../../shared/state.js";
+import { isPristineModularDir } from "../../shared/paths.js";
 
 export async function handleAgentSettled(state: PluginState, ctx: ExtensionContext): Promise<void> {
   const { config } = state;
@@ -83,15 +84,32 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
     }
   }
 
+  const retainedReadDirs: string[] = [];
   for (const modDir of state.readModularDirs) {
     if (!state.modifiedModularDirs.has(modDir) && fs.existsSync(modDir)) {
-      try {
-        fs.rmSync(modDir, { recursive: true, force: true });
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(`[LotusScript Modular] Chyba při mazání read-only složky ${modDir}: ${msg}`);
+      // Only remove what the plugin itself produced and nobody touched. A shell
+      // that restores files into the folder leaves mtimes newer than the decompile
+      // stamp — those bytes are not ours to delete.
+      if (isPristineModularDir(modDir)) {
+        try {
+          fs.rmSync(modDir, { recursive: true, force: true });
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[LotusScript Modular] Chyba při mazání read-only složky ${modDir}: ${msg}`);
+        }
+      } else {
+        retainedReadDirs.push(modDir);
       }
     }
+  }
+
+  if (retainedReadDirs.length > 0 && ctx.hasUI) {
+    ctx.ui.notify(
+      `🪷 [LotusScript Modular] Ponecháno ${retainedReadDirs.length} složek s obsahem, který plugin nevytvořil: ${retainedReadDirs
+        .map((d) => path.basename(d))
+        .join(", ")}`,
+      "warning"
+    );
   }
 
   state.modifiedModularDirs.clear();

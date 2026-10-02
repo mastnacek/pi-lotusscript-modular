@@ -18,6 +18,7 @@ import {
   guardProtectedFiles,
 } from "../../src/slices/guards/index.js";
 import { MONOLITH_CODE, TEST_DIR } from "../helpers.js";
+import { findMonolithicScriptReads, isPristineModularDir } from "../../src/shared/paths.js";
 
 function report(num: string, label: string, ok: boolean): void {
   console.log(`${num}. ${label}:`, ok ? "PASS" : "FAIL");
@@ -112,5 +113,41 @@ export async function phase17(): Promise<void> {
     "88f",
     "overwriteSourceLss:true + deleteModularDir:true still overwrites the source and deletes the folder",
     !fs.existsSync(dir2) && result2 === srcLss2 && fs.readFileSync(srcLss2, "utf-8") !== MONOLITH_CODE
+  );
+
+  // --- 88g: git plumbing is metadata, not a content dump (real false positives) ---
+  const gitStat = findMonolithicScriptReads("cd repo && git show --stat HEAD", TEST_DIR);
+  const gitCatFile = findMonolithicScriptReads(`git cat-file -s $(git rev-parse HEAD:01_scripts/WinDump.lss)`, TEST_DIR);
+  const gitLog = findMonolithicScriptReads("git log -5 --oneline -- 01_scripts/WinDump.lss", TEST_DIR);
+  const stillCatchesCat = findMonolithicScriptReads(`cat "${monolith}"`, TEST_DIR).length > 0;
+  const stillCatchesHead = findMonolithicScriptReads(`head -40 "${monolith}"`, TEST_DIR).length > 0;
+  report(
+    "88g",
+    "git plumbing (show/cat-file/log) is not treated as a content dump; cat/head still are",
+    gitStat.length === 0 && gitCatFile.length === 0 && gitLog.length === 0 && stillCatchesCat && stillCatchesHead
+  );
+
+  // --- 88h: cleanup only removes folders the plugin itself produced ---
+  const pristineSrc = path.join(TEST_DIR, "PristineAgent.lss");
+  fs.writeFileSync(pristineSrc, MONOLITH_CODE, "utf-8");
+  const pristineDir = AgentParser.decompileLss(pristineSrc);
+  const pristineBefore = isPristineModularDir(pristineDir);
+
+  const dirtySrc = path.join(TEST_DIR, "DirtyAgent.lss");
+  fs.writeFileSync(dirtySrc, MONOLITH_CODE, "utf-8");
+  const dirtyDir = AgentParser.decompileLss(dirtySrc);
+  // A shell restoring files into the folder leaves mtimes newer than the stamp.
+  fs.writeFileSync(path.join(dirtyDir, "sub_Restored.lss"), "Sub Restored()\nEnd Sub\n", "utf-8");
+  const restored = path.join(dirtyDir, "sub_Restored.lss");
+  const stamp = Date.parse(
+    (JSON.parse(fs.readFileSync(path.join(dirtyDir, "manifest.json"), "utf-8")) as { decompileTimestamp: string })
+      .decompileTimestamp
+  );
+  fs.utimesSync(restored, new Date(stamp + 60_000), new Date(stamp + 60_000));
+  const dirtyAfter = isPristineModularDir(dirtyDir);
+  report(
+    "88h",
+    "isPristineModularDir: true right after decompile, false once anything on disk is newer",
+    pristineBefore && dirtyAfter === false
   );
 }
