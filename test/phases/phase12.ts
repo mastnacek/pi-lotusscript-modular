@@ -11,12 +11,6 @@ import {
   formatScorecard,
 } from "../../src/slices/scorecard/index.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
-import {
-  createFallbackEval,
-  buildFolderSummary,
-  parseJevResponse,
-  scanLotusScriptComments,
-} from "../../src/slices/evaluator/index.js";
 import lotusscriptModularExtension from "../../index.js";
 import { TEST_DIR, mockPi } from "../helpers.js";
 
@@ -28,13 +22,12 @@ export interface GuardFixture {
   bashDump: any;
   ctxExec: any;
   ctxBatch: any;
-  cleanItems: any[];
-  scGood: ReturnType<typeof computeScorecard>;
-  scWithJev: ReturnType<typeof computeScorecard>;
+  kbGate: any;
+  protectedGuard: any;
 }
 
 /** Tests 55–59. Returns fixtures reused by the language guard phase. */
-export async function phase12a(cleanItems: any[], scGood: ReturnType<typeof computeScorecard>, scWithJev: ReturnType<typeof computeScorecard>): Promise<GuardFixture> {
+export async function phase12a(): Promise<GuardFixture> {
   const { pi: guardPi, handlers } = mockPi(["tool_call", "tool_result"]);
   lotusscriptModularExtension(guardPi);
   const guardToolCall = handlers["tool_call"];
@@ -118,17 +111,52 @@ export async function phase12a(cleanItems: any[], scGood: ReturnType<typeof comp
   console.log("59. Guard allows metadata-only bash (wc -l) on monolithic file:", metadataOk ? "PASS" : "FAIL");
   if (!metadataOk) throw new Error(`Metadata command was wrongly blocked: ${JSON.stringify(metadataCmd)}`);
 
-  return { guardToolCall, guardToolResult, shellDir, shellMonolith, bashDump, ctxExec, ctxBatch, cleanItems, scGood, scWithJev };
+  const kbGate = guardToolCall({
+    toolName: "edit",
+    input: { path: path.join(shellDir, "sub_Blocked.lss") },
+  });
+  const protectedGuard = guardToolCall({
+    toolName: "write",
+    input: { path: path.join(shellDir, "manifest.json") },
+  });
+
+  return { guardToolCall, guardToolResult, shellDir, shellMonolith, bashDump, ctxExec, ctxBatch, kbGate, protectedGuard };
 }
 
-/** Tests 60–62. Consumes guard fixtures + JEV fixtures. */
-export async function phase12b(fixture: GuardFixture, jev: {
-  newAnalysis: ReturnType<typeof scanLotusScriptComments>;
-  oldAnalysis: ReturnType<typeof scanLotusScriptComments>;
-  parsedJev: ReturnType<typeof parseJevResponse>;
-  folderSummary: ReturnType<typeof buildFolderSummary>;
-}): Promise<void> {
-  const { bashDump, ctxExec, ctxBatch, cleanItems, scGood, scWithJev } = fixture;
+/** A clean, fully-commented folder scorecard. Replaces the old evaluator fixture. */
+function cleanItems(): any[] {
+  return ["sub_A", "sub_B"].map((p) => ({
+    fileName: `${p}.lss`,
+    procedureName: p.slice(4),
+    lineCount: 40,
+    maxLines: 300,
+    isExceeded: false,
+    hasPurposeComment: true,
+    purposeText: "Reads items safely.",
+  }));
+}
+
+function buildCleanScorecard(lsp: any = null) {
+  return computeScorecard({
+    agent: "ScoreAgent",
+    maxProcedureLines: 300,
+    lint: {
+      ok: true,
+      exceededProcedures: [],
+      missingCommentProcedures: [],
+      allItems: cleanItems(),
+    },
+    lsp,
+    lspEnabled: true,
+    enforceCzechComments: true,
+    manifestSynced: true,
+    artifact: "written",
+  });
+}
+
+/** Tests 60-62. Consumes guard fixtures. */
+export async function phase12b(fixture: GuardFixture): Promise<void> {
+  const { bashDump, ctxExec, ctxBatch, kbGate, protectedGuard } = fixture;
 
   // 60. Agent-facing text is English (Czech only in user UI surfaces)
   const AGENT_FACING_ALLOWED =
@@ -138,12 +166,10 @@ export async function phase12b(fixture: GuardFixture, jev: {
     czechDiacritics.test(text.replace(AGENT_FACING_ALLOWED, ""));
 
   const agentFacingSamples: Array<{ label: string; text: string }> = [
-    { label: "fallback eval summary", text: createFallbackEval("sub_A.lss", "A", jev.newAnalysis).summary },
-    { label: "fallback eval (legacy) summary", text: createFallbackEval("sub_B.lss", "B", jev.oldAnalysis).summary },
-    { label: "parseJevResponse summary", text: jev.parsedJev.summary },
-    { label: "buildFolderSummary summary", text: jev.folderSummary.summary },
     { label: "buildGradingRubric", text: buildGradingRubric(DEFAULT_CONFIG) },
-    { label: "formatScorecard", text: formatScorecard(scWithJev, scGood) },
+    { label: "formatScorecard", text: formatScorecard(buildCleanScorecard(), undefined) },
+    { label: "kb gate reason", text: String(kbGate?.reason ?? "") },
+    { label: "protected-file reason", text: String(protectedGuard?.reason ?? "") },
     { label: "bash block reason", text: String(bashDump?.reason ?? "") },
     { label: "ctx_execute block reason", text: String(ctxExec?.reason ?? "") },
     { label: "ctx_batch_execute block reason", text: String(ctxBatch?.reason ?? "") },
@@ -173,7 +199,7 @@ export async function phase12b(fixture: GuardFixture, jev: {
     ok: true,
     exceededProcedures: [],
     missingCommentProcedures: [],
-    allItems: cleanItems,
+    allItems: cleanItems(),
   };
   const scNoLsp = computeScorecard({
     agent: "ScoreAgent",

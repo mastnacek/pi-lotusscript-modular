@@ -22,9 +22,6 @@ export const DEFAULT_CONFIG: ModularConfig = {
   enforceGradingRubric: true,
   injectPreflightGotchas: true,
   autoDraftRecurringGotchas: true,
-  useJevEvaluation: false,
-  useJevRouting: false,
-  jevModel: "typesafe/jev-1.13",
   showTelemetryPanel: true,
 };
 

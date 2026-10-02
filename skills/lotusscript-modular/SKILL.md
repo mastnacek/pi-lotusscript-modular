@@ -26,7 +26,7 @@ A modular agent folder contains `manifest.json`, `main.lss` (virtual index),
    LotusScript module scope is flat.
 5. **English for everything the agent reads. Czech for everything the user
    reads** (notifications, modals). The literal marker `' Účel: ...` and Czech
-   sample words in JEV ground truth stay Czech inside agent text.
+   sample words in code stay Czech inside agent text.
 6. **Full language policy & regression tests:** `references/workflow.md` §6.
 
 ## Progressive Disclosure (read on demand — do not preload everything)
@@ -116,8 +116,7 @@ writing outside the modular root; deleting a procedure file without updating
 `manifest.json`.
 
 Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka]`
-(per-procedure line counts and comment status), `/ls jev [složka]` (semantic
-comment style & gotcha risk evaluation via JEV Decisions API).
+(per-procedure line counts and comment status).
 
 ## Self-Improvement Loop (pre-flight, debrief, recurring failures)
 
@@ -162,7 +161,6 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
-| JEV semantic evaluation | `src/slices/evaluator/` |
 | Tests (79 checks, one file per phase under the per-file line limit) | `test/test_modular_workflow.ts` + `test/phases/` |
 
 ## Language Policy (hard rule)
@@ -174,7 +172,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | `promptGuidelines` / system prompt | **English** | Instruction-following and prompt-cache stability |
 | Tool-result content (`event.content`) | **English** | It is model input, not UI |
 | Block reasons / instant-failure text | **English** | Read by the model to correct course |
-| Scorecard, DoD rubric, JEV verdicts | **English** | Injected into tool results |
+| Scorecard and DoD rubric | **English** | Injected into tool results |
 | `/ls` notifications, modals, statusline | **Czech** | Rendered by the extension; no translator sees them |
 | Setting descriptions, autocompletions | **Czech** | User-facing only |
 
@@ -183,7 +181,7 @@ rather than instructions:
 
 1. The required code marker `' Účel: ...` — it is the literal string the linter matches.
 2. Czech sample words used for classification (e.g. `zpracování`, `pomocná
-   funkce` in the JEV ground-truth state), and the Czech text of a comment being judged.
+   funkce`), and the Czech text of a comment being judged.
 
 **Do not rely on `pi-prompt-translate` for extension text.** That extension
 translates the user's prompt into English on the way in and the final assistant

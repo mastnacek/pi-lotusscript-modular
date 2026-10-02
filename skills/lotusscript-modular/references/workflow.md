@@ -115,7 +115,6 @@ The extension automates the full ephemeral modularization lifecycle:
 | `/ls pack [složka]` | Compile, write artifact, delete modular folder |
 | `/ls lint [složka]` | Per-procedure line counts + Czech comment check |
 | `/ls score [složka]` | Scorecard + trend |
-| `/ls jev [on\|off\|složka]` | Semantic comment/risk evaluation (JEV) |
 | `/ls gotchas [query]` | Search the 42-entry gotcha base |
 | `lotusscript_compile` | Tool: recompile modular folder (+LSP) |
 | `lotusscript_decompile` | Tool: decompose monolith |

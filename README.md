@@ -40,7 +40,6 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls pack [složka]` — Sestavit do .lss a smazat modulární složku
 - `/ls lint [složka]` — Zkontrolovat délku procedur (max 300 řádků) a komentáře
 - `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
-- `/ls jev [on|off|složka]` — Sémantické hodnocení komentářů a rizik modelem JEV
 - `/ls decompile <soubor>` — Rozložit monolitický `.lss` nebo `.dxl` do podsložky
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 59 LotusScript gotchas
 

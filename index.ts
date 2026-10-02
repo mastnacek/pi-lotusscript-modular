@@ -27,7 +27,6 @@ import {
   handleToolResult,
 } from "./src/slices/pipeline/index.js";
 import { createLsCommand } from "./src/slices/commands/index.js";
-import { routeRequest } from "./src/slices/routing/index.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
@@ -78,15 +77,6 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     if (!event.systemPromptOptions?.promptGuidelines) return debriefMessage;
 
     event.systemPromptOptions.promptGuidelines.push(...buildPromptGuidelines(state.config));
-
-    // Optional Jev routing gate. Tier 0 is free and runs first; the model is
-    // only consulted when no deterministic signal fired. Fails open.
-    const verdict = await routeRequest(event.prompt, state.config, ctx);
-    state.telemetry.routeChecks++;
-    state.telemetry.routeHits += verdict.guideline ? 1 : 0;
-    if (verdict.guideline) {
-      event.systemPromptOptions.promptGuidelines.push(verdict.guideline);
-    }
 
     return debriefMessage;
   }));

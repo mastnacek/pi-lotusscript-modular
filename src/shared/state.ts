@@ -19,7 +19,6 @@ import type {
   FolderLintResult,
   HookName,
   HookTelemetry,
-  JevFolderEvalResult,
   LspCheckResult,
   ModularConfig,
 } from "./types.js";
@@ -67,7 +66,6 @@ export interface PluginState {
       lsp: LspCheckResult | null;
       artifact: "written" | "pending";
       manifestSynced?: boolean;
-      jev?: JevFolderEvalResult | null;
     }
   ): AgentScorecard;
   recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined;
@@ -192,10 +190,9 @@ export function createPluginState(): PluginState {
 
     // Default / idle state
     const icon = theme.fg("accent", `🪷 LS${scoreBadge}`);
-    const jevFlag = config.useJevEvaluation ? " · JEV:on" : "";
     const flags = theme.fg(
       "dim",
-      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"}${jevFlag})`
+      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"})`
     );
     latestUiContext.ui.setStatus("lotusscript", icon + flags);
   }

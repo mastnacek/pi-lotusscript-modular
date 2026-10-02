@@ -56,7 +56,7 @@ Imported by slices. No slice may import another slice.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `types.ts` | 209 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `JevProcedureEval`, `JevFolderEvalResult`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FolderLintResult`, `CodeBlock`, `AgentManifest`, `LspCheckResult`, `GotchaItem`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (19 settings). |
+| `types.ts` | 209 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FolderLintResult`, `CodeBlock`, `AgentManifest`, `LspCheckResult`, `GotchaItem`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (16 settings). |
 | `config.ts` | 94 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. |
 | `paths.ts` | 235 | `sanitizeFileName`, `getTimestamp`, `decodeXml`, `makeUniqueFileNames`, `detectProcPrefix`, `findModularRoot`, `getExistingModularDir`, `isMonolithicLss`, `isMonolithicDxl`, `MonolithicReadHit`, `findMonolithicScriptReads` | Path/protocol kernel: modular-root discovery, monolithic-vs-modular detection, DXL entity decoding, unique-name suffixing, timestamp format. |
 | `state.ts` | 282 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry` + `countHook` (panel refresh on every hook). |
@@ -141,7 +141,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `index.ts` | 96 | `RegisteredLsCommand`, `createLsCommand` | `/ls` dispatcher. |
-| `ls-inspect.ts` | 159 | `lsScaffold`, `lsLint`, `lsScore`, `lsJev` | Inspect/act commands, including the scaffold path. |
+| `ls-inspect.ts` | 92 | `lsScaffold`, `lsLint`, `lsScore` | Inspect/act commands, including the scaffold path. |
 | `ls-compile.ts` | 121 | `lsCompile`, `lsPack`, `lsDecompile` | Compile/pack/decompile. |
 | `ls-config.ts` | 142 | `LsParts`, `lsStatus`, `lsLsp`, `lsOverwrite`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu with current-value annotation. |
 | `ls-gotchas.ts` | 48 | `lsGotchas` | Gotcha query. |
@@ -161,15 +161,11 @@ Generates new LotusScript files. Most recently reworked in this session.
 | `complete.ts` | 193 | `LS_SUBCOMMANDS`, `completeLsArguments` | Multi-level autocompletion with the trailing-space contract. |
 | `index.ts` | 10 | re-export | Barrel. |
 
-### scorecard / evaluator / lsp
+### scorecard / lsp
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `scorecard/compute.ts` | 294 | `computeScorecard`, `trendLabel`, `formatScorecard`, `buildGradingRubric`, `normalizeDiagnostics`, `findRecurringSignatures`, `buildRecurringGotchaDraft` | Deterministic per-agent DoD scorecard + rubric. |
 | `scorecard/index.ts` | 8 | re-export | Barrel. |
-| `evaluator/jev.ts` | 281 | `buildJevPayload`, `createFallbackEval`, `parseJevResponse`, `buildFolderSummary` | JEV semantic comment/gotcha evaluation. |
-| `evaluator/comment-parser.ts` | 209 | `isSyntheticDirective`, `scanLotusScriptComments`, `extractProcedureSnippet` | Deterministic comment extraction, immune to string literals. |
-| `evaluator/client.ts` | 189 | `getOpenRouterApiKey`, `evaluateProcedureWithJev`, `evaluateFolderWithJev` | OpenRouter transport + auth resolution. |
-| `evaluator/index.ts` | 18 | re-export | Barrel. |
 | `lsp/lsp-check.ts` | 216 | `checkLotusScriptDiagnostics` | LotusScript LSP diagnostics; distinguishes measured / unmeasured / pending. |
 | `lsp/index.ts` | 1 | re-export | Barrel. |
 
@@ -189,7 +185,6 @@ Harness: `test/test_modular_workflow.ts` (58 lines) runs numbered assertions acr
 | `test/phases/phase8.ts` | 112 | Phases 8 (35–39): instant-failure guards — protected files, KB edit gate, legitimate files pass, outside-root advisory. |
 | `test/phases/phase9.ts` | 97 | Phases 9 (40–43): pre-flight gotcha banners + debrief handoff. |
 | `test/phases/phase10.ts` | 132 | Phase 10 (44–47): recurring-failure gotcha drafting. |
-| `test/phases/phase11.ts` | 186 | Phases 11a (48–54): JEV evaluator — comment parsing, string-literal immunity, payload, parsing, fallback, scorecard integration. |
 | `test/phases/phase12.ts` | 223 | Phases 12a/12b (55–62): shell/code-execution read guards, English language guard, unmeasured-LSP pending semantics. |
 | `test/phases/phase13.ts` | 216 | Phases 13a/13b (63–75b): scaffold slice + naming conventions. Includes 63b (determinism + placeholder substitution) and 75b (formula-language.md exists and cites the KB layers). |
 | `test/phases/phase14.ts` | 136 | Phase 14 (76–79): artifact-scaffolding round-trip idempotency. Regression guard for the scaffolding-accumulation bug. |

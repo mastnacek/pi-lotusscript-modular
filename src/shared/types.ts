@@ -38,14 +38,9 @@ export interface ModularConfig {
   injectPreflightGotchas: boolean;
   /** Auto-draft a gotcha when the same LSP diagnostic recurs across compile cycles */
   autoDraftRecurringGotchas: boolean;
-  /** Evaluate procedures with JEV model on OpenRouter for semantic comment & gotcha analysis */
-  useJevEvaluation: boolean;
-  /** Jev request-routing gate on user prompts (off = no model call). */
-  useJevRouting: boolean;
+  
   /** Custom OpenRouter API key override (falls back to process.env.OPENROUTER_API_KEY or ~/.pi/agent/auth.json) */
-  openrouterApiKey?: string;
-  /** JEV model identifier on OpenRouter */
-  jevModel: string;
+  
   /** Show the in-TUI telemetry panel (hook usage, reads, gate blocks, code length) above the editor */
   showTelemetryPanel: boolean;
 }
@@ -73,10 +68,7 @@ export interface HookTelemetry {
   readsModular: number;
   /** kb_search calls observed this session (satisfies the KB edit gate). */
   kbSearches: number;
-  /** Routing-gate evaluations (useJevRouting). */
-  routeChecks: number;
-  /** Routing-gate verdicts that produced a guideline. */
-  routeHits: number;
+  
   /** Edit/write calls blocked until a KB query runs (enforceKbGate). */
   kbGateBlocks: number;
   /** Monolith dump attempts blocked in shell-like tools. */
@@ -107,31 +99,6 @@ export interface CommentAnalysis {
   comments: string[];
 }
 
-export interface JevProcedureEval {
-  fileName: string;
-  procedureName: string;
-  commentStyle: CommentStyle;
-  styleCompliant: boolean;
-  purposeQualityScore: number; // 0..2
-  gotchaRiskScore: number; // 0..2 (0 = safe, 1 = warning, 2 = danger)
-  summary: string;
-  modelUsed: string;
-  costUsd?: number;
-}
-
-export interface JevFolderEvalResult {
-  ok: boolean;
-  newStyleCount: number;
-  oldStyleCount: number;
-  mixedStyleCount: number;
-  uncommentedCount: number;
-  procedures: JevProcedureEval[];
-  averageQuality: number;
-  maxGotchaRisk: number;
-  totalCostUsd: number;
-  summary: string;
-}
-
 export interface ScorecardItem {
   id: string;
   label: string;
@@ -159,7 +126,6 @@ export interface ScorecardInput {
   enforceCzechComments: boolean;
   manifestSynced: boolean;
   artifact: "written" | "pending";
-  jev?: JevFolderEvalResult | null;
 }
 
 export interface ProcedureLintItem {

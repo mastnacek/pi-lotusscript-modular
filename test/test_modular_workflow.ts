@@ -14,14 +14,12 @@ import { phase7 } from "./phases/phase7.js";
 import { phase8 } from "./phases/phase8.js";
 import { phase9 } from "./phases/phase9.js";
 import { phase10 } from "./phases/phase10.js";
-import { phase11a } from "./phases/phase11.js";
 import { phase12a, phase12b } from "./phases/phase12.js";
 import { phase13a, phase13b } from "./phases/phase13.js";
 import { phase14 } from "./phases/phase14.js";
 import { phase15 } from "./phases/phase15.js";
 import { phase16 } from "./phases/phase16.js";
 import { phase17 } from "./phases/phase17.js";
-import { phase18 } from "./phases/phase18.js";
 
 async function runTest(): Promise<void> {
   console.log("=== Testing LotusScript Modular Standalone Package (VSA Layout) ===");
@@ -38,9 +36,8 @@ async function runTest(): Promise<void> {
   await phase9();
   await phase10();
 
-  const jev = await phase11a();
-  const guardFixture = await phase12a(jev.cleanItems, jev.scGood, jev.scWithJev);
-  await phase12b(guardFixture, { newAnalysis: jev.newAnalysis, oldAnalysis: jev.oldAnalysis, parsedJev: jev.parsedJev, folderSummary: jev.folderSummary });
+  const guardFixture = await phase12a();
+  await phase12b(guardFixture);
 
   const scaffoldOutDir = await phase13a();
   await phase13b(scaffoldOutDir);
@@ -49,7 +46,6 @@ async function runTest(): Promise<void> {
   await phase15();
   await phase16();
   await phase17();
-  await phase18();
 
   // Cleanup
   cleanupTestDir();

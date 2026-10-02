@@ -14,7 +14,5 @@
   "enableScorecard": true,
   "enforceGradingRubric": true,
   "injectPreflightGotchas": true,
-  "autoDraftRecurringGotchas": true,
-  "useJevEvaluation": false,
-  "jevModel": "typesafe/jev-1.13"
+  "autoDraftRecurringGotchas": true
 }

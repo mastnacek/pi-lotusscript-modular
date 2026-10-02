@@ -1,7 +1,7 @@
 # LotusScript Coding Conventions (Domino 9.0.1)
 
 Coding standards enforced by the plugin linter (`maxProcedureLines`,
-`enforceCzechComments`) and expected by the JEV semantic evaluator.
+`enforceCzechComments`) and checked on every compile.
 
 ---
 

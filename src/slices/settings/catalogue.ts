@@ -151,34 +151,6 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     },
   },
   {
-    key: "useJevEvaluation",
-    kind: "boolean",
-    description: "Sémantické hodnocení procedur a komentářů modelem JEV (OpenRouter)",
-    valueHelp: {
-      true: "Zapnuto — posuzovat styl komentářů (nový vs starý) a rizika gotchas modelem JEV",
-      false: "Vypnuto — pouze deterministický linter a scorecard",
-    },
-  },
-  {
-    key: "useJevRouting",
-    kind: "boolean",
-    description: "Jev routovací brána: posoudit uživatelský požadavek, než se spustí LotusScript workflow (jen když selže deterministický test)",
-    valueHelp: {
-      true: "Zapnuto — při každém požadavku bez .lss/.dxl/.ls signálu se zeptá Jev; Tier 0 test je zdarma a Jev nemá právo veta",
-      false: "Vypnuto — žádný modelový dotaz, routování jen podle souborů a příkazů",
-    },
-  },
-  {
-    key: "jevModel",
-    kind: "string",
-    description: "Model JEV na OpenRouteru pro Decisions API (výchozí: typesafe/jev-1.13)",
-  },
-  {
-    key: "openrouterApiKey",
-    kind: "string",
-    description: "Vlastní API klíč pro OpenRouter (pokud není nastaven v OPENROUTER_API_KEY)",
-  },
-  {
     key: "showTelemetryPanel",
     kind: "boolean",
     description: "Zobrazovat telemetrický panel nad editorem (haky, čtení, brány, délka kódu)",

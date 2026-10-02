@@ -8,11 +8,10 @@
 import path from "node:path";
 import type { ExtensionContext, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import { isEditToolResult, isWriteToolResult } from "@earendil-works/pi-coding-agent";
-import type { JevFolderEvalResult, LspCheckResult } from "../../shared/types.js";
+import type { LspCheckResult } from "../../shared/types.js";
 import { AgentParser } from "../parser/index.js";
 import { checkLotusScriptDiagnostics } from "../lsp/index.js";
 import { formatScorecard } from "../scorecard/index.js";
-import { evaluateFolderWithJev } from "../evaluator/index.js";
 import { MUTATING_TOOL_NAMES } from "../guards/index.js";
 import * as paths from "../../shared/paths.js";
 import type { PluginState } from "../../shared/state.js";
@@ -207,23 +206,10 @@ async function recompileAndReport(
 
   let scorecardBlock = "";
   if (config.enableScorecard) {
-    let jevRes: JevFolderEvalResult | null = null;
-    if (config.useJevEvaluation) {
-      try {
-        jevRes = await evaluateFolderWithJev(modularRoot, {
-          apiKey: config.openrouterApiKey,
-          jevModel: config.jevModel,
-          ctx,
-        });
-      } catch {
-        // Non-fatal fallback
-      }
-    }
     const scorecard = state.buildScorecard(modularRoot, {
       lint: limitCheck.lint,
       lsp: lspResult,
       artifact: "pending",
-      jev: jevRes,
     });
     const previous = state.recordScorecard(modularRoot, scorecard);
     scorecardBlock = formatScorecard(scorecard, previous);

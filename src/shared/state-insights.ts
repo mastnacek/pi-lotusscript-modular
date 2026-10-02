@@ -10,7 +10,6 @@ import type {
   AgentScorecard,
   FolderLintResult,
   GotchaItem,
-  JevFolderEvalResult,
   LspCheckResult,
   ModularConfig,
 } from "./types.js";
@@ -34,7 +33,6 @@ export interface StateInsights {
       lsp: LspCheckResult | null;
       artifact: "written" | "pending";
       manifestSynced?: boolean;
-      jev?: JevFolderEvalResult | null;
     }
   ): AgentScorecard;
   recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined;
@@ -53,7 +51,6 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       lsp: LspCheckResult | null;
       artifact: "written" | "pending";
       manifestSynced?: boolean;
-      jev?: JevFolderEvalResult | null;
     }
   ): AgentScorecard {
     return computeScorecard({
@@ -65,7 +62,6 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       enforceCzechComments: config().enforceCzechComments,
       manifestSynced: opts.manifestSynced ?? deps.isManifestSynced(root),
       artifact: opts.artifact,
-      jev: opts.jev,
     });
   }
 

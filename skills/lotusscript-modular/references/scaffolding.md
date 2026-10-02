@@ -1,7 +1,7 @@
 # Scaffolding Reference (Compliant Code Generation)
 
 How to generate new LotusScript artifacts with the plugin so they pass the
-linter, the JEV evaluator and the Definition of Done from the first compile.
+linter and the Definition of Done from the first compile.
 
 ---
 
