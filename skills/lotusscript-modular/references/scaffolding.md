@@ -7,8 +7,8 @@ linter, the JEV evaluator and the Definition of Done from the first compile.
 
 ## 1. When to Scaffold
 
-- **New agent / script** → `type: "agent"` — standalone `.lss` with header,
-  `Option Public/Declare`, `%Include "lsconst.lss"`, error handler, `Initialize`.
+- **`New agent / script`** → `type: "agent"` — standalone `.lss` with header,
+  `Option Public/Declare`, error handler, `Initialize`.
 - **New shared library** → `type: "library"` — Script Library skeleton with
   version constant and sample public function.
 - **New procedure inside an existing modular folder** → `type: "procedure"` —
@@ -62,8 +62,8 @@ empty name. The tool never overwrites existing code.
 
 | Skeleton | Guarantee |
 | --- | --- |
-| `agent` | `Option Public` + `Option Declare` + `%Include "lsconst.lss"`, full NÁZEV/ÚČEL/AUTOR header + CHANGELOG, `On Error GoTo Catch` in `Initialize`, chained `Error Err` in workers |
-| `library` | Same header contract + `Public Const LIB_VERSION` + sample `Public Function` |
+| `agent` | Rendered from `~/.pi/lotusscript/template.lss`: `Option Public` + `Option Declare`, NÁZEV/ÚČEL/AUTOR/VYTVOŘENO header, `VERZE` + `CHANGELOG`, `On Error GoTo` handler with `Exit Sub`, `SendErrorEmail` notifier |
+| `library` | Same header, plus `Public Const LIB_VERSION` injected after `Option Declare` |
 | `procedure` | Synthetic `@script-member-of`/`@procedure`/`@parent-declarations` header, `' Účel:` line, `Catch:` re-raise with `Erl` context |
 | `modular` | Complete folder: `00_options.lss`, `01_declarations.lss` (`g_session`/`g_db`), `sub_Process.lss`, `99_initialize.lss`, synced `manifest.json` + `main.lss` |
 
@@ -83,14 +83,27 @@ empty name. The tool never overwrites existing code.
 
 ---
 
-## 6. Template Constants (single source of truth)
+## 6. Template Sources (single source of truth)
 
-Templates live in `src/slices/scaffold/templates.ts`:
-`agentTemplate`, `libraryTemplate`, `procedureTemplate`,
+**Primary — your own `template.lss`.** Seeded on first use to
+`~/.pi/lotusscript/template.lss` (same contract as `gotchas.md`), so your edits
+survive `pi update` and apply from every project. Edit that file, not the plugin.
+Placeholders filled: `<nazev-souboru>.lss`, `<Stručný popis>`, `<Jméno>`,
+`<YYYY-MM-DD>` (all occurrences). `agent` and `library` scaffold from it;
+`library` additionally gets `Public Const LIB_VERSION` after `Option Declare`.
+
+**Fallback — built-in skeletons.** If the global file is absent, `templates.ts`
+supplies `agentTemplate`, `libraryTemplate`, `procedureTemplate`,
 `modularFolderTemplate`. Alias derivation and the Designer registration
-notice live in `src/slices/scaffold/naming.ts` (`suggestAlias`,
-`buildDesignerNotice`). Change them there — never patch generated output
-by hand in skill docs, otherwise the scaffolds and the docs drift apart.
+notice live in `naming.ts` (`suggestAlias`, `buildDesignerNotice`).
+
+`procedure` and `modular` always use the built-ins: their synthetic
+`@script-member-of` headers are part of the compiler's import contract and must
+not carry a file-level header.
+
+Pass `date: "YYYY-MM-DD"` to make a scaffold byte-reproducible; omit it for
+today. Change any of this in code, never by patching generated output in skill
+docs, otherwise scaffolds and docs drift apart.
 
 ---
 
