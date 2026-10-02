@@ -41,7 +41,7 @@ the code in §4–§6 is what actually executes.
 | `references/workflow.md` | 122 | Modular workflow reference — the decompile → edit → compile lifecycle and when the plugin intervenes. |
 | `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
-| `references/gotchas-index.md` | 74 | Index of the 48 bundled gotchas, pointing at `gotchas.md`. |
+| `references/gotchas-index.md` | 85 | Index of the 59 bundled gotchas, pointing at `gotchas.md`. |
 | `references/naming-conventions.md` | 117 | Alias grammar and the type→prefix table (`ag_`, `lib_`, …). |
 | `references/dxl-and-odp.md` | 62 | DXL/ODP design-element reference for the decompile path. |
 
@@ -71,13 +71,13 @@ Generates new LotusScript files. Most recently reworked in this session.
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `template.lss` | 114 | *(data asset)* | **The shipped template.** Versioned header (NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI + VERZE + CHANGELOG), `ERROR_NOTIFY_EMAIL$`/`MAIL_SERVER$`/`MAIL_DB$` header constants, `LSI_THREAD_*` block, `SendErrorEmail` helper, `Initialize` with `On Error GoTo ErrorHandler`. |
-| `templates.ts` | 317 | `ScaffoldOptions`, `formatCurrentDate`, `fillTemplate`, `agentTemplate`, `libraryTemplate`, `procedureTemplate`, `ModularFolderFiles`, `modularFolderTemplate` | `fillTemplate` substitutes the `<…>` placeholders (pure, no fs, no clock). The four `*Template` functions are the **fallback** skeletons used only if `template.lss` cannot be read. |
+| `templates.ts` | 319 | `ScaffoldOptions`, `formatCurrentDate`, `fillTemplate`, `agentTemplate`, `libraryTemplate`, `procedureTemplate`, `ModularFolderFiles`, `modularFolderTemplate` | `fillTemplate` substitutes the `<…>` placeholders (pure, no fs, no clock) and keeps the template's own `.lss` suffix in the `NÁZEV` header. The four `*Template` functions are the **fallback** skeletons used only if `template.lss` cannot be read — they mirror its conventions (no `%Include lsconst`, `On Error GoTo ErrorHandler`). |
 | `template-source.ts` | 24 | `getBundledTemplatePath` | Resolves the template to `template.lss` **inside the installed package**, so template and code are always the same version. |
 | `index.ts` | 220 | `scaffoldLotusScriptArtifact`, `ScaffoldTargetType`, `ScaffoldResult` + re-exports | Orchestrates the four scaffold types, refuses to overwrite, derives the alias, builds the Designer notice. |
 | `naming.ts` | 156 | `normalizeAscii`, `suggestAlias`, `NoticeInfo`, `buildDesignerNotice` | Alias derivation and the Czech/English Designer-registration notice. |
 
 > **Review targets in this slice:**
-> - `templates.ts` is **317 lines** — over the 300-line soft target the tooling warns about (hard limit 400). Split candidate: the four fallback skeletons into `templates/`.
+> - `templates.ts` is **319 lines** — over the 300-line soft target the tooling warns about (hard limit 400). Split candidate: the four fallback skeletons into `templates/`.
 > - `naming.ts` **diverges from the project's own naming convention** (see §8). Known issues: no domain segment, 6-char per-segment truncation, and an explicit allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell.
 > - `template.lss` declares `LSI_THREAD_*` itself. That is required for a standalone `.lss` outside Designer but is a **compile error** when pasted into a Script Library / design element (`LSPRVAL.LSS` is auto-included there). The file warns about this in Czech; nothing enforces it.
 
@@ -100,12 +100,12 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### gotchas — trap catalogue
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `gotchas.md` | 939 | *(data asset)* | 48 traps, `##`-delimited. Parsed at runtime. |
-| `catalogue.ts` | 159 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md`, seeded from the bundled file on first use and never overwritten. `addGotcha` writes to both global and bundled. mtime-cached. |
+| `gotchas.md` | 1263 | *(data asset)* | 59 traps, `##`-delimited. Parsed at runtime. |
+| `catalogue.ts` | 153 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md`, seeded from the bundled file on first use and never overwritten. `addGotcha` appends **only** to the global file — the bundled copy is never touched at runtime (it sits inside a git tree that `pi update` reconciles). mtime-cached. |
 | `review-modal.ts` | 295 | `GotchaReviewResult`, `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
 | `index.ts` | 13 | re-export | Barrel. |
 
-> **Review note:** `gotchas.md` is user-owned by design — the opposite case from `template.lss`. Its 48 entries have **zero heading overlap** with the 40 real-world traps in `D:\01_programovani\pi\plugins` … precisely, with `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md`. See §8.
+> **Review note:** `gotchas.md` is user-owned by design — the opposite case from `template.lss`. Its 59 entries have **zero heading overlap** with the 40 real-world traps in `D:\01_programovani\pi\plugins` … precisely, with `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md`. See §8.
 
 ### pipeline — event translation
 | File | Lines | Exports | Purpose |
@@ -214,7 +214,7 @@ read them before judging whether a slice is correct.
 | Path | Lines | Governs | Current state |
 |---|---:|---|---|
 | `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\template.lss` | — | Origin of the shipped `template.lss` | Copied in `30a83ce`, then refined. |
-| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md` | 40 entries | Real-world LotusScript traps | **Zero heading overlap** with the bundled 48. |
+| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md` | 40 entries | Real-world LotusScript traps | **Zero heading overlap** with the bundled 59. |
 | `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\sablona-ls-konvence.md` | 397 B | Conventions v0.2 — header shape, versioning, forbidden variable names | Source of the `ZÁVISLOSTI` header line. |
 | `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\sablona-ls.md` | 28 KB | "Vzorový kód pro nové skripty" — Try/Catch/Finally, central ErrorLog, `OpenMail()` | Largely **not** implemented (see below). |
 | `D:\01_programovani\konvence_jmena_prvku.md` | 397 | Alias convention: `typ_domena_entita`, prefix table, příležky, 64-char limit | **Partially** implemented — prefixes and snake_case only. |
@@ -224,7 +224,7 @@ read them before judging whether a slice is correct.
 
 1. **`best_practices.md` has no enforcement.** All six of its "do this first" priorities are absent from `src/` and `skills/`: `@Max(@DbColumn)+1` ID generation, lookup-view indexing, `On Error Goto BubbleError`, `":""` → `""`, `@Unique` over lookups, cache-choice review. The linter (`checker.ts`) has two rules, neither of them performance-related.
 2. **`naming.ts` contradicts the alias convention** — no domain segment, 6-char truncation, and an allow-list that preserves exactly the suffix tokens the convention calls a copy-smell.
-3. **The 40 real-world gotchas are not in the plugin.** Merging them needs de-duplication against the existing 48.
+3. **The 40 real-world gotchas are not in the plugin.** Merging them needs de-duplication against the existing 59. The Guirard chapter-7 performance rules (GetNthDocument, GetView-in-loop, save-churn, search-method choice) **were** merged as #49–52; the 7 runtime-approved gotchas were committed as #53–59.
 4. **`sablona-ls.md` recommends `OpenMail()`** rather than the hardcoded `MAIL_SERVER$` + `mail.box` the template uses. A deliberate choice was made to use constants; it is still a divergence worth a decision.
 5. **Recipient address is inconsistent across sources** — `sluzbyict@veba.cz` in `template.lss` and the conventions doc, `jaroslav.havel@veba.cz` in `sablona-ls.md`. The template ships the former.
 6. **Error-handler label differs** — `template.lss` uses `ErrorHandler`; `best_practices.md` §7 standardises on `BubbleError`.

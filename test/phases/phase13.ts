@@ -51,7 +51,9 @@ export async function phase13a(): Promise<string> {
     !fillA.includes("<Jméno>") &&
     !fillA.includes("<Stručný popis>") &&
     fillA.includes("CHANGELOG") &&
-    fillA.includes("' AUTOR: Jaroslav");
+    fillA.includes("' AUTOR: Jaroslav") &&
+    // The template supplies the ".lss" suffix itself — the header must keep it.
+    fillA.includes("' NÁZEV: Det.lss");
   console.log("63b. fillTemplate is deterministic and fills every placeholder:", deterministic ? "PASS" : "FAIL");
   if (!deterministic) throw new Error(`Bad fillTemplate output:\n${fillA}`);
 

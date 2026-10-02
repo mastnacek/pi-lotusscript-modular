@@ -937,3 +937,327 @@ A community benchmark (3 000 items × 5 iterations, *Comparing Forall To For
 Loops*) found **no noticeable performance difference**. Don't spend effort there
 — it independently confirms the white paper's position that micro-optimisation of
 loops is not where the wins are.
+
+
+---
+
+## `GetNthDocument` inside a loop is very slow — iterate with GetFirstDocument/GetNextDocument
+
+```lotusscript
+' WRONG — every call rescans the collection: O(n²)
+For i = 1 To coll.Count
+    Set doc = coll.GetNthDocument(i)
+Next
+
+' CORRECT — linear walk
+Set doc = coll.GetFirstDocument()
+Do Until doc Is Nothing
+    Set nextDoc = coll.GetNextDocument(doc)
+    ' process doc
+    Set doc = nextDoc
+Loop
+```
+
+Guirard (chap. 7.1): "Using NotesDocumentCollection.GetNthDocument to iterate
+through the collection is very slow; instead, use GetFirstDocument and
+GetNextDocument." NotesView has its own GetNthDocument — same advice.
+Verification: KB page `kapitola-07-Code.html` (collection `lotus-notes`), section 7.1.
+
+---
+
+## `db.GetView` inside a document loop — hoist the call out of the loop
+
+```lotusscript
+' WRONG — 1000 documents means 1000 expensive GetView calls
+Do Until docCur Is Nothing
+    Set view = db.GetView("CustomersByID")
+    Set docCust = view.GetDocumentByKey(docCur.CustID(0), True)
+    Set docCur = coll.GetNextDocument(docCur)
+Loop
+
+' CORRECT — GetView once, look up per document
+Set view = db.GetView("CustomersByID")
+Do Until docCur Is Nothing
+    Set docCust = view.GetDocumentByKey(docCur.CustID(0), True)
+    Set docCur = coll.GetNextDocument(docCur)
+Loop
+```
+
+GetView is one of the most expensive calls in the backend ("an unnecessary view
+open may be more on the order of whole seconds"). The agent profiler is the
+reliable way to find these.
+Verification: KB page `kapitola-07-Code.html` (collection `lotus-notes`), section "GetView in a loop".
+
+---
+
+## Saving documents that have not changed — write-churn reindexes everything for nothing
+
+```lotusscript
+' WRONG — saves every touched document, changed or not
+While Not doc Is Nothing
+    ' maybe no field was actually modified
+    Call doc.Save(True, False)
+    Set doc = view.GetNextDocument(doc)
+Wend
+
+' CORRECT — save only when something actually changed
+If changed Then Call doc.Save(True, False)
+```
+
+Every save marks the document modified: views reindex, response hierarchies
+update, replicators see "churn". Guirard (chap. 7.8): avoid saving documents
+that have not changed; treat "how often documents are modified" as a
+first-class performance factor.
+Verification: KB page `kapitola-07-Code.html` (collection `lotus-notes`), section 7.8.
+
+---
+
+## Locating documents — read from a sorted view when you can, search only when you must
+
+- A **sorted view** that already contains the target set is usually the fastest
+  source: `view.GetAllDocumentsByKey(key, True)` / `GetFirstDocument`+`GetNextDocument`.
+- **FTSearch** is fast only with a **full-text index** on the database; without
+  one it degrades and ties up the server.
+- **db.Search / UnprocessedFTSearch** with a formula evaluates against every
+  document — fine for scheduled maintenance, wrong inside user-facing actions.
+- Building a private/sorted-on-the-fly collection per request is the slowest
+  option of all.
+
+Guirard (chap. 7.9, "Ways of searching for documents"): match the search method
+to the situation before optimizing anything else.
+Verification: KB page `kapitola-07-Code.html` (collection `lotus-notes`), section 7.9.
+
+
+---
+
+## NotesRichTextRange has no DocLink property; navigator has no TextRange
+
+`Set dl = rng.DocLink` and `Set rng = nav.TextRange` are both invalid in LotusScript — the agent does not compile.
+
+IBM docs (`NotesRichTextRange (LotusScript)`) list only these properties: **Navigator, Style, TextParagraph, TextRun, Type**. There is no `DocLink`.
+`NotesRichTextNavigator (LotusScript)` exposes methods only (FindFirstElement, GetElement, GetFirstElement, …) — it has **no `TextRange` property** (in Java the same class has `getTextRange`, which is where the confusion comes from).
+
+Correct pattern to patch an existing doclink (e.g. redirect it to a view):
+
+```lotusscript
+Set nav = rtitem.CreateNavigator
+If nav.FindFirstElement(RTELEM_TYPE_DOCLINK) Then
+    Set dl = nav.GetElement      ' returns NotesRichTextDocLink at current position
+    dl.ViewUNID = view.UniversalID       ' ViewUNID is read-write
+End If
+```
+
+Verification: KB pages `doc_H_NOTESRICHTEXTRANGE_CLASS.html` and `doc_H_NOTESRICHTEXTNAVIGATOR_CLASS.html` (collection `lotus-notes`).
+
+
+---
+
+## NotesView has no UNID property - it is UniversalID
+
+`NotesView` has **no `UNID` property**. The documented name is `UniversalID`:
+
+```lotusscript
+' WRONG - does not compile:
+dl.ViewUNID = viewSkoleni.UNID
+
+' CORRECT:
+dl.ViewUNID = viewSkoleni.UniversalID
+```
+
+Full `NotesView (LotusScript)` property list (9.0.1): Aliases, AllEntries, AutoUpdate, BackgroundColor, ColumnCount, ColumnNames, Columns, Created, EntryCount, HeaderLines, HttpURL, IsCalendar, IsCategorized, IsConflict, IsDefaultView, IsFolder, IsHierarchical, IsModified, IsPrivate, IsProhibitDesignRefresh, LastModified, LockHolders, Name, NotesURL, Parent, ProtectReaders, Readers, RowLines, SelectionFormula, Spacing, TopLevelEntryCount, **UniversalID**, ViewInheritedName.
+
+Note the trap: `NotesDocument.UniversalID` is right, but `UNID` as a bare name is used by *some* other APIs (e.g. `NotesRichTextDocLink.DocUNID` / `.ViewUNID`, `uiview.CaretNoteID`) — so the shorthand feels plausible and Designer underlines the whole assignment statement, not just the bad token.
+
+Verification: KB page `doc_H_NOTESVIEW_CLASS.html` (collection `lotus-notes`), property `UniversalID (NotesView - LotusScript)`.
+
+
+---
+
+## AppendDocLink takes a NotesView directly - never patch a doclink into a view link
+
+`NotesRichTextItem.AppendDocLink` accepts a **NotesView** (or NotesDatabase) directly — you do not have to link to a document and then repair the link into a view link:
+
+```lotusscript
+' linkTo is documented as: NotesDatabase, NotesView, or NotesDocument
+Call rtitem.AppendDocLink(viewSkoleni, sText, sText)   ' true view doclink
+```
+
+The usual workaround people write instead — `AppendDocLink(someDocInView, …)` then navigate to that doclink and set `ViewUNID`, blanking `DocUNID` — is ~25 lines of fragile code (navigator loop, wrong-element risk, `String$(32,"0")` blanking) doing what one call does natively.
+
+Bonus: the link survives the view being re-created in Designer, because the UNID is resolved at runtime from the object you pass.
+
+Signature (`AppendDocLink (NotesRichTextItem - LotusScript)`, Parameters): `linkTo` (NotesDatabase/NotesView/NotesDocument), `comment$` (String, hover text), `HotSpotText$` (String, visible clickable text — **new with R5**, optional). With `HotSpotText$` supplied it renders as boxed clickable text and "no other token appears in the text".
+
+**Why it matters:** if you find yourself writing `dl.ViewUNID = view.UNID` anywhere, you are almost certainly doing this the hard way.
+
+Verification: KB page `doc_H_APPENDDOCLINK_METHOD.html` (collection `lotus-notes`), section *Parameters*.
+
+
+---
+
+## `Call Messagebox(...)` se nepřeloží: Unexpected: MessageBox; Expected: Identifier
+
+```lotusscript
+' WRONG - hlasi: Unexpected: MessageBox; Expected: Identifier
+Call Messagebox("Text", 48, "Nadpis")
+Call Messagebox(sZprava, 64, "Souhrn")
+
+' WRONG - taky neprelozi
+Call Messagebox(a, b, c)
+
+' OK - forma prikazu, BEZ zavorek a BEZ Call
+MessageBox "Text", 48, "Nadpis"
+MessageBox sZprava, 64, "Souhrn"
+
+' OK - forma funkce, se zavorkami, ALE POUZE tam, kde potrebujeme navratnou hodnotu
+If Messagebox("Otevrit?", 36, "Duplicitni cislo") = 6 Then
+End If
+```
+
+`MessageBox` je v LotusScriptu **prikaz i funkce** ("MessageBox function and
+statement"). Pri `Call` kompiler vyzaduje identifikator procedury, takze
+prikaz s `Call` nejde prelozit — chyba se hlasi u `Messagebox`, ne u `Call`,
+a text vypada jako by byl problem v retezci vedle nej (`Expected: Identifier`).
+Stejne selhava i `Call Messagebox(...)` s vynechanym argumentem
+(`Call Messagebox(a,,b)`), protoze vynechani argumentu jde kombinovat jen s
+formou funkce.
+
+IBM syntax (Language Reference):
+`MessageBox message [ , [ buttons + icon + default + mode ] [ , boxTitle ] ]`
+`MsgBox` se pouzivat smi.
+
+Pozor na past s LSP: `lotusscript_lsp_lsp_diagnostics` na takhle postavenem
+kodu vraci "No diagnostics" — tuto tridu chyby nedetekuje. Jedinou jistotou
+je vlozeni do Designeru a Ctrl+Shift+F9.
+
+Pravidlo: chces-li jen ukazat hlasku -> `MessageBox text, buttons, titulek`
+(bez zavorek, bez Call). Chces-li zjistit, ktere tlactitko user stiskl ->
+`If Messagebox(text, buttons, titulek) = 6 Then` (se zavorkami).
+
+
+---
+
+## `db.Open ""` bez obou parametrů: Unexpected: ""; Expected: ELSE
+
+```lotusscript
+' WRONG - neprelozi se. Chyba ukazuje na prazdny retezec, ne na Call:
+If Not db.IsOpen Then Call db.Open ""
+' -> "Unexpected: ""; Expected: ELSE; ( End-of-statement; End-of-line"
+
+' OK - Open bere DVA parametry (server, soubor), u jiz prirazene databaze prazdne
+If Not db.IsOpen Then
+	Call db.Open("", "")
+End If
+```
+
+`NotesDatabase.Open` v LotusScriptu vyzaduje **oba** parametry; u objektu,
+ktery jiz ukazuje na existujici databazi, musi byt oba prazdne (jinak vrati
+chybu, ze se tim da priradit jiny server/soubor). Server muze byt prazdny
+(lokalni DB), **soubor nikdy**.
+
+Dalsi past: `If ... Then Call ...` je jednoradkove tvrzeni a kompiler po
+piknim prikazu ceka `Else` nebo konec radku. Jakmile je za `Call` neco
+nečekaneho (chybějici prazdna retezec jako argument), chyba se hlasi jako
+`Unexpected: <co zbylo>; Expected: ELSE; ( End-of-statement; End-of-line` a
+ukazuje na prazdny retezec - ne na pruvni pripovnou chybu.
+
+Obecniji pravidlo pro jednoradkove `If ... Then`: bezpecne jsou jen
+prikazove/prirazove formy (`If x > 0 Then y = 1`). Method call s vice
+parametry rad radsi rozloz do `Then` / `End If` na vlastni radky.
+
+Poznamka: `lotusscript_lsp_lsp_diagnostics` ani tuto tridu chyby nehlasi -
+hlasi "No diagnostics". Jedinou jistotou je Designer + Ctrl+Shift+F9.
+
+
+---
+
+## `server$ As String` se nepřeloží: Declaration may not contain type suffix and data type
+
+```lotusscript
+' WRONG - "Declaration may not contain type suffix and data type: SERVER"
+Sub ZkontrolujRadu(server$ As String, cesta$ As String, pohled$ As String)
+
+' OK - bud suffix NEBO As datatyp, nikoli oboji
+Sub ZkontrolujRadu(server As String, cesta As String, pohled As String)
+
+' Stejne plati pro Dim:
+Dim x$ As String      ' WRONG
+Dim x As String       ' OK
+Dim x$                ' OK
+```
+
+V LotusScriptu NESMI typovy sufik (`$` String, `%` Integer, `!` Single,
+`&` Long, `#` Double, `@` Currency) kombinovat s `As datatyp`. Chyba se
+hlasi u **nazvu promenne bez sufixu** ("...and data type: SERVER"), takze
+ukazuje na preklep v nazvu, ne na to, co je spatne - hledani chyby timhle
+smerem zbytecne zdrzuje.
+
+Typicky vzorec z veteranstvi: `Dim db As NotesDatabase` misto
+`db$`; `$` se v modernim LotusScriptu skoro nepouziva, u procedur vubec ne.
+
+Past na kontrolu: LSP (`lotusscript_lsp_lsp_diagnostics`) hlasi
+"No diagnostics" i na takhle neprelozitelny kod.
+
+DULEZITE - kaskada chyb: Designer hlasi PRVNI chybu a zastavi se. V jednom
+souboru tak muze byt nekolik chyb a oprava jedne odhali dalsi. Kdyz agent
+selhal na `Call Messagebox(...)` (radek X) a po oprave na `db.Open ""`
+(radek Y) a pak na `server$ As String` (radek Z) - to nejsou tri ruzne
+chyby v kodu, ale tri vady, ktere tam byly od zacatku. Po kazde oprave
+pocitej s tim, ze dalsi chyba je ve frontce.
+
+Jak najit dalsi chyby bez Designeru (staticky):
+1. agregovany vystup prevest na DXL (Convert-LssToDxl) a projít jednotlive
+   `<code>` sekce;
+2. v kazde sekci porovnat `Dim ... Then$` vs `End If` (POZOR: `ElseIf ... Then`
+   se NEPOCITA jako If, jinak vyjde falesna nesrovnalost);
+3. vyhledat vsechny `[A-Za-z0-9_]\$ *As ` - tohle padne presne na chybu
+   vyse;
+4. porovnat pouzite promenne s deklarovanymi v teze procedure (Option Declare).
+
+
+---
+
+## `aDoc(i) = doc` v poli: SET required on class instance assignment
+
+```lotusscript
+' WRONG - "SET required on class instance assignment"
+Dim aDoc() As Variant
+aDoc(nPocet) = doc          ' doc je NotesDocument (objekt)
+
+' WRONG - v poli pole to nepomaha, radsi to nedelej
+Set aDoc(nPocet) = doc
+
+' OK - ulozit NoteID jako text, objekt si odvodit az kdyz je potreba
+Dim aId() As String
+aId(nPocet) = doc.NoteID
+...
+Set doc = db.GetDocumentByID(aId(j))
+If Not doc Is Nothing Then
+	Call ws.EditDocument(False, doc)
+End If
+```
+
+Kazde prirazeni **odkazu na objekt** (NotesDocument, NotesView, NotesDatabase,
+NotesSession, vlastni Class, OLE, Nothing) musi mit `Set`. Plnohodnotna hodnota
+(Long, Double, String, ...) se `Set` nepouziva - a naopak: `Set` u cisla je
+chyba.
+
+`EntryCount`, `NoteID`, `Title`, `IsOpen` jsou hodnoty, ne odkazy - `Set` tam
+nesmi byt. Rozhodi, jestli je za teckou metoda (GetDocumentByID,
+GetView, GetFirstDocument -> Set) nebo vlastnost (EntryCount, NoteID ->
+bez Set). Chyba "SET required on class instance assignment" je v seznamu
+IBMCompile-time i Run-time Error Messages.
+
+Pro prenaseni seznamu dokumentu mezi temi - **ukladat NoteID do pole
+retezcu**, ne pole objektu. Vyhoda i vedlejsi: v poli As Variant drzely
+zive reference na vsechny nactene dokumenty, takze agent neuvolnil pamet
+az do konce behu. IBM to popisuje primo jako doporuceny vzor
+("Locating a document by ID"): ulozit NoteID do string array a pak
+v cyklu GetDocumentByID. GetDocumentByID je na **NotesDatabase**
+(nikoli NotesView) a vraci Nothing, pokud dokument neexistuje - proto
+vazdy `If Not doc Is Nothing`.
+
+Pozor na kontrolu regexem: `/^\s*(Set\s+)?\w+ = (session|db|view|doc|ws)\.\w+/`
+hlasi jako chybu i `x = view.EntryCount` a `aId(i) = doc.NoteID`, protoze
+sleduje jen `objekt.vlastnost`. Treba vzorec doplnit o seznam vlastnosti,
+ktere jsou hodnoty.

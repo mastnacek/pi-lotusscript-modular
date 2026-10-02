@@ -143,16 +143,10 @@ export function addGotcha(title: string, body: string): GotchaItem {
     .replace(/\s+/g, "-");
 
   const entry = `\n\n---\n\n## ${cleanTitle}\n\n${cleanBody}\n`;
+  // The user-owned global file is the single durable store. Never write back
+  // to the bundled copy: in an installed package it is a git working tree that
+  // `pi update` reconciles, so a local append is clobbered (or blocks the pull).
   fs.appendFileSync(targetPath, entry, "utf-8");
-
-  // If running in development source directory, also sync back to bundled gotchas.md
-  if (targetPath !== BUNDLED_GOTCHAS_PATH && fs.existsSync(BUNDLED_GOTCHAS_PATH)) {
-    try {
-      fs.appendFileSync(BUNDLED_GOTCHAS_PATH, entry, "utf-8");
-    } catch {
-      // Ignore if bundled is read-only
-    }
-  }
 
   cachedGotchas = null;
   return { id, title: cleanTitle, body: cleanBody };

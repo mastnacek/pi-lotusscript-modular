@@ -1,8 +1,8 @@
-# LotusScript Gotchas — Index (48 entries)
+# LotusScript Gotchas — Index (59 entries)
 
 Always scan this list before writing LotusScript in an affected area. Full
 bodies with WRONG/CORRECT code pairs live in the plugin catalogue
-(`src/slices/gotchas/gotchas.md`, 48 entries) — query at runtime with:
+(`src/slices/gotchas/gotchas.md`, 59 entries) — query at runtime with:
 
 ```
 lotusscript_gotchas(action: "search", query: "<keyword>")
@@ -63,6 +63,17 @@ every hit before fixing.
 | 46 | Deleting documents while iterating a view | Can infinite-loop or corrupt the index — collect first, delete in a second pass |
 | 47 | Boolean parameter in a generic procedure | LotusScript silently coerces (`"0"` false, `"Neco"` true) — `TypeName` guard for a default |
 | 48 | Recursive `QuickSort` on big collections | "out of stack space" — fall back to `BubbleSort` on that error |
+| 49 | `coll.GetNthDocument(i)` inside a loop | O(n²) — walk with `GetFirstDocument`/`GetNextDocument` instead (Guirard 7.1) |
+| 50 | `db.GetView(...)` inside a document loop | GetView is expensive — hoist it out, call once per loop (Guirard 7) |
+| 51 | `doc.Save` on every processed document | Save only changed docs — churn reindexes views and replicators (Guirard 7.8) |
+| 52 | Choosing how to locate documents | Sorted view read is fastest; FTSearch needs full-text index; `db.Search` scans everything (Guirard 7.9) |
+| 53 | `rng.DocLink` / `nav.TextRange` | Invalid — NotesRichTextRange has no DocLink, navigator has no TextRange; use `nav.GetElement` |
+| 54 | `view.UNID` | NotesView property is `UniversalID`; UNID exists only on doclinks (`DocUNID`/`ViewUNID`) |
+| 55 | Building a view doclink via doc + patch | `AppendDocLink` accepts a NotesView directly — one call, no navigator patching |
+| 56 | `Call Messagebox(...)` | MessageBox is statement **and** function — statement form without Call/parens; Call form does not compile |
+| 57 | `db.Open ""` one-liner | Open takes both args — `Call db.Open("", "")`; multi-arg calls don't fit one-line `If … Then` |
+| 58 | `server$ As String` declaration | Type suffix + `As` datatype is illegal — use one or the other |
+| 59 | `aDoc(i) = doc` object into array | SET required on class instance assignment — store NoteID strings, `db.GetDocumentByID` |
 
 ## Recording NEW gotchas (strict protocol)
 

@@ -1,9 +1,11 @@
 /**
  * LotusScript code templates & skeletons for IBM Notes/Domino 9.0.1.
- * Complies with strict coding standards:
+ * Fallback skeletons, used only when the shipped template.lss is unreadable.
+ * They mirror its conventions:
  * - Option Public & Option Declare in options/globals
- * - %Include "lsconst.lss" for MB_*, PICKLIST_* constants
- * - Structured error handling (On Error GoTo Catch with Err, Error$, Erl, GetThreadInfo(1))
+ * - No %Include "lsconst.lss" (it pulls in LSPRVAL.LSS, whose LSI_THREAD_*
+ *   constants collide — see template.lss and gotcha #37)
+ * - Structured error handling (On Error GoTo ErrorHandler with Err, Error$, Erl)
  * - Mandatory Czech purpose comments (' Účel: ...)
  * - Synthetic modular headers for modular files (@script-member-of, @procedure, @parent-declarations)
  */
@@ -28,14 +30,16 @@ export function formatCurrentDate(): string {
 }
 
 /**
- * Fills a user-owned template.lss (bundled or seeded to ~/.pi/lotusscript)
- * with header values. Pure: no filesystem access, so the same inputs always
- * produce the same output.
+ * Fills the template.lss shipped inside the plugin with header values.
+ * Pure: no filesystem access, so the same inputs always produce the same
+ * output.
  */
 export function fillTemplate(raw: string, options: ScaffoldOptions & { libraryVersion?: string }): string {
   const date = options.date || formatCurrentDate();
   let out = raw
-    .replace("<nazev-souboru>.lss", options.name.replace(/\.lss$/i, ""))
+    // Replace the bare placeholder — the template supplies the ".lss" suffix
+    // itself, so the NÁZEV header keeps it (the fallbacks write "Name.lss").
+    .replace("<nazev-souboru>", options.name.replace(/\.lss$/i, ""))
     .replace("<Stručný popis>", options.purpose || "Stručný popis účelu skriptu.")
     .replace("<Jméno>", options.author || "AI Developer")
     .replaceAll("<YYYY-MM-DD>", date);
@@ -61,7 +65,6 @@ export function agentTemplate(options: ScaffoldOptions): string {
   return `' POZOR: Option Public/Declare nepatří do jednotlivých eventů, pokud už jsou v (Globals) -> (Options)!
 Option Public
 Option Declare
-%Include "lsconst.lss"
 
 '**********************************************************************
 ' NÁZEV: ${name}.lss
@@ -80,7 +83,7 @@ Dim g_db As NotesDatabase
 
 ' Účel: Vstupní bod běhu agenta, inicializace prostředí a zpracování.
 Sub Initialize
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     Set g_session = New NotesSession
     Set g_db = g_session.CurrentDatabase
@@ -93,7 +96,7 @@ Sub Initialize
     Print "Agent [${name}] úspěšně dokončen."
     Exit Sub
 
-Catch:
+ErrorHandler:
     Dim errMsg As String
     errMsg = "CHYBA v agentu [${name}] (Sub Initialize, řádek " & CStr(Erl) & "): " & CStr(Err) & " - " & Error$
     Print errMsg
@@ -103,7 +106,7 @@ End Sub
 
 ' Účel: Výkonná pracovní procedura pro zpracování dokumentů.
 Sub ProcessData()
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     ' Příklad: procházení dokumentů v pohledu
     Dim view As NotesView
@@ -122,7 +125,7 @@ Sub ProcessData()
 
     Exit Sub
 
-Catch:
+ErrorHandler:
     Error Err, "ProcessData (řádek " & CStr(Erl) & "): " & Error$
 End Sub
 `;
@@ -139,7 +142,6 @@ export function libraryTemplate(options: ScaffoldOptions): string {
 
   return `Option Public
 Option Declare
-%Include "lsconst.lss"
 
 '**********************************************************************
 ' KNIHOVNA: ${name}.lss
@@ -157,12 +159,12 @@ Public Const LIB_VERSION = "0.1"
 
 ' Účel: Ukázková veřejná funkce vracející normalizovaný text.
 Public Function ${name}_FormatString(ByVal inputVal As String) As String
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     ${name}_FormatString = Trim$(inputVal)
     Exit Function
 
-Catch:
+ErrorHandler:
     Error Err, "${name}_FormatString (řádek " & CStr(Erl) & "): " & Error$
 End Function
 `;
@@ -185,13 +187,13 @@ export function procedureTemplate(options: ScaffoldOptions & { isFunction?: bool
 ' @parent-declarations: 01_declarations.lss
 ' Účel: ${purpose}
 Function ${procName}(${params}) As ${returnType}
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     ' Implementace
     ${procName} = ""
     Exit Function
 
-Catch:
+ErrorHandler:
     Error Err, "${procName} (řádek " & CStr(Erl) & "): " & Error$
 End Function
 `;
@@ -202,13 +204,13 @@ End Function
 ' @parent-declarations: 01_declarations.lss
 ' Účel: ${purpose}
 Sub ${procName}(${params})
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     ' Implementace
 
     Exit Sub
 
-Catch:
+ErrorHandler:
     Error Err, "${procName} (řádek " & CStr(Erl) & "): " & Error$
 End Sub
 `;
@@ -247,13 +249,13 @@ Dim g_db As NotesDatabase
 ' @parent-declarations: 01_declarations.lss
 ' Účel: Zpracování hlavní logiky agenta ${cleanAgent}.
 Sub Process()
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     Print "Zpracovávám logiku v agentu ${cleanAgent}..."
 
     Exit Sub
 
-Catch:
+ErrorHandler:
     Error Err, "Process (řádek " & CStr(Erl) & "): " & Error$
 End Sub
 `;
@@ -263,7 +265,7 @@ End Sub
 ' @parent-declarations: 01_declarations.lss
 ' Účel: Inicializace runtime prostředí agenta a spuštění procesů.
 Sub Initialize
-    On Error GoTo Catch
+    On Error GoTo ErrorHandler
 
     Set g_session = New NotesSession
     Set g_db = g_session.CurrentDatabase
@@ -275,7 +277,7 @@ Sub Initialize
     Print "Konec agenta ${cleanAgent}."
     Exit Sub
 
-Catch:
+ErrorHandler:
     Print "Kritická chyba v Sub Initialize: " & CStr(Err) & " - " & Error$ & " (řádek " & CStr(Erl) & ")"
     Exit Sub
 End Sub
