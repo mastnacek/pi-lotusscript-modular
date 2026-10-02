@@ -52,9 +52,13 @@ export function compileAgent(
     fs.writeFileSync(targetLssPath, compiledContent, "utf-8");
   }
 
-  if (options?.deleteModularDir) {
+  // Delete the modular folder only when the artifact was written OUTSIDE it.
+  // With overwriteSourceLss disabled the artifact stays inside the folder, so
+  // deleting it would destroy the only copy of the user's work — the original
+  // .lss is deliberately left untouched in that mode.
+  if (options?.deleteModularDir && targetLssPath) {
     fs.rmSync(agentDir, { recursive: true, force: true });
-    return targetLssPath || canonicalOutPath;
+    return targetLssPath;
   }
 
   fs.writeFileSync(canonicalOutPath, compiledContent, "utf-8");
@@ -109,11 +113,11 @@ function resolveTargetLssPath(
   if (manifest.sourceDxl) {
     const resolvedSource = path.resolve(agentDir, manifest.sourceDxl);
     if (resolvedSource.toLowerCase().endsWith(".lss")) {
-      if (options?.overwriteSourceLss || options?.deleteModularDir) {
+      if (options?.overwriteSourceLss) {
         targetLssPath = resolvedSource;
       }
     } else if (resolvedSource.toLowerCase().endsWith(".dxl")) {
-      if (options?.createLssForDxl || options?.deleteModularDir) {
+      if (options?.createLssForDxl) {
         targetLssPath = resolvedSource.replace(/\.dxl$/i, ".lss");
       }
     }

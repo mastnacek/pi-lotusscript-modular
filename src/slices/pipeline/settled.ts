@@ -69,10 +69,12 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
 
         if (ctx.hasUI) {
           const scoreLabel = finalScorecard ? ` [skóre: ${finalScorecard.score}/${finalScorecard.max}]` : "";
-          ctx.ui.notify(
-            `🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} sestaven${scoreLabel} a dočasná složka smazána.`,
-            "info"
-          );
+          // The folder survives when overwriteSourceLss is off — the artifact
+          // then lives inside it, so claiming "smazána" would be a lie.
+          const tail = fs.existsSync(modDir)
+            ? `sestaven${scoreLabel}. Modulární složka ponechána — zdrojový .lss se nepřepisuje.`
+            : `sestaven${scoreLabel} a dočasná složka smazána.`;
+          ctx.ui.notify(`🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} ${tail}`, "info");
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);

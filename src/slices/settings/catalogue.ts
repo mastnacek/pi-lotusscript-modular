@@ -25,7 +25,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
     description: "Při rekompilaci přepsat původní .lss soubor na disku (pro .dxl se ignoruje)",
     valueHelp: {
       true: "Zapnuto — synchronizovat zdrojový .lss soubor",
-      false: "Vypnuto — zapisovat pouze do modular/<Nazev>_compiled.lss",
+      false: "Vypnuto — zapisovat pouze do modular/<Nazev>_compiled.lss; složka zůstane na disku",
     },
   },
   {
