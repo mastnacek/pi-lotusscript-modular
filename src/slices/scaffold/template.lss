@@ -15,26 +15,77 @@ Option Declare
 '**********************************************************************
 
 '===== KONSTANTY =====
+' Jediné místo, kde se určuje kam chyby chodí. Změň jen tady.
 Const ERROR_NOTIFY_EMAIL$ = "sluzbyict@veba.cz"
-Const LSI_THREAD_PROC = 1
-Const LSI_THREAD_MODULE = 10
+Const MAIL_SERVER$ = "domino/VEBA"
+Const MAIL_DB$ = "mail.box"
+
+' GetThreadInfo indexy - Option Declare vyžaduje konstanty místo čísel.
+' POZOR: stejné názvy jsou i oficiálně v lsprcval.lss (přes lsconst.lss).
+' Nepřidávej %Include "lsconst.lss" - vznikla by duplicitní deklarace.
+Const LSI_THREAD_PROC = 1			' GetThreadInfo(1)  - aktuální procedura
+Const LSI_THREAD_MODULE = 10		' GetThreadInfo(10) - aktuální modul
+Const LSI_THREAD_CALLPROC = 11		' GetThreadInfo(11) - volající procedura
+Const LSI_THREAD_CALLMODULE = 12	' GetThreadInfo(12) - volající modul
 
 '===== POMOCNÉ FUNKCE =====
 
-Sub SendErrorEmail(notifyEmail As String)
-	On Error Resume Next
-	Dim errNum As Integer, errLine As Long, errMsg As String
-	errNum = Err : errLine = Erl : errMsg = Error$
+Sub SendErrorEmail(recipient As String, procName As String, moduleName As String, callerProc As String, callerModule As String)
+	'**********************************************************************
+	' Odešle chybový email s detaily o chybě
+	' PARAMETRY:
+	'   recipient (String)    - Email příjemce notifikace
+	'   procName (String)     - Název procedury, ve které chyba nastala
+	'   moduleName (String)   - Název modulu, ve kterém chyba nastala
+	'   callerProc (String)   - Název volající procedury
+	'   callerModule (String) - Název volajícího modulu
+	' POZNÁMKY: GetThreadInfo se čte na labelu v původní proceduře a
+	'           sem se předává - uvnitř této procedury by vracelo "SendErrorEmail".
+	'           On Error Resume Next chrání proti chybě v error handleru.
+	'**********************************************************************
 
-	Dim mailDb As New NotesDatabase("domino/VEBA", "mail.box")
+	On Error Resume Next
+
+	' Chytit info HNED, než ho přepíše cokoliv jiného
+	Dim errNum As Integer
+	Dim errLine As Long
+	Dim errMsg As String
+	errNum = Err
+	errLine = Erl
+	errMsg = Error$
+
+	Dim session As New NotesSession
+	Dim mailDb As New NotesDatabase(MAIL_SERVER$, MAIL_DB$)
+	If Not mailDb.IsOpen Then
+		Print "CHYBA: nelze otevřít " & MAIL_DB$ & " na " & MAIL_SERVER$
+		Exit Sub
+	End If
+
 	Dim memo As New NotesDocument(mailDb)
 	memo.Form = "Memo"
-	memo.SendTo = notifyEmail
-	memo.Subject = "CHYBA: " & GetThreadInfo(LSI_THREAD_MODULE)
-	memo.Body = "Cas: " & Now & Chr(10) & _
-	            "Radek: " & errLine & Chr(10) & _
-	            "Chyba #" & errNum & ": " & errMsg
+	memo.SendTo = recipient
+	memo.Recipients = recipient
+	memo.Subject = "[CHYBA] " & procName & " - " & moduleName
+	memo.Body = "Cas: " & Format(Now, "DD.MM.YYYY HH:NN:SS") & Chr(10) & _
+	            "Modul: " & moduleName & Chr(10) & _
+	            "Procedura: " & procName & Chr(10) & _
+	            "Volano z: " & callerProc & " / " & callerModule & Chr(10) & _
+	            "Databaze: " & session.CurrentDatabase.Title & Chr(10) & _
+	            "Cesta: " & session.CurrentDatabase.FilePath & Chr(10) & _
+	            "Server: " & session.CurrentDatabase.Server & Chr(10) & _
+	            "Uzivatel: " & session.UserName & Chr(10) & _
+	            "Platforma: " & session.Platform & Chr(10) & _
+	            Chr(10) & _
+	            "Radek: " & Cstr(errLine) & Chr(10) & _
+	            "Chyba #" & Cstr(errNum) & ": " & errMsg
+	' Zapsat odeslanou poštu do složky, ne jen do outboxu
+	memo.SaveMessageOnSend = True
+
 	Call memo.Send(False)
+
+	' Do logu agenta, i kdyby se email nepovedl - chyba nesmí zmizet
+	Print "CHYBA v " & procName & " (" & moduleName & "), radek " & Cstr(errLine) & _
+	      ": #" & Cstr(errNum) & " " & errMsg
 End Sub
 
 '===== HLAVNÍ RUTINA =====
@@ -50,6 +101,8 @@ Sub Initialize
 	Exit Sub
 
 ErrorHandler:
-	Call SendErrorEmail(ERROR_NOTIFY_EMAIL)
+	Call SendErrorEmail(ERROR_NOTIFY_EMAIL$, _
+		GetThreadInfo(LSI_THREAD_PROC), GetThreadInfo(LSI_THREAD_MODULE), _
+		GetThreadInfo(LSI_THREAD_CALLPROC), GetThreadInfo(LSI_THREAD_CALLMODULE))
 	Exit Sub
 End Sub
