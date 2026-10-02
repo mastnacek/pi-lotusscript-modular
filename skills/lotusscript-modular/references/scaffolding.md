@@ -85,15 +85,16 @@ empty name. The tool never overwrites existing code.
 
 ## 6. Template Sources (single source of truth)
 
-**Primary — your own `template.lss`.** Seeded on first use to
-`~/.pi/lotusscript/template.lss` (same contract as `gotchas.md`), so your edits
-survive `pi update` and apply from every project. Edit that file, not the plugin.
+**Primary — the template shipped in the plugin.** `src/slices/scaffold/template.lss`
+is versioned with the code, so `pi update` delivers template improvements
+together with the release. Edit it in the plugin repo and push; never edit it in
+the installed checkout, which is a git working tree that `pi update` reconciles.
 Placeholders filled: `<nazev-souboru>.lss`, `<Stručný popis>`, `<Jméno>`,
 `<YYYY-MM-DD>` (all occurrences). `agent` and `library` scaffold from it;
 `library` additionally gets `Public Const LIB_VERSION` after `Option Declare`.
 
-**Fallback — built-in skeletons.** If the global file is absent, `templates.ts`
-supplies `agentTemplate`, `libraryTemplate`, `procedureTemplate`,
+**Fallback — built-in skeletons.** If the shipped `template.lss` cannot be read,
+`templates.ts` supplies `agentTemplate`, `libraryTemplate`, `procedureTemplate`,
 `modularFolderTemplate`. Alias derivation and the Designer registration
 notice live in `naming.ts` (`suggestAlias`, `buildDesignerNotice`).
 

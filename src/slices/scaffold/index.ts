@@ -7,7 +7,7 @@ import {
   modularFolderTemplate,
   fillTemplate,
 } from "./templates.js";
-import { getEffectiveTemplatePath } from "./template-source.js";
+import { getBundledTemplatePath } from "./template-source.js";
 import { suggestAlias, buildDesignerNotice } from "./naming.js";
 
 export * from "./templates.js";
@@ -53,15 +53,15 @@ export function scaffoldLotusScriptArtifact(options: {
   }
 
   /**
-   * User-owned template (seeded to ~/.pi/lotusscript/template.lss) wins over the
-   * built-in skeleton; the built-in stays as fallback when the file is missing.
+   * Renders from the template shipped inside the plugin, so the scaffold always
+   * matches the installed version. Falls back to the built-in skeleton only if
+   * the file is unreadable.
    */
   const fromTemplate = (
     type: "agent" | "library",
     name: string,
   ): string | null => {
-    const tplPath = getEffectiveTemplatePath();
-    if (!tplPath) return null;
+    const tplPath = getBundledTemplatePath();
     try {
       return fillTemplate(fs.readFileSync(tplPath, "utf-8"), {
         name,

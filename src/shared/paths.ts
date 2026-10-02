@@ -1,12 +1,5 @@
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-
-/**
- * Shared global LotusScript working directory. Files seeded from the package
- * into this directory survive `pi update` and are visible from every project.
- */
-export const LOTUSSCRIPT_GLOBAL_DIR = path.join(os.homedir(), ".pi", "lotusscript");
 
 export function sanitizeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").trim().replace(/^[. ]+|[. ]+$/g, "");
