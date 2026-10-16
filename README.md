@@ -14,7 +14,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Overwrite `.lss` Source:** Keeps the original `.lss` source file in sync on recompile by default (safe for git). DXL files are never overwritten with plain text.
 - **Idempotent Round Trip:** The generated provenance header (`%REM … Assembled from modular source files …`) and the `' === SECTION: <file> ===` markers are stripped from every modular file before assembly and from the source `.lss` before parsing, so repeated `compile → decompile` cycles never nest scaffolding into `01_declarations.lss` and the artifact stays byte-stable.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
-- **Central Gotchas Registry (59 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
+- **Central Gotchas Registry (64 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
 - **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant skeletons (standalone agent, script library, modular procedure, full modular folder) rendered from the shipped versioned `template.lss` with `On Error GoTo ErrorHandler` handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
@@ -42,7 +42,7 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls lint [složka]` — Zkontrolovat délku procedur (max 300 řádků) a komentáře
 - `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
 - `/ls decompile <soubor>` — Rozložit monolitický `.lss` nebo `.dxl` do podsložky
-- `/ls gotchas [dotaz]` — Prohledat centrální bázi 59 LotusScript gotchas
+- `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
 
 ---
 
@@ -71,7 +71,7 @@ Stored in `.pi/lotusscript-modular.json`:
 - `lotusscript_decompile`: Decompiles monolithic `.lss` or `.dxl`.
 - `lotusscript_scaffold`: Generates compliant code skeletons (agent, library, procedure, modular folder) with StringEnum-typed parameters.
 - `lotusscript_lsp_toggle`: Programmatically toggle LSP check on/off.
-- `lotusscript_gotchas`: Search 59 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
+- `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
 
 ---
 
@@ -81,7 +81,7 @@ Stored in `.pi/lotusscript-modular.json`:
 
 - `workflow.md` — modular lifecycle, CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
-- `gotchas-index.md` — 59-entry one-liner index + recording protocol
+- `gotchas-index.md` — 64-entry one-liner index + recording protocol
 - `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation
 - `naming-conventions.md` — element naming/alias convention (`ag_`, `lu_`, `frm_`, …) and why
 - `dxl-and-odp.md` — DXL design-element editing rules (forms, views, ODP)
@@ -94,7 +94,7 @@ Stored in `.pi/lotusscript-modular.json`:
 - `src/shared/` — Kernel types, config, and path utilities.
 - `src/slices/parser/` — Decompilation, recompilation, manifest synchronization.
 - `src/slices/lsp/` — LotusScript LSP client diagnostics.
-- `src/slices/gotchas/` — Central 59-gotcha registry, search, and dynamic append.
+- `src/slices/gotchas/` — Central 64-gotcha registry, search, and dynamic append.
 - `src/slices/scaffold/` — LotusScript code templates and scaffold engine.
 - `src/slices/settings/` — Setting specs catalogue and lazy menu completion engine.
 

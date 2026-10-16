@@ -1,8 +1,8 @@
-# LotusScript Gotchas — Index (59 entries)
+# LotusScript Gotchas — Index (64 entries)
 
 Always scan this list before writing LotusScript in an affected area. Full
 bodies with WRONG/CORRECT code pairs live in the plugin catalogue
-(`src/slices/gotchas/gotchas.md`, 59 entries) — query at runtime with:
+(`src/slices/gotchas/gotchas.md`, 64 entries) — query at runtime with:
 
 ```
 lotusscript_gotchas(action: "search", query: "<keyword>")
@@ -90,6 +90,11 @@ Formula work → read `references/formula-language.md` first.
 | 57 | `db.Open ""` one-liner | Open takes both args — `Call db.Open("", "")`; multi-arg calls don't fit one-line `If … Then` |
 | 58 | `server$ As String` declaration | Type suffix + `As` datatype is illegal — use one or the other |
 | 59 | `aDoc(i) = doc` object into array | SET required on class instance assignment — store NoteID strings, `db.GetDocumentByID` |
+| 60 | `Err.Clear` | Does not exist — `Err` is a *statement*: reset with `Err = 0` or `On Error GoTo 0` |
+| 61 | `Dir$` on a nonexistent DIRECTORY | Runtime error 76 "Path not found" — `""` is returned only for a missing FILE in an existing directory; test the directory first (`Dir$(path, ATTR_DIRECTORY)`) |
+| 62 | `Environ` out of range | Value/index must be 1-255, else error 5 "Illegal function call" — guard before the call |
+| 63 | Parameter shadows a function name | LS is case-insensitive — parameter `hodnota` vs function `Hodnota()` → "Illegal parenthesized reference"; rename the parameter |
+| 64 | `Dim` scope | Procedure scope, no block scope — declare variables in the header of the SAME sub/function where they are used, else "Variable not declared" |
 
 ## Recording NEW gotchas (strict protocol)
 

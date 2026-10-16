@@ -1262,3 +1262,97 @@ Pozor na kontrolu regexem: `/^\s*(Set\s+)?\w+ = (session|db|view|doc|ws)\.\w+/`
 hlasi jako chybu i `x = view.EntryCount` a `aId(i) = doc.NoteID`, protoze
 sleduje jen `objekt.vlastnost`. Treba vzorec doplnit o seznam vlastnosti,
 ktere jsou hodnoty.
+---
+
+## `Err.Clear` neexistuje — `Err` je příkaz, ne objekt
+
+VBA návyk `Err.Clear` v LotusScriptu nefunguje. `Err` je *příkaz* — resetuje
+se přiřazením nuly nebo zrušením handleru, ne voláním metody:
+
+```lotusscript
+On Error Resume Next
+' ... rizikový kód ...
+Err = 0            ' správně: vynulování chyby
+' resp. On Error GoTo 0 - zruší handler a zároveň vynuluje chybu
+```
+
+`Err.Clear` se v Designeru nepřeloží (nebo spadne podle kontextu). Ověřeno
+proti IBM referenci: LotusScript nemá objekt Err, má příkaz Err.
+
+---
+
+## `Dir$` nad neexistujícím ADRESÁŘEM vyhodí chybu 76 "Path not found"
+
+Kontrast s VBA, kde `Dir$` vrací jen `""`:
+
+- Soubor neexistuje v existujícím adresáři → `Dir$` vrátí `""` (v pořádku).
+- **Adresář v cestě neexistuje → runtime chyba 76 "Path not found"**,
+  ne prázdný řetězec!
+
+```lotusscript
+' TOTO SPADNE (chyba 76), když složka neexistuje:
+If Dir$("C:\neexistuje\soubor.txt") = "" Then ...
+
+' Ověřit nejdřív adresář (atribut 16 = ATTR_DIRECTORY), pak teprve soubor:
+If Dir$("C:\neexistuje", ATTR_DIRECTORY) = "" Then
+    MkDir "C:\neexistuje"
+End If
+```
+
+Ověřeno proti IBM referenci (Dir function, LotusScript Language Reference).
+
+---
+
+## `Environ` — hodnota/výraz musí být 1-255, jinak chyba 5 "Illegal function call"
+
+`Environ("PROMENNA")` i `Environ(n)` hlásí chybu 5, když je číselný výraz
+mimo rozsah 1-255. Kontrola vstupu před voláním:
+
+```lotusscript
+' chyba 5, pokud TMP není platný index:
+idx% = CInt(hodnota)
+If idx% < 1 Or idx% > 255 Then ... ' guard před Environ
+```
+
+Ověřeno proti IBM referenci (Environ function).
+
+---
+
+## Parametr nesmí stínit název funkce v témže agentu — "Illegal parenthesized reference"
+
+LotusScript **nerozlišuje velká/malá písmena**. Parametr `hodnota` a funkce
+`Hodnota()` v jednom agentu jsou pro překladač totéž; volání `Hodnota(...)`
+pak překladač čte jako indexování do parametru a hlásí
+`Illegal parenthesized reference` / `Unexpected: IDENTIFIER`.
+
+```lotusscript
+' ŠPATNĚ:
+Function Spocti(hodnota As Integer) As Integer   ' stíní funkci Hodnota()
+    Spocti = Hodnota(hodnota)                    ' compile error
+End Function
+
+' SPRÁVNĚ - parametr přejmenovat (např. novaHodnota, pHodnota):
+```
+
+Platí i pro Sub/Function vs. proměnnou na úrovni (Declarations).
+
+---
+
+## `Dim` má procedure scope — deklarovat v hlavě TÉŽE procedury, kde se proměnná používá
+
+LotusScript nemá block scope (If/For/While nevytváří obor platnosti), ale
+`Dim` platí jen uvnitř procedury, ve které je zapsaný. Proměnná použitá
+v jiné proceduře, než kde byla deklarovaná, hlásí "Variable not declared".
+
+```lotusscript
+Sub A()
+    Dim x As Integer   ' platí jen v A
+End Sub
+
+Sub B()
+    x = 5              ' ERROR: Variable not declared
+End Sub
+```
+
+Praktické pravidlo: nové proměnné deklarovat hned v hlavě téhož subu/func,
+kde se používají — ne "u následujícího použití" uprostřed těla.

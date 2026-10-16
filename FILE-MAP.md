@@ -41,7 +41,7 @@ the code in §4–§6 is what actually executes.
 | `references/workflow.md` | 122 | Modular workflow reference — the decompile → edit → compile lifecycle and when the plugin intervenes. |
 | `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
-| `references/gotchas-index.md` | 101 | Index of the 59 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
+| `references/gotchas-index.md` | 101 | Index of the 64 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
 | `references/naming-conventions.md` | 117 | Alias grammar and the type→prefix table (`ag_`, `lib_`, …). |
 | `references/dxl-and-odp.md` | 65 | DXL/ODP design-element reference for the decompile path. |
 | `references/formula-language.md` | 150 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, `@Today` in views, formula/DXL escaping. Names the KB layers and cites `kapitola-04..07`. |
@@ -102,7 +102,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### gotchas — trap catalogue
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `gotchas.md` | 1263 | *(data asset)* | 59 traps, `##`-delimited. Parsed at runtime. |
+| `gotchas.md` | 1263 | *(data asset)* | 64 traps, `##`-delimited. Parsed at runtime. |
 | `catalogue.ts` | 153 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md`, seeded from the bundled file on first use and never overwritten. `addGotcha` appends **only** to the global file — the bundled copy is never touched at runtime (it sits inside a git tree that `pi update` reconciles). mtime-cached. |
 | `review-modal.ts` | 295 | `GotchaReviewResult`, `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
 | `index.ts` | 13 | re-export | Barrel. |

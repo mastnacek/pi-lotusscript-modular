@@ -7,7 +7,7 @@ Pi extension for virtual modularization, automatic decompilation, compilation, L
 - `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts` (no slice imports)
 - `src/slices/parser/`    decompilation, recompilation, manifest.json synchronization
 - `src/slices/lsp/`       LotusScript LSP diagnostics client
-- `src/slices/gotchas/`   canonical 40+ LotusScript gotchas registry, search & append
+- `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search & append
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
 - `src/slices/commands/`  `/ls` dispatch — sibling-slice capabilities arrive via `deps.ts` (`CommandsDeps`), wired in the composition root
 - `skills/`               bundled skill (`skills/lotusscript-modular/SKILL.md`)
