@@ -27,6 +27,7 @@ export const STRINGS_EN: Strings = {
     autoDecompile: "Auto-decompile on read",
     autoRecompile: "Auto-recompile on save",
     kbPrompt: "Enforce lotus-notes KB prompt",
+    kbGate: "Enforce lotus-notes KB hard gate",
     gotchaCapture: "Enforce gotcha recording",
     gotchasSummary: "Inject gotchas summary",
     timestamp: "Keep timestamp in name",
@@ -265,6 +266,11 @@ export const STRINGS_EN: Strings = {
       description: "Enforce querying the lotus-notes MCP knowledge base before edits",
       on: "On — inject the rule into the prompt and tool outputs",
       off: "Off — do not inject the reminder",
+    },
+    enforceKbGate: {
+      description: "Hard-block .lss/.dxl edits until the lotus-notes knowledge base is queried this session",
+      on: "On — reject edits until kb_search has run",
+      off: "Off — only remind via the prompt, never block",
     },
     injectGotchasSummary: {
       description: "Inject an overview of key LotusScript Gotchas into the context",

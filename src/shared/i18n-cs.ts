@@ -27,6 +27,7 @@ export const STRINGS_CS: Strings = {
     autoDecompile: "Auto-dekompilace při čtení",
     autoRecompile: "Auto-rekompilace při uložení",
     kbPrompt: "Vynucovat lotus-notes KB prompt",
+    kbGate: "Vynucovat tvrdou lotus-notes KB bránu",
     gotchaCapture: "Vynucovat zápis gotchas",
     gotchasSummary: "Vkládat gotchas souhrn",
     timestamp: "Zachovat timestamp v názvu",
@@ -266,6 +267,11 @@ export const STRINGS_CS: Strings = {
       description: "Vynucovat dotaz do lotus-notes MCP znalostní báze před úpravami",
       on: "Zapnuto — vkládat pravidlo do promptu a výstupů nástrojů",
       off: "Vypnuto — nevkládat připomínku",
+    },
+    enforceKbGate: {
+      description: "Tvrdě blokovat úpravy .lss/.dxl, dokud se v této session neproběhne dotaz do lotus-notes znalostní báze",
+      on: "Zapnuto — zamítat úpravy, dokud neproběhne kb_search",
+      off: "Vypnuto — pouze připomínat v promptu, neblokovat",
     },
     injectGotchasSummary: {
       description: "Vkládat přehled klíčových LotusScript Gotchas do kontextu",

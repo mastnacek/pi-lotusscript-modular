@@ -42,6 +42,7 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
     `- ${t.autoDecompile}: ${flag(config.autoDecompileOnRead)}`,
     `- ${t.autoRecompile}: ${flag(config.autoRecompileOnSave)}`,
     `- ${t.kbPrompt}: ${flag(config.enforceKbPrompt)}`,
+    `- ${t.kbGate}: ${flag(config.enforceKbGate)}`,
     `- ${t.gotchaCapture}: ${flag(config.enforceGotchaCapture)}`,
     `- ${t.gotchasSummary}: ${flag(config.injectGotchasSummary)}`,
     `- ${t.timestamp}: ${flag(config.keepTimestampInCompiledName)}`,

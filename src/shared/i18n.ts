@@ -51,6 +51,7 @@ export interface Strings {
     autoDecompile: string;
     autoRecompile: string;
     kbPrompt: string;
+    kbGate: string;
     gotchaCapture: string;
     gotchasSummary: string;
     timestamp: string;
