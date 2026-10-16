@@ -3,16 +3,17 @@
  * auto-recompile on edit/write (limit gate, LSP, scorecard, recurring gotchas).
  * The read banner and recurring-gotcha flow live in sibling modules
  * (read-banner.ts, recurring-gotcha.ts) — per-file line limit split.
+ *
+ * Cross-slice capabilities (parser / lsp / scorecard / guards) arrive via
+ * PipelineDeps wired in the composition root — slices never import each
+ * other (VSA).
  */
 
 import path from "node:path";
 import type { ExtensionContext, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import { isEditToolResult, isWriteToolResult } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
-import { AgentParser } from "../parser/index.js";
-import { checkLotusScriptDiagnostics } from "../lsp/index.js";
-import { formatScorecard } from "../scorecard/index.js";
-import { MUTATING_TOOL_NAMES } from "../guards/index.js";
+import type { PipelineDeps } from "./deps.js";
 import * as paths from "../../shared/paths.js";
 import type { PluginState } from "../../shared/state.js";
 import { baseToolName, type ToolResultEventResultShape } from "./shared.js";
@@ -23,13 +24,14 @@ import { draftRecurringGotcha } from "./recurring-gotcha.js";
 export async function handleToolResult(
   state: PluginState,
   event: ToolResultEvent,
-  ctx: ExtensionContext
+  ctx: ExtensionContext,
+  deps: PipelineDeps
 ): Promise<ToolResultEventResultShape | undefined> {
   const rawName = event.toolName || "";
   const base = baseToolName(rawName);
 
   // A) If reading or inspecting main.lss of a modular agent
-  if (!MUTATING_TOOL_NAMES.has(base)) {
+  if (!deps.mutatingToolNames.has(base)) {
     const input = event.input as Record<string, unknown> | undefined;
     const readPath =
       typeof input?.path === "string"
@@ -51,7 +53,7 @@ export async function handleToolResult(
 
   // B) If editing or writing a file inside a modular folder
   if ((isEditToolResult(event) || isWriteToolResult(event) || base === "edit" || base === "write") && !event.isError) {
-    return await handleEditToolResult(state, event, ctx, base);
+    return await handleEditToolResult(state, event, ctx, deps);
   }
 
   return undefined;
@@ -61,7 +63,7 @@ async function handleEditToolResult(
   state: PluginState,
   event: ToolResultEvent,
   ctx: ExtensionContext,
-  _base: string
+  deps: PipelineDeps
 ): Promise<ToolResultEventResultShape | undefined> {
   const { config } = state;
   if (!config.autoRecompileOnSave) return undefined;
@@ -87,7 +89,7 @@ async function handleEditToolResult(
   }
 
   try {
-    return await recompileAndReport(state, event, ctx, modularRoot, resolved, limitCheck);
+    return await recompileAndReport(state, event, ctx, deps, modularRoot, resolved, limitCheck);
   } catch (err: unknown) {
     state.renderStatusline("error");
     const msg = err instanceof Error ? err.message : String(err);
@@ -157,6 +159,7 @@ async function recompileAndReport(
   state: PluginState,
   event: ToolResultEvent,
   ctx: ExtensionContext,
+  deps: PipelineDeps,
   modularRoot: string,
   resolved: string,
   limitCheck: { warnings: string[]; lint: import("../../shared/types.js").FolderLintResult }
@@ -164,7 +167,7 @@ async function recompileAndReport(
   const { config } = state;
   state.renderStatusline("compiling");
 
-  const compiledPath = AgentParser.compileAgent(modularRoot, {
+  const compiledPath = deps.compileAgent(modularRoot, {
     keepTimestamp: config.keepTimestampInCompiledName,
     overwriteSourceLss: config.overwriteSourceLss,
     createLssForDxl: true,
@@ -173,7 +176,7 @@ async function recompileAndReport(
   let lspNotice = "";
   let lspResult: LspCheckResult | null = null;
   if (config.enableLsp) {
-    lspResult = await checkLotusScriptDiagnostics(compiledPath);
+    lspResult = await deps.checkLotusScriptDiagnostics(compiledPath);
     if (lspResult.ok) {
       state.renderStatusline("clean");
     } else {
@@ -212,13 +215,13 @@ async function recompileAndReport(
       artifact: "pending",
     });
     const previous = state.recordScorecard(modularRoot, scorecard);
-    scorecardBlock = formatScorecard(scorecard, previous);
+    scorecardBlock = deps.formatScorecard(scorecard, previous);
   }
 
   // Recurring-failure detection → harness-generated gotcha draft (user-approved).
   let recurringNotice = "";
   if (config.autoDraftRecurringGotchas && config.enableLsp && lspResult && !lspResult.ok) {
-    recurringNotice = await draftRecurringGotcha(state, ctx, modularRoot, resolved, lspResult);
+    recurringNotice = await draftRecurringGotcha(state, ctx, deps, modularRoot, resolved, lspResult);
   }
 
   const recompileNotice = [

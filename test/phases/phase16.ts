@@ -12,16 +12,48 @@ import {
   telemetryLines,
 } from "../../src/shared/state-telemetry.js";
 import { handleToolCall } from "../../src/slices/pipeline/index.js";
+import type { PipelineDeps } from "../../src/slices/pipeline/deps.js";
+import {
+  collectShellLikeSources,
+  guardKbBeforeEdit,
+  guardMonolithDump,
+  guardProtectedFiles,
+  MUTATING_TOOL_NAMES,
+  SHELL_LIKE_TOOL_NAMES,
+} from "../../src/slices/guards/index.js";
+import { AgentParser } from "../../src/slices/parser/index.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import { MONOLITH_CODE, makeRoot, MOCK_THEME, TEST_DIR } from "../helpers.js";
 
 export async function phase16(): Promise<void> {
   // 85. Telemetry counters move with every hook-mandated tool interaction
   const state = createPluginState();
+  // Slice-isolation seam: tests sit outside src/slices and may import the
+  // collaborators directly (composition-root pattern, VSA).
+  const deps: PipelineDeps = {
+    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
+    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
+    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
+    guardProtectedFiles,
+    guardKbBeforeEdit,
+    guardMonolithDump,
+    collectShellLikeSources,
+    mutatingToolNames: MUTATING_TOOL_NAMES,
+    shellLikeToolNames: SHELL_LIKE_TOOL_NAMES,
+    checkLotusScriptDiagnostics: async () => ({ ok: true, diagnostics: "", errorCount: 0, warningCount: 0 }),
+    formatScorecard: () => "",
+    buildGradingRubric: () => "",
+    trendLabel: () => "",
+    normalizeDiagnostics: () => [],
+    findRecurringSignatures: () => [],
+    buildRecurringGotchaDraft: () => ({ title: "", body: "" }),
+    addGotcha: () => ({ id: "", title: "", body: "" }),
+    promptGotchaReview: async () => ({ action: "cancel" }),
+  };
   const monolith = path.join(TEST_DIR, "TelemetryMonolith.lss");
   fs.writeFileSync(monolith, MONOLITH_CODE, "utf-8");
   const tc = (toolName: string, input: Record<string, unknown>) =>
-    handleToolCall(state, { toolName, input } as never);
+    handleToolCall(state, { toolName, input } as never, deps);
 
   // 85a. KB gate blocks an .lss edit before any kb_search (kbConsulted=false)
   tc("edit", { path: path.join(TEST_DIR, "PlainScript.lss") });
@@ -50,9 +82,9 @@ export async function phase16(): Promise<void> {
 
   // 85e. First read of a monolith decompiles and redirects; second reuses the folder
   const firstRead = { toolName: "read", input: { path: monolith } };
-  handleToolCall(state, firstRead as never);
+  handleToolCall(state, firstRead as never, deps);
   const secondRead = { toolName: "read", input: { path: monolith } };
-  handleToolCall(state, secondRead as never);
+  handleToolCall(state, secondRead as never, deps);
   const readsOk =
     state.telemetry.readsRedirected === 1 &&
     String(secondRead.input.path).endsWith("main.lss") &&

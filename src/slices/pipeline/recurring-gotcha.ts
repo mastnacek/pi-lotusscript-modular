@@ -2,33 +2,34 @@
  * Recurring-failure gotcha drafting — normalizes LSP diagnostics, detects
  * genuine repeats across compile cycles and drives the user-approval modal.
  * Split out of pipeline/tool-result.ts for the per-file limit.
+ *
+ * Cross-slice capabilities (scorecard / gotchas) arrive via PipelineDeps
+ * wired in the composition root — slices never import each other (VSA).
+ * User-facing notify text resolves through the i18n string table; the
+ * returned notice is model-facing and stays English (§10).
  */
 
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
 import { stringsFor } from "../../shared/i18n.js";
-import { addGotcha, promptGotchaReview } from "../gotchas/index.js";
-import {
-  buildRecurringGotchaDraft,
-  findRecurringSignatures,
-  normalizeDiagnostics,
-} from "../scorecard/index.js";
+import type { PipelineDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
 /** Detects recurring diagnostic signatures and runs the gotcha draft flow. */
 export async function draftRecurringGotcha(
   state: PluginState,
   ctx: ExtensionContext,
+  deps: PipelineDeps,
   modularRoot: string,
   resolved: string,
   lspResult: LspCheckResult
 ): Promise<string> {
-  const signatures = normalizeDiagnostics(lspResult.diagnostics);
+  const signatures = deps.normalizeDiagnostics(lspResult.diagnostics);
   if (signatures.length === 0) return "";
 
   const history = state.diagnosticHistory.get(modularRoot) ?? [];
-  const recurring = findRecurringSignatures(signatures, history, 2);
+  const recurring = deps.findRecurringSignatures(signatures, history, 2);
   state.diagnosticHistory.set(modularRoot, [...history, signatures].slice(-10));
 
   const fresh = recurring.filter(
@@ -38,7 +39,7 @@ export async function draftRecurringGotcha(
   if (fresh.length === 0) return "";
 
   const reviewCtx = ctx ?? state.latestUiContext;
-  const draft = buildRecurringGotchaDraft(
+  const draft = deps.buildRecurringGotchaDraft(
     path.basename(modularRoot),
     fresh,
     [path.basename(resolved)]
@@ -50,10 +51,10 @@ export async function draftRecurringGotcha(
 
   for (const s of fresh) state.recurringGotchaReported.add(`${modularRoot}:${s}`);
   const ui = stringsFor(state.config.lang).recurring;
-  const review = await promptGotchaReview(reviewCtx, draft.title, draft.body, stringsFor(state.config.lang));
+  const review = await deps.promptGotchaReview(reviewCtx, draft.title, draft.body, stringsFor(state.config.lang));
 
   if (review.action === "save") {
-    const created = addGotcha(draft.title, draft.body);
+    const created = deps.addGotcha(draft.title, draft.body);
     reviewCtx.ui.notify(ui.saved(created.title), "info");
     return `\n♻️ Recurring failure recorded as a gotcha: ${created.title}`;
   }

@@ -1,15 +1,19 @@
 /**
  * Model tool lotusscript_scaffold — compliant LotusScript skeleton generator.
  * Split out of tools/index.ts for the per-file line limit.
+ *
+ * The scaffold slice arrives via ToolsDeps wired in the composition root —
+ * slices never import each other (VSA). Tool description and result text
+ * stay English (model-facing, §10).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
-import { scaffoldLotusScriptArtifact, type ScaffoldTargetType } from "../scaffold/index.js";
+import type { ToolsDeps, ScaffoldOptionsFull } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
-export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): void {
+export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState, deps: ToolsDeps): void {
   const ScaffoldParams = Type.Object({
     type: StringEnum(["agent", "library", "procedure", "modular"] as const, {
       description: "Type of LotusScript artifact to scaffold",
@@ -27,7 +31,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
 
   type ScaffoldDetails = {
     ok: boolean;
-    type?: ScaffoldTargetType;
+    type?: string;
     createdFiles?: string[];
     message?: string;
     alias?: string;
@@ -40,7 +44,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
     description: "Generate compliant LotusScript code skeletons (standalone agent, script library, modular procedure, or full modular agent folder) adhering to Domino 9.0.1 coding standards.",
     parameters: ScaffoldParams,
     async execute(_toolCallId: string, params: {
-      type: ScaffoldTargetType;
+      type: "agent" | "library" | "procedure" | "modular";
       name: string;
       targetDir?: string;
       purpose?: string;
@@ -51,7 +55,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
       params?: string;
       date?: string;
     }) {
-      const res = scaffoldLotusScriptArtifact({
+      const options: ScaffoldOptionsFull = {
         type: params.type,
         name: params.name,
         targetDir: params.targetDir,
@@ -62,7 +66,8 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState): voi
         returnType: params.returnType,
         params: params.params,
         date: params.date,
-      });
+      };
+      const res = deps.scaffoldLotusScriptArtifact(options);
       return {
         content: [{ type: "text", text: `${res.message}\nCreated files:\n${res.createdFiles.map((f) => `- ${f}`).join("\n")}\n\n${res.noticeEn ?? ""}` }],
         details: {

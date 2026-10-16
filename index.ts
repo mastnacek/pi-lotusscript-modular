@@ -30,6 +30,23 @@ import {
 import { createLsCommand } from "./src/slices/commands/index.js";
 import type { CommandsDeps } from "./src/slices/commands/deps.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
+import type { ToolsDeps } from "./src/slices/tools/deps.js";
+import type { PipelineDeps } from "./src/slices/pipeline/deps.js";
+import {
+  guardKbBeforeEdit,
+  guardMonolithDump,
+  guardProtectedFiles,
+  collectShellLikeSources,
+  MUTATING_TOOL_NAMES,
+  SHELL_LIKE_TOOL_NAMES,
+} from "./src/slices/guards/index.js";
+import {
+  buildGradingRubric,
+  buildRecurringGotchaDraft,
+  findRecurringSignatures,
+  normalizeDiagnostics,
+} from "./src/slices/scorecard/index.js";
+import { stringsFor } from "./src/shared/i18n.js";
 import {
   completeLsArguments,
   findSetting,
@@ -88,6 +105,43 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     trendLabel,
   };
 
+  // Pipeline slice wiring: tool_call / tool_result / guideline handlers reach
+  // parser / guards / lsp / scorecard / gotchas only through this seam (VSA §6).
+  const pipelineDeps: PipelineDeps = {
+    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
+    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
+    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
+    guardProtectedFiles,
+    guardKbBeforeEdit,
+    guardMonolithDump,
+    collectShellLikeSources,
+    mutatingToolNames: MUTATING_TOOL_NAMES,
+    shellLikeToolNames: SHELL_LIKE_TOOL_NAMES,
+    checkLotusScriptDiagnostics,
+    formatScorecard,
+    buildGradingRubric,
+    trendLabel,
+    normalizeDiagnostics,
+    findRecurringSignatures,
+    buildRecurringGotchaDraft,
+    addGotcha,
+    promptGotchaReview,
+  };
+
+  // Model-tools slice wiring (parser / lsp / gotchas / scaffold + i18n copy).
+  const toolsDeps: ToolsDeps = {
+    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
+    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
+    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
+    checkLotusScriptDiagnostics,
+    searchGotchas,
+    getGotchasSummary,
+    addGotcha,
+    promptGotchaReview,
+    scaffoldLotusScriptArtifact,
+    strings: stringsFor,
+  };
+
   track(pi.on("session_start", (_event, ctx: ExtensionContext) => {
     state.latestUiContext = ctx;
     state.syncConfig(ctx.cwd);
@@ -125,21 +179,21 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
     if (!event.systemPromptOptions?.promptGuidelines) return debriefMessage;
 
-    event.systemPromptOptions.promptGuidelines.push(...buildPromptGuidelines(state.config));
+    event.systemPromptOptions.promptGuidelines.push(...buildPromptGuidelines(state.config, pipelineDeps));
 
     return debriefMessage;
   }));
 
   // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
   track(pi.on("tool_call", (event) => {
-    const result = handleToolCall(state, event);
+    const result = handleToolCall(state, event, pipelineDeps);
     state.countHook("tool_call");
     return result;
   }));
 
   // 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
   track(pi.on("tool_result", async (event, ctx: ExtensionContext) => {
-    const result = await handleToolResult(state, event, ctx);
+    const result = await handleToolResult(state, event, ctx, pipelineDeps);
     state.countHook("tool_result");
     return result;
   }));
@@ -148,7 +202,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   pi.registerCommand("ls", createLsCommand(state, commandsDeps));
 
   // 4. Custom Tools for the Model
-  registerModelTools(pi, state);
+  registerModelTools(pi, state, toolsDeps);
 
   track(pi.on("session_shutdown", () => {
     while (state.unsubscribers.length > 0) state.unsubscribers.pop()?.();

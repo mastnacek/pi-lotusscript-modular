@@ -1,12 +1,16 @@
 /**
  * Prompt guidelines (before_agent_start injection) — verbatim rule strings.
  * Split out of pipeline/index.ts for the per-file line limit.
+ *
+ * The grading rubric comes from the scorecard slice via PipelineDeps wired in
+ * the composition root — slices never import each other (VSA). All text here
+ * is model-facing and stays English (pi-plugin-dev §10).
  */
 
 import type { ModularConfig } from "../../shared/types.js";
-import { buildGradingRubric } from "../scorecard/index.js";
+import type { PipelineDeps } from "./deps.js";
 
-export function buildPromptGuidelines(config: ModularConfig): string[] {
+export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps): string[] {
   const guidelines: string[] = [];
 
   if (config.enforceKbPrompt) {
@@ -37,7 +41,7 @@ export function buildPromptGuidelines(config: ModularConfig): string[] {
   }
 
   if (config.enforceGradingRubric) {
-    guidelines.push(buildGradingRubric(config));
+    guidelines.push(deps.buildGradingRubric(config));
   }
 
   guidelines.push(

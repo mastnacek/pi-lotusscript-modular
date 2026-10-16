@@ -1,17 +1,21 @@
 /**
  * Model tool lotusscript_gotchas — search / summary / user-approved add.
  * Split out of tools/index.ts for the per-file line limit.
+ *
+ * Cross-slice capabilities (gotchas) and the localized notify copy arrive via
+ * ToolsDeps wired in the composition root — slices never import each other
+ * (VSA). Tool description and result text stay English (model-facing, §10);
+ * notify() strings resolve through deps.strings(lang).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import type { GotchaItem } from "../../shared/types.js";
-import { stringsFor } from "../../shared/i18n.js";
-import { addGotcha, promptGotchaReview, searchGotchas, getGotchasSummary } from "../gotchas/index.js";
+import type { ToolsDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
-export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void {
+export function registerGotchasTool(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
   const GotchasParams = Type.Object({
     action: Type.Optional(StringEnum(["search", "summary", "add"] as const, {
       description: "Action to perform: 'search', 'summary', or 'add'",
@@ -56,11 +60,12 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
           throw new Error("Interactive UI required for gotcha approval, but no UI is available in this session.");
         }
 
-        const review = await promptGotchaReview(effectiveCtx, params.title, params.body, stringsFor(state.config.lang));
+        const s = deps.strings(state.config.lang);
+        const review = await deps.promptGotchaReview(effectiveCtx, params.title, params.body, s);
 
         if (review.action === "save") {
-          const created = addGotcha(params.title, params.body);
-          effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.approved(created.title), "info");
+          const created = deps.addGotcha(params.title, params.body);
+          effectiveCtx.ui.notify(s.toolGotchas.approved(created.title), "info");
           return {
             content: [
               {
@@ -73,7 +78,7 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
         }
 
         if (review.action === "rewrite") {
-          effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.rewritePassed, "info");
+          effectiveCtx.ui.notify(s.toolGotchas.rewritePassed, "info");
           return {
             content: [
               {
@@ -98,7 +103,7 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
         }
 
         // review.action === "cancel" or dismissed
-        effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.rejected, "warning");
+        effectiveCtx.ui.notify(s.toolGotchas.rejected, "warning");
         return {
           content: [
             {
@@ -112,12 +117,12 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
 
       if (act === "summary" || (!params.query && act === "search")) {
         return {
-          content: [{ type: "text", text: getGotchasSummary(15) }],
+          content: [{ type: "text", text: deps.getGotchasSummary(15) }],
           details: { ok: true },
         };
       }
 
-      const hits = searchGotchas(params.query || "", 5);
+      const hits = deps.searchGotchas(params.query || "", 5);
       if (hits.length === 0) {
         return {
           content: [{ type: "text", text: `No gotchas found matching: "${params.query}"` }],

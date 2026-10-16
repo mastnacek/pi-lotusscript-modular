@@ -2,25 +2,20 @@
  * tool_call interception — instant-failure guards (protected files, KB edit
  * gate), monolith dump guard, and read-time auto-decompilation redirect.
  * Split out of pipeline/index.ts for the per-file line limit.
+ *
+ * Cross-slice capabilities (parser / guards) arrive via PipelineDeps wired in
+ * the composition root — slices never import each other (VSA).
  */
 
 import path from "node:path";
 import fs from "node:fs";
 import type { ToolCallEvent, ToolCallEventResult } from "@earendil-works/pi-coding-agent";
-import { AgentParser } from "../parser/index.js";
-import {
-  MUTATING_TOOL_NAMES,
-  SHELL_LIKE_TOOL_NAMES,
-  collectShellLikeSources,
-  guardKbBeforeEdit,
-  guardMonolithDump,
-  guardProtectedFiles,
-} from "../guards/index.js";
+import type { PipelineDeps } from "./deps.js";
 import * as paths from "../../shared/paths.js";
 import type { PluginState } from "../../shared/state.js";
 
 // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
-export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCallEventResult | undefined {
+export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: PipelineDeps): ToolCallEventResult | undefined {
   const rawName = event.toolName || "";
   const base = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
 
@@ -42,13 +37,13 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   // --- Instant-failure guards (edit/write only; independent of autoDecompileOnRead) ---
   if ((base === "edit" || base === "write") && input && pathKey) {
     const guardPath = path.resolve(input[pathKey] as string);
-    const guard = guardProtectedFiles(guardPath);
+    const guard = deps.guardProtectedFiles(guardPath);
     if (guard) {
       state.telemetry.protectedBlocks++;
       return guard;
     }
     // HARD GATE: .lss/.dxl edits require a lotus-notes KB query first.
-    const kbGuard = guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
+    const kbGuard = deps.guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
     if (kbGuard) {
       state.telemetry.kbGateBlocks++;
       return kbGuard;
@@ -56,16 +51,16 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
   }
 
   if (!state.config.autoDecompileOnRead) return;
-  if (MUTATING_TOOL_NAMES.has(base)) return;
+  if (deps.mutatingToolNames.has(base)) return;
 
   // --- Shell / code-execution read guards (bash, ctx_execute, ctx_batch_execute) ---
   // These tools carry no top-level `path`, so the redirect below cannot see them.
   // Without this guard an agent can dump the whole monolithic file with
   // `cat tlacitko.lss | sed -n '1,400p'`, defeating auto-decompilation.
-  if (SHELL_LIKE_TOOL_NAMES.has(base) && input) {
-    const sources = collectShellLikeSources(input);
+  if (deps.shellLikeToolNames.has(base) && input) {
+    const sources = deps.collectShellLikeSources(input);
     for (const source of sources) {
-      const guard = guardMonolithDump(source, state.activeCwd);
+      const guard = deps.guardMonolithDump(source, state.activeCwd);
       if (guard) {
         state.telemetry.dumpBlocks++;
         return guard;
@@ -90,7 +85,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
 
   if (paths.isMonolithicLss(resolved)) {
     try {
-      const outDir = AgentParser.decompileLss(resolved);
+      const outDir = deps.decompileLss(resolved);
       state.readModularDirs.add(outDir);
       state.telemetry.readsRedirected++;
       input[pathKey] = path.join(outDir, "main.lss");
@@ -100,7 +95,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent): ToolCa
     }
   } else if (paths.isMonolithicDxl(resolved)) {
     try {
-      const outDir = AgentParser.decompileDxl(resolved);
+      const outDir = deps.decompileDxl(resolved);
       if (outDir) {
         state.readModularDirs.add(outDir);
         state.telemetry.readsRedirected++;

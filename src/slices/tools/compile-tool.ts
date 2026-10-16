@@ -1,6 +1,9 @@
 /**
  * Model tools lotusscript_compile / lotusscript_decompile. Split out of
  * tools/index.ts for the per-file line limit.
+ *
+ * Cross-slice capabilities (parser / lsp) arrive via ToolsDeps wired in the
+ * composition root — slices never import each other (VSA).
  */
 
 import path from "node:path";
@@ -8,11 +11,10 @@ import fs from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { findModularRoot } from "../../shared/paths.js";
-import { AgentParser } from "../parser/index.js";
-import { checkLotusScriptDiagnostics } from "../lsp/index.js";
+import type { ToolsDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
-export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginState): void {
+export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
   const { config } = state;
 
   const CompileParams = Type.Object({
@@ -32,7 +34,7 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
       }
 
       const shouldClean = params.clean ?? false;
-      const compiledPath = AgentParser.compileAgent(modularRoot, {
+      const compiledPath = deps.compileAgent(modularRoot, {
         keepTimestamp: config.keepTimestampInCompiledName,
         overwriteSourceLss: config.overwriteSourceLss,
         createLssForDxl: true,
@@ -41,7 +43,7 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
 
       let lspReport = "";
       if (config.enableLsp) {
-        const lspResult = await checkLotusScriptDiagnostics(compiledPath);
+        const lspResult = await deps.checkLotusScriptDiagnostics(compiledPath);
         lspReport = lspResult.ok
           ? "\nLSP Diagnostics: 0 errors (clean)"
           : `\nLSP Diagnostics:\n${lspResult.diagnostics}`;
@@ -75,9 +77,9 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
 
       let outDir = "";
       if (resolved.toLowerCase().endsWith(".dxl")) {
-        outDir = AgentParser.decompileDxl(resolved, params.outputDir) || "";
+        outDir = deps.decompileDxl(resolved, params.outputDir) || "";
       } else {
-        outDir = AgentParser.decompileLss(resolved, params.outputDir);
+        outDir = deps.decompileLss(resolved, params.outputDir);
       }
 
       if (!outDir) {
