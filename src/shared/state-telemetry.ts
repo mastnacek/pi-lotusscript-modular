@@ -13,6 +13,7 @@ import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { HookName, HookTelemetry, ModularConfig } from "./types.js";
+import { stringsFor } from "./i18n.js";
 
 export const TELEMETRY_WIDGET_KEY = "lotusscript-telemetry";
 
@@ -53,21 +54,22 @@ function fitLineToWidth(line: string, maxWidth: number): string {
 }
 
 /**
- * Pure line builder for the panel — testable without a TUI. Czech by the
- * plugin's language policy: the panel is rendered for the user, never read
- * by the model.
+ * Pure line builder for the panel — testable without a TUI. The panel is
+ * rendered for the user, never read by the model, so the text resolves
+ * through the i18n string table using `config.lang` (pi-plugin-dev §10).
  */
 export function telemetryLines(t: HookTelemetry, config: ModularConfig): string[] {
+  const s = stringsFor(config.lang).telemetry;
   const code =
     t.lastProcCount === null
-      ? "kód: zatím žádná kompilace"
-      : `kód: ${t.lastProcCount} proc. · nejdelší ${t.lastLongestProc}/${config.maxProcedureLines}`;
+      ? s.codeNone
+      : s.code(t.lastProcCount, t.lastLongestProc, config.maxProcedureLines);
   const lsp = t.lastLspOk === null ? "?" : t.lastLspOk ? "✓" : "⚠";
   return [
-    `🪷 LS haky ${totalHookCalls(t)}: volání ${t.hookCalls.tool_call} · výsledky ${t.hookCalls.tool_result} · dokončení ${t.hookCalls.agent_settled}`,
-    `   čtení: monolit→modul ${t.readsRedirected} · modulární ${t.readsModular} · KB ${t.kbSearches}`,
-    `   brány: KB ${t.kbGateBlocks} · monolit ${t.dumpBlocks} · chráněné ${t.protectedBlocks} · kompilace ${t.recompiles}`,
-    `📏 ${code} · LSP ${lsp}`,
+    s.hooks(totalHookCalls(t), t.hookCalls.tool_call, t.hookCalls.tool_result, t.hookCalls.agent_settled),
+    s.reads(t.readsRedirected, t.readsModular, t.kbSearches),
+    s.gates(t.kbGateBlocks, t.dumpBlocks, t.protectedBlocks, t.recompiles),
+    s.suffix(code, lsp),
   ];
 }
 

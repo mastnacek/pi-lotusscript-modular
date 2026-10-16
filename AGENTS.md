@@ -4,11 +4,12 @@ Pi extension for virtual modularization, automatic decompilation, compilation, L
 
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
-- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts` (no slice imports)
+- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts` (no slice imports)
 - `src/slices/parser/`    decompilation, recompilation, manifest.json synchronization
 - `src/slices/lsp/`       LotusScript LSP diagnostics client
 - `src/slices/gotchas/`   canonical 40+ LotusScript gotchas registry, search & append
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
+- `src/slices/commands/`  `/ls` dispatch — sibling-slice capabilities arrive via `deps.ts` (`CommandsDeps`), wired in the composition root
 - `skills/`               bundled skill (`skills/lotusscript-modular/SKILL.md`)
 - `test/`                 test suites
 
@@ -20,7 +21,7 @@ Pi extension for virtual modularization, automatic decompilation, compilation, L
 - Pure functions in slices.
 - Single source of truth for gotchas: all newly discovered gotchas must be recorded in `src/slices/gotchas/gotchas.md` (via `/ls gotchas add` or tool `lotusscript_gotchas`).
 
-## UX: Lazy Menus & Czech Help
+## UX: Lazy Menus & i18n
 - **Lazy menus** = `/ls` argument completions via `completeLsArguments(prefix, config)`.
 - **Completion contract (critical):** `getArgumentCompletions(prefix)` receives the entire argument text after `/ls `, and `item.value` replaces the whole prefix (`value` = full argument string with trailing space for non-terminals, `label` = leaf token).
-- **Czech help** = user-facing CLI strings and notifications are in Czech.
+- **Multilingual UI (pi-plugin-dev §10):** every user-facing string (notify / input / setStatus / widgets / modals / completions / command description) resolves through `stringsFor(state.config.lang)` from `src/shared/i18n.ts` — never hardcode prose. The persisted `lang` config key (`/ls lang cs|en`, default `cs`) is the only source of truth; never sniff LANG/LC_ALL/Intl. Model-facing text (tool descriptions, tool results, injected guidelines, debriefs) stays English. Both locales must carry every key — `test/test_i18n.ts` enforces parity.

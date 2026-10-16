@@ -5,6 +5,7 @@
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { ProcedureLintItem } from "../../shared/types.js";
+import { stringsFor, type Strings } from "../../shared/i18n.js";
 import { ProcedureLimitComponent, type ProcedureReviewResult } from "./modal.js";
 
 /**
@@ -12,7 +13,8 @@ import { ProcedureLimitComponent, type ProcedureReviewResult } from "./modal.js"
  */
 export async function promptProcedureLineReview(
   ctx: ExtensionContext,
-  item: ProcedureLintItem
+  item: ProcedureLintItem,
+  strings: Strings = stringsFor(undefined)
 ): Promise<ProcedureReviewResult> {
   if (!ctx.hasUI || (ctx.mode && ctx.mode !== "tui")) {
     return { action: "reject" };
@@ -25,7 +27,8 @@ export async function promptProcedureLineReview(
         item,
         done,
         tui.terminal.columns,
-        tui.terminal.rows
+        tui.terminal.rows,
+        strings
       ),
     {
       overlay: true,
@@ -46,8 +49,8 @@ export async function promptProcedureLineReview(
   let instructions = result.instructions.trim();
   if (!instructions) {
     const inputVal = await ctx.ui.input(
-      `✏️ Pokyny pro rozdělení procedury '${item.fileName}':`,
-      "Napište, jak má AI proceduru rozdělit (např. vyčleň HTTP volání nebo databázové dotazy)..."
+      strings.limitModal.inputPrompt(item.fileName),
+      strings.limitModal.inputDialogPlaceholder
     );
     if (!inputVal || !inputVal.trim()) {
       return { action: "reject" };

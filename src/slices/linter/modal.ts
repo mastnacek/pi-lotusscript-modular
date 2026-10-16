@@ -14,6 +14,7 @@ import {
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
 import type { ProcedureLintItem } from "../../shared/types.js";
+import { stringsFor, type Strings } from "../../shared/i18n.js";
 import { InstructionsInput } from "./instructions-input.js";
 
 export type ProcedureReviewResult =
@@ -48,7 +49,8 @@ export class ProcedureLimitComponent implements Focusable {
     private readonly item: ProcedureLintItem,
     private readonly done: (result: ProcedureReviewResult) => void,
     termCols = 100,
-    termRows = 40
+    termRows = 40,
+    private readonly strings: Strings = stringsFor(undefined)
   ) {
     this.termCols = termCols;
     this.termRows = termRows;
@@ -156,25 +158,26 @@ export class ProcedureLimitComponent implements Focusable {
       return `${this.selected === idx ? "  ▶ " : "    "}${styled} ${th.fg("dim", hint)}`;
     };
 
+    const lm = this.strings.limitModal;
     actionRows[0] = rows.length;
-    this.pushWrapped(rows, cursor(0, "✅ [Povolit výjimku]", "— schválit mírné překročení a pokračovat"), innerW);
+    this.pushWrapped(rows, cursor(0, lm.approve, lm.approveHint), innerW);
 
     actionRows[1] = rows.length;
-    this.pushWrapped(rows, cursor(1, "✂️ [Odmítnout a rozdělit]", "— vrátit AI pokyn k rozdělení na menší sub/funkce"), innerW);
+    this.pushWrapped(rows, cursor(1, lm.reject, lm.rejectHint), innerW);
 
     actionRows[2] = rows.length;
-    const third = cursor(2, "✏️ [Pokyny k rozdělení]", "") + this.renderInputDisplay();
+    const third = cursor(2, lm.instructions, "") + this.renderInputDisplay();
     this.pushWrapped(rows, third, innerW);
   }
 
   private renderInputDisplay(): string {
     const th = this.theme;
     if (this.selected === 2) {
-      return this.input.render(th, true, this.focused);
+      return this.input.render(th, true, this.focused, this.strings.limitModal.inputPlaceholder);
     }
     return this.input.text.length === 0
-      ? th.fg("dim", "Pokyny: (Enter pro zadání)")
-      : `Pokyny: ${this.input.text}`;
+      ? th.fg("dim", this.strings.limitModal.instructionsEmpty)
+      : `${this.strings.limitModal.instructionsPrefix}${this.input.text}`;
   }
 
   private buildBody(innerW: number): { rows: string[]; actionRows: number[] } {
@@ -182,26 +185,27 @@ export class ProcedureLimitComponent implements Focusable {
     const rows: string[] = [];
     const actionRows: number[] = [];
     const diff = this.item.lineCount - this.item.maxLines;
+    const lm = this.strings.limitModal;
 
     this.pushWrapped(
       rows,
-      ` ${th.fg("dim", "📌 Procedura:")} ${th.fg("accent", this.item.fileName)} ${th.fg("dim", `(${this.item.procedureName})`)}`,
+      ` ${th.fg("dim", lm.procedureLabel)} ${th.fg("accent", this.item.fileName)} ${th.fg("dim", `(${this.item.procedureName})`)}`,
       innerW
     );
     this.pushWrapped(
       rows,
-      ` ${th.fg("dim", "📊 Počet řádků:")} ${th.fg("warning", String(this.item.lineCount))} ${th.fg("dim", "/ limit:")} ${this.item.maxLines} ${th.fg("error", `(+${diff} řádků nad limit)`)}`,
+      ` ${th.fg("dim", lm.lineCountLabel)} ${th.fg("warning", String(this.item.lineCount))} ${th.fg("dim", lm.limitLabel)} ${this.item.maxLines} ${th.fg("error", lm.overBy(diff))}`,
       innerW
     );
     this.pushWrapped(
       rows,
-      ` ${th.fg("dim", "⚠️  Riziko:")} ${th.fg("warning", "LotusScript 32 KB bytecode limit procedury ('Script structure too large')")}`,
+      ` ${th.fg("dim", lm.riskLabel)} ${th.fg("warning", lm.riskText)}`,
       innerW
     );
     if (this.item.commentNotice) {
       this.pushWrapped(
         rows,
-        ` ${th.fg("dim", "ℹ️  Komentáře:")} ${th.fg("dim", this.item.commentNotice)}`,
+        ` ${th.fg("dim", lm.commentsLabel)} ${th.fg("dim", this.item.commentNotice)}`,
         innerW
       );
     }
@@ -209,7 +213,7 @@ export class ProcedureLimitComponent implements Focusable {
     rows.push(th.fg("dim", "─".repeat(innerW)));
     this.pushWrapped(
       rows,
-      ` ${th.fg("dim", "🎯 Zvolte akci (šipkami ↑ / ↓, potvrďte Enter):")}`,
+      ` ${th.fg("dim", lm.choose)}`,
       innerW
     );
     this.pushWrapped(rows, "", innerW);
@@ -233,14 +237,14 @@ export class ProcedureLimitComponent implements Focusable {
     const header = [
       top,
       this.padRow(
-        ` ${th.fg("accent", "🪷 LotusScript Linter")} ${th.fg("dim", "·")} ${th.fg("warning", "Překročení limitu délky procedury 📏")}`,
+        ` ${th.fg("accent", "🪷 LotusScript Linter")} ${th.fg("dim", "·")} ${th.fg("warning", this.strings.limitModal.header)}`,
         innerW
       ),
       sep,
     ];
     const footer = [
       this.padRow(
-        ` ${th.fg("dim", "💡 ↑↓ akce • Enter potvrdit • Esc zamítnout • PageUp/PageDown posun")}`,
+        ` ${th.fg("dim", this.strings.limitModal.footer)}`,
         innerW
       ),
       bottom,
@@ -267,7 +271,7 @@ export class ProcedureLimitComponent implements Focusable {
       if (above > 0) parts.push(`▲ ${above}`);
       if (below > 0) parts.push(`▼ ${below}`);
       indicator = this.padRow(
-        ` ${th.fg("dim", `… ${parts.join(" · ")} řádků (PageUp/PageDown) …`)}`,
+        ` ${th.fg("dim", this.strings.limitModal.moreRows(parts.join(" · ")))}`,
         innerW
       );
     }

@@ -30,6 +30,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 
 - `/ls status` — Zobrazit aktuální konfiguraci pluginu
+- `/ls lang [cs|en]` — Přepnout jazyk rozhraní (výchozí `cs`; zdroj pravdy je perzistentní klíč `lang`, nikdy proměnné prostředí)
 - `/ls config get <klíč>` — Vypsat hodnotu nastavení
 - `/ls <nastavení> [on|off]` — Přímé zobrazení nebo nastavení libovolného přepínače z katalogu (totéž co `/ls config set`, kratší zápis)
 - `/ls config set <klíč> <hodnota>` — Uložit novou hodnotu nastavení (u přepínačů `on` / `off`, v pickeru označená `✓` jako aktivní)

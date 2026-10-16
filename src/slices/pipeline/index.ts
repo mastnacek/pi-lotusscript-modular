@@ -7,5 +7,5 @@
 
 export { handleToolCall } from "./tool-call.js";
 export { handleToolResult } from "./tool-result.js";
-export { handleAgentSettled } from "./settled.js";
+export { handleAgentSettled, type SettledDeps } from "./settled.js";
 export { buildPromptGuidelines } from "./guidelines.js";

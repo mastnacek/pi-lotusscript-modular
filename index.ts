@@ -25,9 +25,30 @@ import {
   buildPromptGuidelines,
   handleToolCall,
   handleToolResult,
+  type SettledDeps,
 } from "./src/slices/pipeline/index.js";
 import { createLsCommand } from "./src/slices/commands/index.js";
+import type { CommandsDeps } from "./src/slices/commands/deps.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
+import {
+  completeLsArguments,
+  findSetting,
+  formatValue,
+  parseValue,
+  settingCopy,
+} from "./src/slices/settings/index.js";
+import {
+  addGotcha,
+  getEffectiveGotchasPath,
+  getGotchasSummary,
+  promptGotchaReview,
+  searchGotchas,
+} from "./src/slices/gotchas/index.js";
+import { AgentParser } from "./src/slices/parser/index.js";
+import { checkLotusScriptDiagnostics } from "./src/slices/lsp/index.js";
+import { lintModularFolder } from "./src/slices/linter/index.js";
+import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
+import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -38,6 +59,34 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   const state = createPluginState();
   const { track } = state;
+
+  // Composition-root wiring: the commands slice never imports sibling slices —
+  // every cross-slice capability arrives through this deps object (VSA §6).
+  const commandsDeps: CommandsDeps = {
+    completeLsArguments,
+    findSetting,
+    formatValue,
+    parseValue,
+    settingCopy,
+    getEffectiveGotchasPath,
+    getGotchasSummary,
+    searchGotchas,
+    addGotcha,
+    promptGotchaReview,
+    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
+    decompileLss: (p) => AgentParser.decompileLss(p),
+    decompileDxl: (p) => AgentParser.decompileDxl(p),
+    checkLotusScriptDiagnostics,
+    lintModularFolder,
+    formatScorecard,
+    scaffoldLotusScriptArtifact,
+  };
+
+  const settledDeps: SettledDeps = {
+    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
+    checkLotusScriptDiagnostics,
+    trendLabel,
+  };
 
   track(pi.on("session_start", (_event, ctx: ExtensionContext) => {
     state.latestUiContext = ctx;
@@ -53,14 +102,14 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   track(pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {
     try {
-      await handleAgentSettled(state, ctx);
+      await handleAgentSettled(state, ctx, settledDeps);
     } finally {
       state.countHook("agent_settled");
     }
   }));
 
   // Prompt injection: debrief handoff + enforce KB query + inject gotchas reminder
-  track(pi.on("before_agent_start", async (event, ctx: ExtensionContext) => {
+  track(pi.on("before_agent_start", async (event, _ctx: ExtensionContext) => {
     state.countHook("before_agent_start");
     const pendingDebrief = state.pendingDebriefs.length > 0 ? state.pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) state.pendingDebriefs.length = 0;
@@ -96,7 +145,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   }));
 
   // 3. Unified `/ls` Command with Lazy Menus
-  pi.registerCommand("ls", createLsCommand(state));
+  pi.registerCommand("ls", createLsCommand(state, commandsDeps));
 
   // 4. Custom Tools for the Model
   registerModelTools(pi, state);

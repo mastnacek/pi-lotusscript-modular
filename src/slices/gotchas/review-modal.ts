@@ -7,11 +7,10 @@ import {
   visibleWidth,
   wrapTextWithAnsi,
 } from "@earendil-works/pi-tui";
+import type { GotchaReviewResult } from "../../shared/types.js";
+import { stringsFor, type Strings } from "../../shared/i18n.js";
 
-export type GotchaReviewResult =
-  | { action: "save" }
-  | { action: "cancel" }
-  | { action: "rewrite"; instructions: string };
+export type { GotchaReviewResult } from "../../shared/types.js";
 
 /**
  * Modal overlay component for manual review and approval of proposed LotusScript gotchas.
@@ -30,7 +29,8 @@ export class GotchaReviewComponent implements Focusable {
     private readonly theme: Theme,
     private readonly title: string,
     private readonly body: string,
-    private readonly done: (result: GotchaReviewResult) => void
+    private readonly done: (result: GotchaReviewResult) => void,
+    private readonly strings: Strings = stringsFor(undefined)
   ) {}
 
   private handleNavigation(data: string): boolean {
@@ -144,7 +144,7 @@ export class GotchaReviewComponent implements Focusable {
     return [
       th.fg("border", `╭${"─".repeat(innerW)}╮`),
       this.padRow(
-        ` ${th.fg("accent", "🪷 LotusScript Gotchas")} ${th.fg("dim", "·")} ${th.fg("warning", "Schválení nového záznamu 💡")}`,
+        ` ${th.fg("accent", "🪷 LotusScript Gotchas")} ${th.fg("dim", "·")} ${th.fg("warning", this.strings.gotchaModal.header)}`,
         innerW
       ),
       th.fg("border", `├${"─".repeat(innerW)}┤`),
@@ -153,7 +153,7 @@ export class GotchaReviewComponent implements Focusable {
 
   private renderTitle(innerW: number): string[] {
     const th = this.theme;
-    const rows = [this.padRow(` ${th.fg("dim", "📌 Návrh názvu:")}`, innerW)];
+    const rows = [this.padRow(` ${th.fg("dim", this.strings.gotchaModal.titleLabel)}`, innerW)];
     for (const line of wrapTextWithAnsi(this.title, innerW - 6)) {
       rows.push(this.padRow(`    ${th.fg("accent", line)}`, innerW));
     }
@@ -163,7 +163,7 @@ export class GotchaReviewComponent implements Focusable {
 
   private renderBody(innerW: number): string[] {
     const th = this.theme;
-    const rows = [this.padRow(` ${th.fg("dim", "📋 Návrh popisu / těla gotchy:")}`, innerW)];
+    const rows = [this.padRow(` ${th.fg("dim", this.strings.gotchaModal.bodyLabel)}`, innerW)];
     const rawLines = this.body.split(/\r?\n/);
     const wrapped: string[] = [];
     for (const bLine of rawLines) {
@@ -179,7 +179,7 @@ export class GotchaReviewComponent implements Focusable {
       rows.push(this.padRow(`    ${th.fg("text", pLine)}`, innerW));
     }
     if (wrapped.length > maxPreview) {
-      rows.push(this.padRow(`    ${th.fg("dim", `... (+ ${wrapped.length - maxPreview} dalších řádků)`)}`, innerW));
+      rows.push(this.padRow(`    ${th.fg("dim", this.strings.gotchaModal.moreLines(wrapped.length - maxPreview))}`, innerW));
     }
     rows.push(th.fg("border", `├${"─".repeat(innerW)}┤`));
     return rows;
@@ -190,7 +190,7 @@ export class GotchaReviewComponent implements Focusable {
     if (this.selected === 2) {
       if (this.instructionsText.length === 0) {
         const marker = this.focused ? CURSOR_MARKER : "";
-        return `${marker}\x1b[7m \x1b[27m${th.fg("dim", " (napište pokyny pro AI)")}`;
+        return `${marker}\x1b[7m \x1b[27m${th.fg("dim", this.strings.gotchaModal.inputPlaceholder)}`;
       }
       const before = this.instructionsText.slice(0, this.instructionsCursor);
       const cursorChar = this.instructionsCursor < this.instructionsText.length
@@ -201,8 +201,8 @@ export class GotchaReviewComponent implements Focusable {
       return `${before}${marker}\x1b[7m${cursorChar}\x1b[27m${after}`;
     }
     return this.instructionsText.length === 0
-      ? th.fg("dim", "Pokyny: (Enter pro zadání)")
-      : `Pokyny: ${this.instructionsText}`;
+      ? th.fg("dim", this.strings.gotchaModal.instructionsEmpty)
+      : `${this.strings.gotchaModal.instructionsPrefix}${this.instructionsText}`;
   }
 
   private renderActions(innerW: number): string[] {
@@ -211,12 +211,13 @@ export class GotchaReviewComponent implements Focusable {
     const is1 = this.selected === 1;
     const is2 = this.selected === 2;
 
-    const row0 = `${is0 ? "  ▶ " : "    "}${is0 ? th.fg("accent", "💾 [Uložit gotchu]") : th.fg("text", "💾 [Uložit gotchu]")} ${th.fg("dim", "— schválit a zapsat do registru")}`;
-    const row1 = `${is1 ? "  ▶ " : "    "}${is1 ? th.fg("accent", "❌ [Zrušit návrh]") : th.fg("text", "❌ [Zrušit návrh]")} ${th.fg("dim", "— odmítnout a neukládat do báze")}`;
-    const row2 = `${is2 ? "  ▶ " : "    "}${is2 ? th.fg("accent", "✏️ [Přepsat]") : th.fg("text", "✏️ [Přepsat]")} ${this.renderInputDisplay()}`;
+    const gm = this.strings.gotchaModal;
+    const row0 = `${is0 ? "  ▶ " : "    "}${is0 ? th.fg("accent", gm.actionSave) : th.fg("text", gm.actionSave)} ${th.fg("dim", gm.actionSaveHint)}`;
+    const row1 = `${is1 ? "  ▶ " : "    "}${is1 ? th.fg("accent", gm.actionCancel) : th.fg("text", gm.actionCancel)} ${th.fg("dim", gm.actionCancelHint)}`;
+    const row2 = `${is2 ? "  ▶ " : "    "}${is2 ? th.fg("accent", gm.actionRewrite) : th.fg("text", gm.actionRewrite)} ${this.renderInputDisplay()}`;
 
     return [
-      this.padRow(` ${th.fg("dim", "🎯 Zvolte akci (vyberte šipkami ↑ / ↓ a potvrďte klávesou Enter):")}`, innerW),
+      this.padRow(` ${th.fg("dim", gm.choose)}`, innerW),
       this.padRow("", innerW),
       this.padRow(row0, innerW),
       this.padRow(row1, innerW),
@@ -228,7 +229,7 @@ export class GotchaReviewComponent implements Focusable {
   private renderFooter(innerW: number): string[] {
     const th = this.theme;
     return [
-      this.padRow(` ${th.fg("dim", "💡 ↑↓ navigace • Enter potvrdit • Esc zrušit • psaním píšete pokyny")}`, innerW),
+      this.padRow(` ${th.fg("dim", this.strings.gotchaModal.footer)}`, innerW),
       th.fg("border", `╰${"─".repeat(innerW)}╯`),
     ];
   }
@@ -255,7 +256,8 @@ export class GotchaReviewComponent implements Focusable {
 export async function promptGotchaReview(
   ctx: ExtensionContext,
   title: string,
-  body: string
+  body: string,
+  strings: Strings = stringsFor(undefined)
 ): Promise<GotchaReviewResult> {
   if (!ctx.hasUI || (ctx.mode && ctx.mode !== "tui")) {
     return { action: "cancel" };
@@ -263,7 +265,7 @@ export async function promptGotchaReview(
 
   const result = await ctx.ui.custom<GotchaReviewResult | undefined>(
     (_tui, theme, _keybindings, done) =>
-      new GotchaReviewComponent(theme, title, body, done),
+      new GotchaReviewComponent(theme, title, body, done, strings),
     { overlay: true }
   );
 
@@ -280,8 +282,8 @@ export async function promptGotchaReview(
     // If the user selected rewrite but didn't type inline instructions, prompt via standard input dialog
     if (!instructions) {
       const inputVal = await ctx.ui.input(
-        "✏️ Instrukce pro přepsání gotchy AI:",
-        "Napište, co má AI v návrhu upravit, doplnit nebo přepsat..."
+        strings.gotchaModal.rewritePrompt,
+        strings.gotchaModal.rewritePlaceholder
       );
       if (!inputVal || !inputVal.trim()) {
         return { action: "cancel" };

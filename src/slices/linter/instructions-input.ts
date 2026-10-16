@@ -6,6 +6,7 @@
 
 import { CURSOR_MARKER, matchesKey } from "@earendil-works/pi-tui";
 import type { Theme } from "@earendil-works/pi-coding-agent";
+import { stringsFor } from "../../shared/i18n.js";
 
 /** Editable single-line buffer for split instructions inside the modal. */
 export class InstructionsInput {
@@ -57,10 +58,11 @@ export class InstructionsInput {
   }
 
   /** Renders the input row: placeholder when empty, cursor marker when active. */
-  render(th: Theme, active: boolean, focused: boolean): string {
+  render(th: Theme, active: boolean, focused: boolean, placeholder?: string): string {
     if (this.text.length === 0) {
       const marker = focused ? CURSOR_MARKER : "";
-      return `${marker}\x1b[7m \x1b[27m${th.fg("dim", " (zde napište pokyny k rozdělení)")}`;
+      const hint = placeholder ?? stringsFor(undefined).limitModal.inputPlaceholder;
+      return `${marker}\x1b[7m \x1b[27m${th.fg("dim", hint)}`;
     }
     const before = this.text.slice(0, this.cursor);
     const cursorChar =

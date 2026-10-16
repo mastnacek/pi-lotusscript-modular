@@ -1,0 +1,350 @@
+/**
+ * English locale — full translation of the Czech table. Every key must stay
+ * in sync with STRINGS_CS; the Strings type and test/test_i18n.ts enforce it.
+ */
+
+import type { Strings } from "./i18n.js";
+
+export const STRINGS_EN: Strings = {
+  cmdDescription: "Manage modular LotusScript agents, LSP and the Gotchas registry",
+  on: "ON",
+  off: "OFF",
+  onF: "ON",
+  offF: "OFF",
+
+  status: {
+    title: "⚙️ [LotusScript Modular — Configuration status]:",
+    lspCheck: "LSP check",
+    overwriteSource: "Overwrite source .lss",
+    cleanup: "Clean up folder on completion",
+    procLimits: "Procedure limit check",
+    maxLines: "Max lines per procedure",
+    czechComments: "Enforce Czech comments",
+    scorecard: "Scorecard (grading)",
+    rubric: "Definition of Done rubric",
+    preflight: "Pre-flight gotchas check",
+    autoDraft: "Auto-draft gotcha from recurring errors",
+    autoDecompile: "Auto-decompile on read",
+    autoRecompile: "Auto-recompile on save",
+    kbPrompt: "Enforce lotus-notes KB prompt",
+    gotchaCapture: "Enforce gotcha recording",
+    gotchasSummary: "Inject gotchas summary",
+    timestamp: "Keep timestamp in name",
+    langLabel: "UI language",
+    gotchasFile: "Central Gotchas file",
+    configFile: "Config file",
+  },
+
+  set: {
+    lspToggled: (on, isGlobal) =>
+      `LSP syntax check is now ${on ? "ON" : "OFF"} (saved ${isGlobal ? "globally" : "to the project"}).`,
+    overwriteToggled: (on, isGlobal) =>
+      `Source .lss overwriting is now ${on ? "ON" : "OFF"} (saved ${isGlobal ? "globally" : "to the project"}).`,
+    savedKV: (isGlobal, key, value) =>
+      `Saved (${isGlobal ? "globally" : "to the project"}): ${key} = ${value}`,
+    currentValue: (key, value, description) => `${key} = ${value} (${description})`,
+    unknownSetting: (key) => `Unknown setting: ${key}`,
+    usageConfigGet: "Usage: /ls config get <key>",
+    usageConfigSet: "Usage: /ls config set <key> <value>",
+    usageConfig: "Usage: /ls config [get|set] ... or directly /ls <setting> <value>",
+  },
+
+  errors: {
+    boolExpected: (key, raw) =>
+      `Value for '${key}' must be 'true' or 'false' (got: '${raw}')`,
+    numberExpected: (key, raw) =>
+      `Value for '${key}' must be a positive integer (got: '${raw}')`,
+    emptyNotAllowed: (key) => `Value for '${key}' must not be empty`,
+    unknownKind: (kind) => `Unknown setting type: ${kind}`,
+  },
+
+  lang: {
+    description: "Switch UI language: cs | en",
+    current: (lang) => `Current UI language: ${lang}`,
+    set: (lang, isGlobal) =>
+      `UI language set to '${lang}' (saved ${isGlobal ? "globally" : "to the project"}).`,
+    unknown: (raw) => `Unknown language: '${raw}'. Supported: cs, en`,
+    localeCs: "Czech",
+    localeEn: "English",
+  },
+
+  compile: {
+    notModular: (target) => `Not a LotusScript modular folder: ${target}`,
+    compiledClean: (name) => `Compiled ${name} (LSP clean)`,
+    compiledLspErrors: (diagnostics) => `Compiled with LSP errors:\n${diagnostics}`,
+    compiled: (p) => `Compiled: ${p}`,
+    compileError: (msg) => `Compile error: ${msg}`,
+    packedClean: (name) => `Compiled and cleaned up: ${name} (LSP clean)`,
+    packedLspErrors: (diagnostics) => `Compiled with LSP errors:\n${diagnostics}`,
+    packedDone: (p) => `Compiled to: ${p} and the modular folder was deleted.`,
+    packError: (msg) => `Cleanup error: ${msg}`,
+    decompileUsage: "Usage: /ls decompile <path to .lss or .dxl file>",
+    fileNotFound: (p) => `File not found: ${p}`,
+    decompiled: (dir) => `Decompiled into: ${dir}`,
+    decompileError: (msg) => `Decompile error: ${msg}`,
+  },
+
+  scaffoldCmd: {
+    usage: "Usage: /ls scaffold <agent|library|procedure|modular> [name] [target folder]",
+    error: (msg) => `Scaffold error: ${msg}`,
+  },
+
+  lint: {
+    title: (name) => `🔍 [LotusScript Linter — ${name}]:`,
+    total: (n) => `- Total procedures: ${n}`,
+    exceeding: (limit, n) => `- Exceeds the ${limit}-line limit: ${n}`,
+    missingComment: (n) => `- Missing Czech comment: ${n}`,
+    missingDesc: "⚠️ missing description",
+    linesCount: (n) => `${n} lines`,
+  },
+
+  score: {
+    history: (n) => `History (${n}): `,
+  },
+
+  gotchasCmd: {
+    addUsage: "Usage: /ls gotchas add <gotcha title>",
+    bodyPrompt: "Enter the gotcha description / body:",
+    bodyPlaceholder: "Describe the problem and the fix...",
+    cancelled: "Input cancelled.",
+    saved: (title) => `✓ Gotcha saved to the registry: ${title}`,
+    notSaved: "Gotcha was not saved (cancelled by the user).",
+    noneFound: (query) => `No gotchas found for: "${query}"`,
+  },
+
+  gotchaModal: {
+    header: "New entry approval 💡",
+    titleLabel: "📌 Proposed title:",
+    bodyLabel: "📋 Proposed gotcha description / body:",
+    moreLines: (n) => `... (+ ${n} more lines)`,
+    inputPlaceholder: " (type instructions for the AI)",
+    instructionsEmpty: "Instructions: (Enter to type)",
+    instructionsPrefix: "Instructions: ",
+    actionSave: "💾 [Save gotcha]",
+    actionSaveHint: "— approve and write to the registry",
+    actionCancel: "❌ [Cancel proposal]",
+    actionCancelHint: "— reject, do not save",
+    actionRewrite: "✏️ [Rewrite]",
+    choose: "🎯 Choose an action (select with ↑ / ↓ arrows and confirm with Enter):",
+    footer: "💡 ↑↓ navigate • Enter confirm • Esc cancel • typing enters instructions",
+    rewritePrompt: "✏️ Instructions for the AI gotcha rewrite:",
+    rewritePlaceholder: "Describe what the AI should change, add or rewrite in the proposal...",
+  },
+
+  limitModal: {
+    header: "Procedure length limit exceeded 📏",
+    procedureLabel: "📌 Procedure:",
+    lineCountLabel: "📊 Line count:",
+    limitLabel: "/ limit:",
+    overBy: (n) => `(+${n} lines over the limit)`,
+    riskLabel: "⚠️  Risk:",
+    riskText: "LotusScript 32 KB procedure bytecode limit ('Script structure too large')",
+    commentsLabel: "ℹ️  Comments:",
+    choose: "🎯 Choose an action (arrow keys ↑ / ↓, confirm with Enter):",
+    approve: "✅ [Allow exception]",
+    approveHint: "— approve a minor excess and continue",
+    reject: "✂️ [Reject and split]",
+    rejectHint: "— send the AI a directive to split into smaller subs/functions",
+    instructions: "✏️ [Split instructions]",
+    instructionsEmpty: "Instructions: (Enter to type)",
+    instructionsPrefix: "Instructions: ",
+    inputPlaceholder: " (type split instructions here)",
+    footer: "💡 ↑↓ actions • Enter confirm • Esc reject • PageUp/PageDown scroll",
+    moreRows: (parts) => `… ${parts} rows (PageUp/PageDown) …`,
+    inputPrompt: (file) => `✏️ Instructions for splitting procedure '${file}':`,
+    inputDialogPlaceholder:
+      "Describe how the AI should split the procedure (e.g. extract HTTP calls or database queries)...",
+  },
+
+  limits: {
+    exceptionApproved: (file, lines) =>
+      `✓ Length exception approved for ${file} (${lines} lines)`,
+  },
+
+  settled: {
+    score: (s, m) => ` [score: ${s}/${m}]`,
+    tailKept: (score) =>
+      `compiled${score}. Modular folder kept — the source .lss is not overwritten.`,
+    tailDeleted: (score) => `compiled${score} and the temporary folder was deleted.`,
+    done: (file, tail) => `🪷 [LotusScript Modular] Done: ${file} ${tail}`,
+    retained: (n, names) =>
+      `🪷 [LotusScript Modular] Kept ${n} folder(s) with content the plugin did not create: ${names}`,
+  },
+
+  recurring: {
+    saved: (title) => `✓ Recurring failure saved as a gotcha: ${title}`,
+    declined: "The recurring failure was not saved as a gotcha.",
+  },
+
+  toolGotchas: {
+    approved: (title) => `✓ Gotcha approved and written to the central registry: ${title}`,
+    rewritePassed: "Gotcha rewrite request handed to the AI...",
+    rejected: "Gotcha was not saved (rejected by the user).",
+  },
+
+  telemetry: {
+    hooks: (total, calls, results, settled) =>
+      `🪷 LS hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
+    reads: (redirected, modular, kb) =>
+      `   reads: monolith→modular ${redirected} · modular ${modular} · KB ${kb}`,
+    gates: (kb, dumps, protectedB, compiles) =>
+      `   gates: KB ${kb} · monolith ${dumps} · protected ${protectedB} · compiles ${compiles}`,
+    codeNone: "code: no compile yet",
+    code: (procs, longest, max) => `code: ${procs} procs · longest ${longest}/${max}`,
+    suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
+  },
+
+  statusline: {
+    compiling: (badge) => `🪷 LS${badge}: compiling...`,
+    clean: (badge) => `🪷 LS${badge}: compiled ✓`,
+    error: (badge) => `🪷 LS${badge}: LSP error ⚠`,
+  },
+
+  completions: {
+    subStatus: "Show current plugin configuration",
+    subGlobal: "Save the following setting globally (~/.pi/agent/)",
+    subScaffold: "Create a LotusScript code skeleton (agent, library, procedure, modular)",
+    subLsp: "Toggle LotusScript LSP check: on | off",
+    subOverwrite: "Toggle .lss file overwriting: on | off",
+    subCompile: "Build the modular folder into _compiled.lss",
+    subPack: "Build into .lss and delete the modular folder",
+    subLint: "Check procedure length (max 300 lines) and comments",
+    subScore: "Show the agent scorecard and grading trend",
+    subDecompile: "Decompile a monolithic .lss or .dxl into a subfolder",
+    subGotchas: "Search the LotusScript Gotchas database (40+ rules)",
+    subConfig: "Show or change settings (get/set, legacy)",
+    subHelp: "Show command help",
+    configGet: "Print the current setting value",
+    configSet: "Save a new setting value",
+    scaffoldAgent: "Standalone LotusScript agent (.lss) with error handling",
+    scaffoldLibrary: "Script library (.lss)",
+    scaffoldProcedure: "Procedure (sub_ or func_) into a modular folder",
+    scaffoldModular: "Complete modular folder (manifest, options, declarations, subs)",
+    gotchasSummary: "Show a summary of key pitfalls",
+    gotchasAdd: "Add a new gotcha with an approval dialog",
+    topicShell: "Shell as a variable name (reserved word)",
+    topicForall: "ForAll and the alias variable",
+    topicConst: "Const declaration without As Type",
+    topicOption: "Option Declare and Option Public duplicates",
+    topicVariant: "Variant vs Integer in the Notes API",
+    topicComputewithform: "ComputeWithForm behavior on forms",
+    topicReplaceall: "Replace vs ReplaceAll and empty strings",
+    turnOn: "Turn on",
+    turnOff: "Turn off",
+    markActive: " · ● ACTIVE",
+    markInactive: " · ○ OFF",
+    markOn: " · ● ON",
+    markOff: " · ○ OFF",
+    now: (value) => `(now: ${value})`,
+    lines: (n) => `${n} lines`,
+    linesDefault: (n) => `${n} lines (default limit)`,
+  },
+
+  settings: {
+    enableLsp: {
+      description: "Run the LotusScript LSP syntax check after recompilation",
+      on: "On — verify syntax via the LotusScript LSP server",
+      off: "Off — skip the LSP check",
+    },
+    overwriteSourceLss: {
+      description: "Overwrite the original .lss file on disk when recompiling (ignored for .dxl)",
+      on: "On — sync the source .lss file",
+      off: "Off — write only to modular/<Name>_compiled.lss; the folder stays on disk",
+    },
+    autoDecompileOnRead: {
+      description: "Automatically decompile a monolith on read",
+      on: "On — split the monolith into a subfolder and read main.lss",
+      off: "Off — read the original monolith unchanged",
+    },
+    autoRecompileOnSave: {
+      description: "Automatically recompile when procedural .lss files are edited",
+      on: "On — build the code when sub_*.lss is saved",
+      off: "Off — compile only manually via /ls compile",
+    },
+    enforceKbPrompt: {
+      description: "Enforce querying the lotus-notes MCP knowledge base before edits",
+      on: "On — inject the rule into the prompt and tool outputs",
+      off: "Off — do not inject the reminder",
+    },
+    injectGotchasSummary: {
+      description: "Inject an overview of key LotusScript Gotchas into the context",
+      on: "On — inject the gotchas summary when reading modular scripts",
+      off: "Off — gotchas available only via /ls gotchas",
+    },
+    enforceGotchaCapture: {
+      description: "Enforce recording newly discovered pitfalls and gotchas",
+      on: "On — remind to save a new gotcha after solving a problem",
+      off: "Off — optional",
+    },
+    keepTimestampInCompiledName: {
+      description: "Also create timestamped files (<Name>_<timestamp>_compiled.lss)",
+      on: "On — keep timestamped copies",
+      off: "Off — only the stable <Name>_compiled.lss",
+    },
+    cleanupOnSettled: {
+      description:
+        "Build the final .lss and delete the temporary decompiled folder when the agent finishes",
+      on: "On — automatically clean up and delete the decompiled folder after the task",
+      off: "Off — keep the decompiled folder on disk",
+    },
+    checkProcedureLimits: {
+      description: "Check the maximum procedure (sub/function) length and comment presence",
+      on: "On — watch the line limit and comments",
+      off: "Off — do not check",
+    },
+    maxProcedureLines: {
+      description: "Maximum allowed lines per procedure / function (default: 300)",
+    },
+    enforceCzechComments: {
+      description: "Enforce concise Czech purpose comments on every procedure",
+      on: "On — require a Czech description on procedures",
+      off: "Off — optional",
+    },
+    enableScorecard: {
+      description: "Compute and inject a deterministic scorecard after every agent compile",
+      on: "On — include the scorecard in the compile result",
+      off: "Off — plain reporting without a score",
+    },
+    enforceGradingRubric: {
+      description: "Inject the Definition of Done and grading rubric into the system prompt",
+      on: "On — the model receives the DoD and grading scheme",
+      off: "Off — the rubric is not injected",
+    },
+    injectPreflightGotchas: {
+      description:
+        "Inject targeted findings based on the agent's own identifiers instead of the generic gotchas summary",
+      on: "On — pre-flight gotchas check based on the agent's own identifiers",
+      off: "Off — inject the generic top-gotchas summary",
+    },
+    autoDraftRecurringGotchas: {
+      description:
+        "Automatically propose a gotcha when the same LSP diagnostic recurs across cycles",
+      on: "On — a recurring error is offered to save as a gotcha (with approval)",
+      off: "Off — recurring errors are not tracked",
+    },
+    showTelemetryPanel: {
+      description: "Show the telemetry panel above the editor (hooks, reads, gates, code length)",
+      on: "On — panel with live counters above the editor",
+      off: "Off — hide the panel",
+    },
+  },
+
+  help: {
+    lines: [
+      "📖 [/ls commands — LotusScript Modular]:",
+      "  /ls status                      — Show plugin configuration",
+      "  /ls lang [cs|en]                — Switch UI language",
+      "  /ls <setting> [value]           — Show or set an option directly",
+      "  /ls --global <setting> <value>  — Save the setting globally (~/.pi/agent/)",
+      "  /ls scaffold <type> [name]      — Create a skeleton (agent, library, procedure, modular)",
+      "  /ls lsp [on|off]                — Turn the LSP check on/off",
+      "  /ls overwrite [on|off]          — Turn .lss file overwriting on/off",
+      "  /ls compile [folder]            — Build the modular agent manually",
+      "  /ls lint [folder]               — Check procedure length and comments",
+      "  /ls score [folder]              — Show the agent scorecard and trend",
+      "  /ls pack [folder]               — Build into .lss and delete the modular folder",
+      "  /ls decompile <file>            — Decompile a monolith .lss/.dxl",
+      "  /ls gotchas [query]             — Search the central registry of 40+ gotchas",
+    ],
+  },
+};

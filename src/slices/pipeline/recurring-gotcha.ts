@@ -7,6 +7,7 @@
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
+import { stringsFor } from "../../shared/i18n.js";
 import { addGotcha, promptGotchaReview } from "../gotchas/index.js";
 import {
   buildRecurringGotchaDraft,
@@ -48,11 +49,12 @@ export async function draftRecurringGotcha(
   }
 
   for (const s of fresh) state.recurringGotchaReported.add(`${modularRoot}:${s}`);
-  const review = await promptGotchaReview(reviewCtx, draft.title, draft.body);
+  const ui = stringsFor(state.config.lang).recurring;
+  const review = await promptGotchaReview(reviewCtx, draft.title, draft.body, stringsFor(state.config.lang));
 
   if (review.action === "save") {
     const created = addGotcha(draft.title, draft.body);
-    reviewCtx.ui.notify(`✓ Opakovaná chyba uložena jako gotcha: ${created.title}`, "info");
+    reviewCtx.ui.notify(ui.saved(created.title), "info");
     return `\n♻️ Recurring failure recorded as a gotcha: ${created.title}`;
   }
 
@@ -66,6 +68,6 @@ export async function draftRecurringGotcha(
     ].join("\n");
   }
 
-  reviewCtx.ui.notify("Opakovaná chyba nebyla uložena jako gotcha.", "warning");
+  reviewCtx.ui.notify(ui.declined, "warning");
   return "\n♻️ Recurring failure detected; the user declined to record a gotcha for it.";
 }

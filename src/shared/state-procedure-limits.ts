@@ -7,6 +7,7 @@
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { FolderLintResult, ModularConfig } from "./types.js";
+import { stringsFor } from "./i18n.js";
 import { lintModularFolder, promptProcedureLineReview } from "../slices/linter/index.js";
 
 export interface ProcedureLimitDeps {
@@ -81,13 +82,13 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
         };
       }
 
-      const review = await promptProcedureLineReview(effectiveCtx, item);
+      const review = await promptProcedureLineReview(effectiveCtx, item, stringsFor(config.lang));
 
       if (review.action === "approve") {
         deps.approvedLineExceptions.add(key);
         deps.rejectedLineSignatures.delete(key);
         effectiveCtx.ui.notify(
-          `✓ Schválena výjimka délky pro ${item.fileName} (${item.lineCount} řádků)`,
+          stringsFor(config.lang).limits.exceptionApproved(item.fileName, item.lineCount),
           "info"
         );
       } else if (review.action === "split_instructions") {

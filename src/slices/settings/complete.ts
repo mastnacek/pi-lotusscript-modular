@@ -1,5 +1,6 @@
 import type { ModularConfig, SettingsCompletion } from "../../shared/types.js";
-import { findSetting, formatValue, SETTING_SPECS } from "./catalogue.js";
+import { stringsFor, type Strings } from "../../shared/i18n.js";
+import { findSetting, formatValue, settingCopy, SETTING_SPECS } from "./catalogue.js";
 
 interface Suggestion {
   value: string;
@@ -14,54 +15,85 @@ const TOGGLE_KEYS = new Map<string, keyof ModularConfig>([
   ["overwrite", "overwriteSourceLss"],
 ]);
 
-const DIRECT_SETTING_SUBCOMMANDS: readonly Suggestion[] = SETTING_SPECS.map((s) => ({
-  value: s.key,
-  description: s.description,
-  space: true,
-}));
+function directSettingSubcommands(s: Strings): readonly Suggestion[] {
+  return SETTING_SPECS.map((spec) => ({
+    value: spec.key,
+    description: settingCopy(spec.key, s === stringsFor("en") ? "en" : "cs").description,
+    space: true,
+  }));
+}
 
-export const LS_SUBCOMMANDS: readonly Suggestion[] = [
-  { value: "status", description: "Zobrazit aktuální konfiguraci pluginu" },
-  { value: "--global", description: "Uložit následující nastavení globálně (~/.pi/agent/)", space: true },
-  { value: "scaffold", description: "Vytvořit kostru LotusScript kódu (agent, library, procedure, modular)", space: true },
-  { value: "lsp", description: "Přepnout LotusScript LSP kontrolu: on | off", space: true },
-  { value: "overwrite", description: "Přepnout přepisování .lss souboru: on | off", space: true },
-  { value: "compile", description: "Sestavit modulární složku do _compiled.lss", space: true },
-  { value: "pack", description: "Sestavit do .lss a smazat modulární složku", space: true },
-  { value: "lint", description: "Zkontrolovat délku procedur (max 300 řádků) a komentáře", space: true },
-  { value: "score", description: "Zobrazit scorecard a trend hodnocení agenta", space: true },
-  { value: "decompile", description: "Rozložit monolitický .lss nebo .dxl do podsložky", space: true },
-  { value: "gotchas", description: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)", space: true },
-  ...DIRECT_SETTING_SUBCOMMANDS.filter((s) => !["enableLsp", "overwriteSourceLss"].includes(s.value)),
-  { value: "config", description: "Zobrazit nebo změnit nastavení (get/set, legacy)", space: true },
-  { value: "help", description: "Zobrazit nápovědu příkazů" },
-];
+function lsSubcommands(s: Strings): readonly Suggestion[] {
+  const c = s.completions;
+  return [
+    { value: "status", description: c.subStatus },
+    { value: "--global", description: c.subGlobal, space: true },
+    { value: "scaffold", description: c.subScaffold, space: true },
+    { value: "lang", description: s.lang.description, space: true },
+    { value: "lsp", description: c.subLsp, space: true },
+    { value: "overwrite", description: c.subOverwrite, space: true },
+    { value: "compile", description: c.subCompile, space: true },
+    { value: "pack", description: c.subPack, space: true },
+    { value: "lint", description: c.subLint, space: true },
+    { value: "score", description: c.subScore, space: true },
+    { value: "decompile", description: c.subDecompile, space: true },
+    { value: "gotchas", description: c.subGotchas, space: true },
+    ...directSettingSubcommands(s).filter(
+      (x) => !["enableLsp", "overwriteSourceLss"].includes(x.value)
+    ),
+    { value: "config", description: c.subConfig, space: true },
+    { value: "help", description: c.subHelp },
+  ];
+}
 
-const CONFIG_ACTIONS: readonly Suggestion[] = [
-  { value: "get", description: "Vypsat aktuální hodnotu nastavení", space: true },
-  { value: "set", description: "Uložit novou hodnotu nastavení", space: true },
-];
+function configActions(s: Strings): readonly Suggestion[] {
+  return [
+    { value: "get", description: s.completions.configGet, space: true },
+    { value: "set", description: s.completions.configSet, space: true },
+  ];
+}
 
-const SCAFFOLD_TYPES: readonly Suggestion[] = [
-  { value: "agent", description: "Samostatný LotusScript agent (.lss) s ošetřením chyb", space: true },
-  { value: "library", description: "Knihovna skriptů (Script Library .lss)", space: true },
-  { value: "procedure", description: "Procedura (sub_ nebo func_) do modulární složky", space: true },
-  { value: "modular", description: "Kompletní modulární složka (manifest, options, declarations, subs)", space: true },
-];
+function scaffoldTypes(s: Strings): readonly Suggestion[] {
+  const c = s.completions;
+  return [
+    { value: "agent", description: c.scaffoldAgent, space: true },
+    { value: "library", description: c.scaffoldLibrary, space: true },
+    { value: "procedure", description: c.scaffoldProcedure, space: true },
+    { value: "modular", description: c.scaffoldModular, space: true },
+  ];
+}
 
+function gotchasTopics(s: Strings): readonly Suggestion[] {
+  const c = s.completions;
+  return [
+    { value: "summary", description: c.gotchasSummary },
+    { value: "add", description: c.gotchasAdd, space: true },
+    { value: "shell", description: c.topicShell },
+    { value: "forall", description: c.topicForall },
+    { value: "const", description: c.topicConst },
+    { value: "option", description: c.topicOption },
+    { value: "variant", description: c.topicVariant },
+    { value: "computewithform", description: c.topicComputewithform },
+    { value: "replaceall", description: c.topicReplaceall },
+  ];
+}
 
-
-const GOTCHAS_TOPICS: readonly Suggestion[] = [
-  { value: "summary", description: "Zobrazit souhrn klíčových chyb" },
-  { value: "add", description: "Přidat novou gotchu se schvalovacím dialogem", space: true },
-  { value: "shell", description: "Shell jako název proměnné (vyhrazené slovo)" },
-  { value: "forall", description: "ForAll a alias proměnná" },
-  { value: "const", description: "Deklarace Const bez As Type" },
-  { value: "option", description: "Option Declare a Option Public duplicity" },
-  { value: "variant", description: "Variant vs Integer u Notes API" },
-  { value: "computewithform", description: "Chování ComputeWithForm u formulářů" },
-  { value: "replaceall", description: "Replace vs ReplaceAll a prázdné řetězce" },
-];
+/** Locale picker: cs|en, active choice marked in label + description. */
+function langItems(base: string, current: ModularConfig, s: Strings, prefix: string): SettingsCompletion[] | null {
+  const active = current.lang.trim().toLowerCase().startsWith("en") ? "en" : "cs";
+  return filter(base, [
+    {
+      value: "cs",
+      label: active === "cs" ? "cs ✓" : "cs",
+      description: `${s.lang.localeCs}${active === "cs" ? s.completions.markActive : s.completions.markInactive}`,
+    },
+    {
+      value: "en",
+      label: active === "en" ? "en ✓" : "en",
+      description: `${s.lang.localeEn}${active === "en" ? s.completions.markActive : s.completions.markInactive}`,
+    },
+  ], prefix);
+}
 
 function filter(base: string, suggestions: readonly Suggestion[], prefix: string): SettingsCompletion[] | null {
   const items = suggestions
@@ -79,42 +111,43 @@ function toggleItems(
   base: string,
   key: keyof ModularConfig,
   current: ModularConfig,
+  s: Strings,
   prefix: string
 ): SettingsCompletion[] | null {
   const on = current[key] === true;
-  const help = findSetting(key)?.valueHelp;
+  const help = settingCopy(key, current.lang);
   return filter(base, [
     {
       value: "on",
       label: on ? "on ✓" : "on",
-      description: `${help?.true ?? "Zapnout"}${on ? " · ● AKTIVNÍ" : " · ○ VYPNUTO"}`,
+      description: `${help.on ?? s.completions.turnOn}${on ? s.completions.markActive : s.completions.markInactive}`,
     },
     {
       value: "off",
       label: on ? "off" : "off ✓",
-      description: `${help?.false ?? "Vypnout"}${on ? " · ○ VYPNUTO" : " · ● AKTIVNÍ"}`,
+      description: `${help.off ?? s.completions.turnOff}${on ? s.completions.markInactive : s.completions.markActive}`,
     },
   ], prefix);
 }
 
 /** Parent rows naming a boolean setting carry the live state too. */
-function annotateState(items: SettingsCompletion[] | null, current: ModularConfig): SettingsCompletion[] | null {
+function annotateState(items: SettingsCompletion[] | null, current: ModularConfig, s: Strings): SettingsCompletion[] | null {
   return items?.map((item) => {
     const token = item.value.trim().toLowerCase();
     const key: keyof ModularConfig | undefined =
       TOGGLE_KEYS.get(token) ??
       (findSetting(token)?.kind === "boolean" ? (token as keyof ModularConfig) : undefined);
     if (!key) return item;
-    const marker = current[key] === true ? " · ● ZAPNUTO" : " · ○ VYPNUTO";
+    const marker = current[key] === true ? s.completions.markOn : s.completions.markOff;
     return { ...item, description: `${item.description}${marker}` };
   }) ?? null;
 }
 
-function completeKeys(base: string, current: ModularConfig, prefix: string): SettingsCompletion[] | null {
+function completeKeys(base: string, current: ModularConfig, s: Strings, prefix: string): SettingsCompletion[] | null {
   const items = SETTING_SPECS.filter((spec) => spec.key.startsWith(prefix)).map((spec) => ({
     value: `${base}${spec.key} `,
     label: spec.key,
-    description: `${spec.description} (nyní: ${formatValue(current[spec.key])})`,
+    description: `${settingCopy(spec.key, current.lang).description} ${s.completions.now(formatValue(current[spec.key]))}`,
   }));
   return items.length > 0 ? items : null;
 }
@@ -123,21 +156,22 @@ function completeValues(
   base: string,
   key: string,
   current: ModularConfig,
+  s: Strings,
   prefix: string
 ): SettingsCompletion[] | null {
   const spec = findSetting(key);
   if (!spec) return null;
 
   if (spec.kind === "boolean") {
-    return toggleItems(base, spec.key, current, prefix);
+    return toggleItems(base, spec.key, current, s, prefix);
   }
 
   if (spec.kind === "number") {
     const numbers: readonly Suggestion[] = [
-      { value: "100", description: "100 řádků" },
-      { value: "200", description: "200 řádků" },
-      { value: "300", description: "300 řádků (výchozí limit)" },
-      { value: "500", description: "500 řádků" },
+      { value: "100", description: s.completions.lines(100) },
+      { value: "200", description: s.completions.lines(200) },
+      { value: "300", description: s.completions.linesDefault(300) },
+      { value: "500", description: s.completions.lines(500) },
     ];
     return filter(base, numbers, prefix);
   }
@@ -149,6 +183,7 @@ export function completeLsArguments(
   prefix: string,
   current: ModularConfig
 ): SettingsCompletion[] | null {
+  const s = stringsFor(current.lang);
   const trimmed = prefix.trimStart();
 
   // Support --global prefix
@@ -157,10 +192,10 @@ export function completeLsArguments(
     const hasTrailingSpace = trimmed.length > 8 || /\s$/.test(prefix);
 
     if (!hasTrailingSpace && afterGlobal === "") {
-      return annotateState(filter("", LS_SUBCOMMANDS, trimmed), current);
+      return annotateState(filter("", lsSubcommands(s), trimmed), current, s);
     }
 
-    const subCompletions = completeLsArgumentsClean(afterGlobal, current);
+    const subCompletions = completeLsArgumentsClean(afterGlobal, current, s);
     if (!subCompletions) return null;
 
     return subCompletions.map((item) => ({
@@ -170,21 +205,23 @@ export function completeLsArguments(
     }));
   }
 
-  return completeLsArgumentsClean(trimmed, current);
+  return completeLsArgumentsClean(trimmed, current, s);
 }
 
 function completeLsArgumentsClean(
   trimmed: string,
-  current: ModularConfig
+  current: ModularConfig,
+  s: Strings
 ): SettingsCompletion[] | null {
   if (!trimmed.includes(" ")) {
     // Lazy parameter completion: a fully typed non-terminal token already yields
     // its parameter list — after a trailing-space Tab the picker never reopens.
     const typed = trimmed.toLowerCase();
+    if (typed === "lang") return langItems(`${typed} `, current, s, "");
     const toggleKey = TOGGLE_KEYS.get(typed);
-    if (toggleKey) return toggleItems(`${typed} `, toggleKey, current, "");
-    if (findSetting(typed)) return completeValues(`${typed} `, typed, current, "");
-    return annotateState(filter("", LS_SUBCOMMANDS, trimmed), current);
+    if (toggleKey) return toggleItems(`${typed} `, toggleKey, current, s, "");
+    if (findSetting(typed)) return completeValues(`${typed} `, typed, current, s, "");
+    return annotateState(filter("", lsSubcommands(s), trimmed), current, s);
   }
 
   const [sub] = trimmed.split(/\s+/);
@@ -192,28 +229,32 @@ function completeLsArgumentsClean(
 
   const afterSub = trimmed.slice(sub.length).trimStart();
 
+  if (sub.toLowerCase() === "lang") {
+    return langItems(`${sub} `, current, s, afterSub);
+  }
+
   const toggleKey = TOGGLE_KEYS.get(sub.toLowerCase());
   if (toggleKey) {
-    return toggleItems(`${sub} `, toggleKey, current, afterSub);
+    return toggleItems(`${sub} `, toggleKey, current, s, afterSub);
   }
 
   if (sub === "scaffold") {
-    return filter("scaffold ", SCAFFOLD_TYPES, afterSub);
+    return filter("scaffold ", scaffoldTypes(s), afterSub);
   }
 
   if (sub === "gotchas") {
-    return filter(`${sub} `, GOTCHAS_TOPICS, afterSub);
+    return filter(`${sub} `, gotchasTopics(s), afterSub);
   }
 
   // Direct setting completions (e.g. /ls checkProcedureLimits <true|false>)
   const directSpec = findSetting(sub);
   if (directSpec) {
-    return completeValues(`${sub} `, sub, current, afterSub);
+    return completeValues(`${sub} `, sub, current, s, afterSub);
   }
 
   if (sub === "config") {
     if (!afterSub.includes(" ")) {
-      return filter("config ", CONFIG_ACTIONS, afterSub);
+      return filter("config ", configActions(s), afterSub);
     }
 
     const [action] = afterSub.split(/\s+/);
@@ -222,17 +263,17 @@ function completeLsArgumentsClean(
     const afterAction = afterSub.slice(action.length).trimStart();
 
     if (action === "get") {
-      return completeKeys("config get ", current, afterAction);
+      return completeKeys("config get ", current, s, afterAction);
     }
 
     if (action === "set") {
       if (!afterAction.includes(" ")) {
-        return completeKeys("config set ", current, afterAction);
+        return completeKeys("config set ", current, s, afterAction);
       }
       const [key] = afterAction.split(/\s+/);
       if (!key) return null;
       const afterKey = afterAction.slice(key.length).trimStart();
-      return completeValues(`config set ${key} `, key, current, afterKey);
+      return completeValues(`config set ${key} `, key, current, s, afterKey);
     }
   }
 

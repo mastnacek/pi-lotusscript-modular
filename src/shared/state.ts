@@ -23,6 +23,7 @@ import type {
   ModularConfig,
 } from "./types.js";
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
+import { stringsFor } from "./i18n.js";
 import { createStateInsights } from "./state-insights.js";
 import { createProcedureLimitGate } from "./state-procedure-limits.js";
 import {
@@ -162,12 +163,13 @@ export function createPluginState(): PluginState {
   function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
+    const sl = stringsFor(config.lang).statusline;
     const scoreBadge = latestScorecard ? ` [${latestScorecard.score}/${latestScorecard.max}]` : "";
 
     if (state === "compiling") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("warning", `🪷 LS${scoreBadge}: compiling...`)
+        theme.fg("warning", sl.compiling(scoreBadge))
       );
       return;
     }
@@ -175,7 +177,7 @@ export function createPluginState(): PluginState {
     if (state === "clean") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("success", `🪷 LS${scoreBadge}: compiled ✓`)
+        theme.fg("success", sl.clean(scoreBadge))
       );
       return;
     }
@@ -183,7 +185,7 @@ export function createPluginState(): PluginState {
     if (state === "error") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("error", `🪷 LS${scoreBadge}: LSP error ⚠`)
+        theme.fg("error", sl.error(scoreBadge))
       );
       return;
     }

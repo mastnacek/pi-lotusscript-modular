@@ -4,6 +4,8 @@
  */
 
 export interface ModularConfig {
+  /** UI language for user-facing text (cs | en). Model-facing text stays English. */
+  lang: string;
   /** Run LotusScript LSP diagnostics check after compile */
   enableLsp: boolean;
   /** Automatically decompile monolithic .lss or .dxl files on read */
@@ -173,6 +175,13 @@ export interface GotchaItem {
   title: string;
   body: string;
 }
+
+/** Outcome of the gotcha approval modal (defined in shared so cross-slice
+ *  dependency contracts can name it without reaching into the gotchas slice). */
+export type GotchaReviewResult =
+  | { action: "save" }
+  | { action: "cancel" }
+  | { action: "rewrite"; instructions: string };
 
 export interface SettingsCompletion {
   value: string;

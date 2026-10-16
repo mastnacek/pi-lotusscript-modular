@@ -7,6 +7,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { StringEnum } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 import type { GotchaItem } from "../../shared/types.js";
+import { stringsFor } from "../../shared/i18n.js";
 import { addGotcha, promptGotchaReview, searchGotchas, getGotchasSummary } from "../gotchas/index.js";
 import type { PluginState } from "../../shared/state.js";
 
@@ -55,11 +56,11 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
           throw new Error("Interactive UI required for gotcha approval, but no UI is available in this session.");
         }
 
-        const review = await promptGotchaReview(effectiveCtx, params.title, params.body);
+        const review = await promptGotchaReview(effectiveCtx, params.title, params.body, stringsFor(state.config.lang));
 
         if (review.action === "save") {
           const created = addGotcha(params.title, params.body);
-          effectiveCtx.ui.notify(`✓ Gotcha schválena a zapsána do centrální báze: ${created.title}`, "info");
+          effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.approved(created.title), "info");
           return {
             content: [
               {
@@ -72,7 +73,7 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
         }
 
         if (review.action === "rewrite") {
-          effectiveCtx.ui.notify("Požadavek na přepsání gotchy předán AI...", "info");
+          effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.rewritePassed, "info");
           return {
             content: [
               {
@@ -97,7 +98,7 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState): void 
         }
 
         // review.action === "cancel" or dismissed
-        effectiveCtx.ui.notify("Gotcha nebyla uložena (zamítnuto uživatelem).", "warning");
+        effectiveCtx.ui.notify(stringsFor(state.config.lang).toolGotchas.rejected, "warning");
         return {
           content: [
             {

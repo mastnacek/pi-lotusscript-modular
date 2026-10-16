@@ -3,8 +3,6 @@ export {
   findSetting,
   parseValue,
   formatValue,
+  settingCopy,
 } from "./catalogue.js";
-export {
-  completeLsArguments,
-  LS_SUBCOMMANDS,
-} from "./complete.js";
+export { completeLsArguments } from "./complete.js";

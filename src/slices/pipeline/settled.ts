@@ -1,19 +1,37 @@
 /**
  * agent_settled lifecycle — ephemeral cleanup + deterministic debrief.
  * Split out of pipeline/index.ts for the per-file line limit.
+ *
+ * Cross-slice capabilities (parser / lsp / scorecard) arrive via SettledDeps,
+ * wired by the composition root — slices never import each other (VSA).
+ * User-facing notify text resolves through the i18n string table; the debrief
+ * pushed into pendingDebriefs is model-facing and stays English (§10).
  */
 
 import path from "node:path";
 import fs from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AgentScorecard, LspCheckResult } from "../../shared/types.js";
-import { AgentParser } from "../parser/index.js";
-import { checkLotusScriptDiagnostics } from "../lsp/index.js";
-import { trendLabel } from "../scorecard/index.js";
+import { stringsFor } from "../../shared/i18n.js";
 import type { PluginState } from "../../shared/state.js";
 import { isPristineModularDir } from "../../shared/paths.js";
 
-export async function handleAgentSettled(state: PluginState, ctx: ExtensionContext): Promise<void> {
+/** Structural compile options (no cross-slice type imports — slice isolation). */
+export interface SettledCompileOptions {
+  keepTimestamp?: boolean;
+  overwriteSourceLss?: boolean;
+  createLssForDxl?: boolean;
+  deleteModularDir?: boolean;
+}
+
+/** Cross-slice capabilities injected by the composition root. */
+export interface SettledDeps {
+  compileAgent(targetDirOrFile: string, options?: SettledCompileOptions): string;
+  checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
+  trendLabel(current: AgentScorecard, previous?: AgentScorecard): string;
+}
+
+export async function handleAgentSettled(state: PluginState, ctx: ExtensionContext, deps: SettledDeps): Promise<void> {
   const { config } = state;
   state.renderStatusline("idle");
   if (!config.cleanupOnSettled) return;
@@ -26,7 +44,7 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
           continue;
         }
         const lintBeforeDelete = limitCheck.lint;
-        const finalLss = AgentParser.compileAgent(modDir, {
+        const finalLss = deps.compileAgent(modDir, {
           overwriteSourceLss: config.overwriteSourceLss,
           createLssForDxl: true,
           deleteModularDir: true,
@@ -41,7 +59,7 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
           let lspRes: LspCheckResult | null = null;
           if (config.enableLsp) {
             try {
-              lspRes = await checkLotusScriptDiagnostics(finalLss);
+              lspRes = await deps.checkLotusScriptDiagnostics(finalLss);
             } catch {
               lspRes = null;
             }
@@ -58,7 +76,7 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
           if (unmet.length > 0) {
             state.pendingDebriefs.push(
               [
-                `🧾 [LotusScript Debrief] ${path.basename(modDir)} — final ${scorecard.score}/${scorecard.max} (${trendLabel(scorecard, previous)})`,
+                `🧾 [LotusScript Debrief] ${path.basename(modDir)} — final ${scorecard.score}/${scorecard.max} (${deps.trendLabel(scorecard, previous)})`,
                 `- Artifact: ${path.basename(finalLss)}`,
                 "- Unmet Definition of Done:",
                 ...unmet.map((u) => `    - ${u.label}${u.detail ? `: ${u.detail}` : ""}`),
@@ -69,13 +87,14 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
         }
 
         if (ctx.hasUI) {
-          const scoreLabel = finalScorecard ? ` [skóre: ${finalScorecard.score}/${finalScorecard.max}]` : "";
+          const st = stringsFor(config.lang).settled;
+          const scoreLabel = finalScorecard ? st.score(finalScorecard.score, finalScorecard.max) : "";
           // The folder survives when overwriteSourceLss is off — the artifact
-          // then lives inside it, so claiming "smazána" would be a lie.
+          // then lives inside it, so claiming "deleted" would be a lie.
           const tail = fs.existsSync(modDir)
-            ? `sestaven${scoreLabel}. Modulární složka ponechána — zdrojový .lss se nepřepisuje.`
-            : `sestaven${scoreLabel} a dočasná složka smazána.`;
-          ctx.ui.notify(`🪷 [LotusScript Modular] Hotovo: ${path.basename(finalLss)} ${tail}`, "info");
+            ? st.tailKept(scoreLabel)
+            : st.tailDeleted(scoreLabel);
+          ctx.ui.notify(st.done(path.basename(finalLss), tail), "info");
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -105,9 +124,10 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
 
   if (retainedReadDirs.length > 0 && ctx.hasUI) {
     ctx.ui.notify(
-      `🪷 [LotusScript Modular] Ponecháno ${retainedReadDirs.length} složek s obsahem, který plugin nevytvořil: ${retainedReadDirs
-        .map((d) => path.basename(d))
-        .join(", ")}`,
+      stringsFor(config.lang).settled.retained(
+        retainedReadDirs.length,
+        retainedReadDirs.map((d) => path.basename(d)).join(", ")
+      ),
       "warning"
     );
   }
