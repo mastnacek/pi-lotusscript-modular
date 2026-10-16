@@ -18,7 +18,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
 - **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant skeletons (standalone agent, script library, modular procedure, full modular folder) rendered from the shipped versioned `template.lss` with `On Error GoTo ErrorHandler` handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
-- **Bundled Reference Docs (not auto-loaded):** On-demand docs (`skills/lotusscript-modular/references/`) for workflow, coding conventions, formula language, 59-gotcha index, scaffolding and DXL/ODP editing. The skill is no longer registered as an auto-loading pi skill — the extension tools carry the workflow.
+- **Bundled Skill (auto-loaded):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) IS registered — pi auto-discovers the conventional `skills/` directory even without a `pi` manifest entry, so the skill loads in every session and routes to on-demand reference docs (`references/`: workflow, coding conventions, naming, 64-gotcha index, scaffolding, DXL/ODP, formula language). The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection (IBM 9.0.1 reference, Guirard performance book, community articles) before writing or modifying Notes 9.0.1 LotusScript code.
 - **In-TUI Telemetry Panel:** Live counters above the editor (`showTelemetryPanel`): hook usage, monolithic→modular read redirects, KB-gate / monolith-dump / protected-file blocks, recompiles, and code length (procedure count, longest vs limit, LSP outcome). Subagent sessions are excluded via the recursion guard.
 - **Hard KB Edit Gate:** The KB rule is ENFORCED — `edit`/`write` calls on `.lss`/`.dxl` files are rejected (`block: true`) until `kb_search` (collection `lotus-notes`) has been called this session. Gate re-arms on every new session; disable with `"enforceKbGate": false`.
@@ -75,9 +75,9 @@ Stored in `.pi/lotusscript-modular.json`:
 
 ---
 
-## Reference Docs (Not Auto-Loaded)
+## Bundled Skill & Reference Docs
 
-`skills/lotusscript-modular/` — on-demand docs used by the extension tooling (scaffold conventions, gotcha index). The `SKILL.md` router is intentionally NOT registered as a pi skill anymore; these files are support material for the tools, not a session skill:
+`skills/lotusscript-modular/` — the session skill (`SKILL.md` router, auto-loaded by pi from the conventional `skills/` directory) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
 
 - `workflow.md` — modular lifecycle, CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
