@@ -43,6 +43,7 @@ export function readBanner(
     "🚨 MANDATORY KB CHECK (AGENTS.md):",
     "  Query 'lotus-notes' MCP collection before writing code:",
     "  mcp__knowledge_base -> tool: 'kb_search', args: { collection: 'lotus-notes', query: '<API or topic>' }",
+    suggestedKbQueries(state.collectRootTokens(modularRoot)),
     gotchasBanner,
     "---",
   ].join("\n");
@@ -50,4 +51,23 @@ export function readBanner(
   return {
     content: [...event.content, { type: "text", text: notice }],
   };
+}
+
+/**
+ * Proactive KB queries derived from the agent's own declarations: only
+ * Notes object-model identifiers (NotesSession, NotesDocument, …) make good
+ * KB topics — procedure names and domain variables are noise. Empty string
+ * when nothing matches, so the banner stays compact for formula-only agents.
+ */
+export function suggestedKbQueries(rootTokens: string[]): string {
+  const apiTokens = rootTokens.filter((t) => /^Notes[A-Z]/.test(t)).slice(0, 3);
+  if (apiTokens.length === 0) return "";
+  const lines = [
+    "",
+    "💡 SUGGESTED KB QUERIES FOR THIS AGENT (run these before editing):",
+    ...apiTokens.map(
+      (t) => `  kb_search(collection: 'lotus-notes', query: '${t}')`
+    ),
+  ];
+  return lines.join("\n");
 }

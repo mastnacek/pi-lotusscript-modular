@@ -93,16 +93,18 @@ injected as a feedback signal.
 4. `manifest.json` compilationOrder matches the files on disk.
 5. The final artifact is written: original `.lss` overwritten, or `<Agent>.lss` created for `.dxl`.
 6. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
+7. The `lotus-notes` knowledge base was consulted (`kb_search`) for the APIs, patterns and performance choices used.
 
 Scorecard is attached to every recompile result:
 
 ```text
-📊 SCORECARD  tlacitko_v2  7/10  ▲ +3 since last compile
+📊 SCORECARD  tlacitko_v2  8/10  ▲ +3 since last compile
   ✅ procedures ≤ 300 lines
   ✅ Czech purpose comments (11/11)
   ❌ LSP diagnostics (2 errors)
   ✅ manifest.json in sync
   ⬜ final artifact written
+  ✅ lotus-notes KB consulted
   Remaining:
     - LSP diagnostics (2 errors): <first lines of the diagnostic output>
 ```
@@ -128,6 +130,12 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
 2. **Instant-failure guards:** `edit`/`write` to `main.lss`, `manifest.json`,
    or `*_compiled.lss` is blocked — all three files are maintained by the
    extension, so hand edits are always lost.
+2b. **Proactive KB verification:** the `before_agent_start` guideline is a
+   task→layer query protocol (API member → IBM reference; performance →
+   Guirard chapters; error → exact text) plus a quality bar (On Error
+   coverage, object state, NoCache discipline). The main.lss read banner
+   derives concrete `kb_search` suggestions from the agent's own `Notes*`
+   declarations, and the scorecard grades KB consultation as DoD item 7.
 2b. **Monolith read guard:** dumping the original `.lss` / `.dxl` through
    `bash`, `ctx_execute`, `ctx_batch_execute` or any other content-read tool is
    blocked. Read the modular files instead; the guard resolves `cd <dir>` and

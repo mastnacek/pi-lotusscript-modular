@@ -104,6 +104,20 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     weight: 2,
   });
 
+  // DoD 7 — KB verification. Scored only when a KB enforcement toggle is on;
+  // a user who disabled all KB machinery is not punished for skipping it.
+  if (input.kbExpected) {
+    items.push({
+      id: "kb-consulted",
+      label: "lotus-notes KB consulted",
+      ok: input.kbConsulted,
+      weight: 2,
+      detail: input.kbConsulted
+        ? undefined
+        : "run kb_search on the APIs / patterns / performance choices used",
+    });
+  }
+
   const scored = items.filter((i) => !i.pending);
   const score = scored.filter((i) => i.ok).reduce((s, i) => s + i.weight, 0);
   const max = scored.reduce((s, i) => s + i.weight, 0);
@@ -156,6 +170,11 @@ export function buildGradingRubric(config: ModularConfig): string {
     ? "2. Every sub/function carries a concise Czech purpose comment (' Účel: ...)."
     : "2. (Czech purpose comments are disabled by config.)";
 
+  const kbExpected = config.enforceKbPrompt || config.enforceKbGate || config.verifyKbBeforeSettle;
+  const kbRule = kbExpected
+    ? "7. The lotus-notes knowledge base was consulted (kb_search) for the APIs, patterns and performance choices used."
+    : "7. (KB verification is disabled by config.)";
+
   const lspRule = config.enableLsp
     ? "3. The compiled artifact reports 0 LSP errors."
     : "3. (LSP validation is disabled by config.)";
@@ -168,6 +187,7 @@ export function buildGradingRubric(config: ModularConfig): string {
     "4. manifest.json compilationOrder matches the files on disk.",
     "5. The final artifact is written: original .lss overwritten, or <Agent>.lss created for .dxl.",
     "6. Every newly discovered trap is proposed via lotusscript_gotchas(action: \"add\") and user-approved.",
+    kbRule,
     "",
     "HOW YOU'RE GRADED (the plugin computes this — never self-report a score):",
     "  +2 per satisfied DoD item",

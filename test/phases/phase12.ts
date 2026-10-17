@@ -151,6 +151,8 @@ function buildCleanScorecard(lsp: any = null) {
     enforceCzechComments: true,
     manifestSynced: true,
     artifact: "written",
+    kbExpected: false,
+    kbConsulted: false,
   });
 }
 
@@ -210,6 +212,8 @@ export async function phase12b(fixture: GuardFixture): Promise<void> {
     enforceCzechComments: true,
     manifestSynced: true,
     artifact: "written",
+    kbExpected: false,
+    kbConsulted: false,
   });
   const scHarness = computeScorecard({
     agent: "ScoreAgent",
@@ -225,6 +229,8 @@ export async function phase12b(fixture: GuardFixture): Promise<void> {
     enforceCzechComments: true,
     manifestSynced: true,
     artifact: "written",
+    kbExpected: false,
+    kbConsulted: false,
   });
   const lspItemUnmeasured = scNoLsp.items.find((i) => i.id === "lsp-clean");
   const lspItemHarness = scHarness.items.find((i) => i.id === "lsp-clean");

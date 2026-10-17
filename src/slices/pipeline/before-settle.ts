@@ -31,7 +31,7 @@ export function handleAgentBeforeSettle(state: PluginState): AgentBeforeSettleEv
         display: false,
         content: [
           "VERIFY BEFORE DONE: this run modified LotusScript / DXL sources (.lss/.dxl) without consulting the 'lotus-notes' MCP knowledge base.",
-          "Mandatory step now: call mcp__knowledge_base → tool 'kb_search', args: { collection: 'lotus-notes', query: '<the Notes API or topic you just used>' } and check the changes against the result (method and property names, constants, Domino 9.0.1 specifics).",
+          "Mandatory step now: call mcp__knowledge_base → tool 'kb_search', args: { collection: 'lotus-notes', query: '<the Notes API or topic you just used>' } and check the changes against the result — not only method/property names and constants, but also error handling (On Error coverage), object state (Set ... = Nothing, processed vs unprocessed documents) and performance (lookup cache modes, view access patterns, Guirard book layer: formulas ch.4, views ch.6, code ch.7).",
           "If the check reveals a mismatch, fix the code; otherwise confirm the verification briefly in the final answer.",
         ].join(" "),
       },

@@ -18,6 +18,7 @@ import { computeScorecard } from "../slices/scorecard/index.js";
 
 export interface StateInsightsDeps {
   getConfig(): ModularConfig;
+  getKbConsulted(): boolean;
   isManifestSynced(root: string): boolean;
   renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
   setLatestScorecard(sc: AgentScorecard | undefined): void;
@@ -53,15 +54,18 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       manifestSynced?: boolean;
     }
   ): AgentScorecard {
+    const cfg = config();
     return computeScorecard({
       agent: path.basename(root),
-      maxProcedureLines: config().maxProcedureLines,
+      maxProcedureLines: cfg.maxProcedureLines,
       lint: opts.lint,
       lsp: opts.lsp,
-      lspEnabled: config().enableLsp,
-      enforceCzechComments: config().enforceCzechComments,
+      lspEnabled: cfg.enableLsp,
+      enforceCzechComments: cfg.enforceCzechComments,
       manifestSynced: opts.manifestSynced ?? deps.isManifestSynced(root),
       artifact: opts.artifact,
+      kbExpected: cfg.enforceKbPrompt || cfg.enforceKbGate || cfg.verifyKbBeforeSettle,
+      kbConsulted: deps.getKbConsulted(),
     });
   }
 

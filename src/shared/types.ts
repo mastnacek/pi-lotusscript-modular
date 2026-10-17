@@ -133,6 +133,10 @@ export interface ScorecardInput {
   enforceCzechComments: boolean;
   manifestSynced: boolean;
   artifact: "written" | "pending";
+  /** KB verification is part of the DoD only when at least one KB enforcement toggle is on. */
+  kbExpected: boolean;
+  /** Any kb_search on the lotus-notes collection ran this session. */
+  kbConsulted: boolean;
 }
 
 export interface ProcedureLintItem {

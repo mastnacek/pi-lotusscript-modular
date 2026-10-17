@@ -44,13 +44,15 @@ export async function phase7(): Promise<void> {
     enforceCzechComments: true,
     manifestSynced: false,
     artifact: "pending",
+    kbExpected: true,
+    kbConsulted: false,
   });
   const badOk =
     scBad.score === 0 &&
-    scBad.max === 8 &&
-    scBad.items.length === 5 &&
+    scBad.max === 10 &&
+    scBad.items.length === 6 &&
     scBad.items.find((i) => i.id === "artifact")?.pending === true;
-  console.log("29. Scorecard scores failing agent 0/8 with pending artifact:", badOk ? "PASS" : "FAIL");
+  console.log("29. Scorecard scores failing agent 0/10 with pending artifact:", badOk ? "PASS" : "FAIL");
   if (!badOk) throw new Error(`Unexpected failing scorecard: ${JSON.stringify(scBad)}`);
 
   // 30. computeScorecard on a clean agent + trend
@@ -69,10 +71,12 @@ export async function phase7(): Promise<void> {
     enforceCzechComments: true,
     manifestSynced: true,
     artifact: "written",
+    kbExpected: true,
+    kbConsulted: true,
   });
   const trend = trendLabel(scGood, scBad);
-  const goodOk = scGood.score === 10 && scGood.max === 10 && trend.startsWith("▲ +10");
-  console.log("30. Scorecard scores clean agent 10/10 and reports upward trend:", goodOk ? "PASS" : "FAIL");
+  const goodOk = scGood.score === 12 && scGood.max === 12 && trend.startsWith("▲ +12");
+  console.log("30. Scorecard scores clean agent 12/12 and reports upward trend:", goodOk ? "PASS" : "FAIL");
   if (!goodOk) throw new Error(`Unexpected clean scorecard/trend: ${JSON.stringify({ scGood, trend })}`);
 
   // 31. formatScorecard structure
@@ -83,7 +87,7 @@ export async function phase7(): Promise<void> {
     formattedBad.includes("(first compile)") &&
     formattedBad.includes("⬜") &&
     formattedBad.includes("Remaining:") &&
-    formattedGood.includes("▲ +10 since last compile");
+    formattedGood.includes("▲ +12 since last compile");
   console.log("31. formatScorecard emits header, pending icon, remaining list and trend:", formatOk ? "PASS" : "FAIL");
   if (!formatOk) throw new Error(`Unexpected scorecard formatting:\n${formattedBad}\n---\n${formattedGood}`);
 
@@ -94,7 +98,8 @@ export async function phase7(): Promise<void> {
     rubric.includes("HOW YOU'RE GRADED") &&
     rubric.includes("INSTANT FAILURE") &&
     rubric.includes(String(DEFAULT_CONFIG.maxProcedureLines)) &&
-    rubric.includes("never self-report");
+    rubric.includes("never self-report") &&
+    rubric.includes("kb_search");
   console.log("32. Grading rubric contains DoD, grading, instant-failure rules:", rubricOk ? "PASS" : "FAIL");
   if (!rubricOk) throw new Error(`Unexpected rubric:\n${rubric}`);
 

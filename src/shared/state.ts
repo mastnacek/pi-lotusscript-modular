@@ -155,6 +155,7 @@ export function createPluginState(): PluginState {
   // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
   const insights = createStateInsights({
     getConfig: () => config,
+    getKbConsulted: () => kbConsulted,
     isManifestSynced,
     renderStatusline,
     setLatestScorecard: (sc) => {

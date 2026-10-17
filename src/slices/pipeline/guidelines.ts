@@ -15,7 +15,14 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
 
   if (config.enforceKbPrompt) {
     guidelines.push(
-      "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 RULE: Before writing or editing LotusScript code, you MUST query the 'lotus-notes' MCP knowledge base collection via kb_search (mcp__knowledge_base: kb_search, collection='lotus-notes'). Do not guess API methods, properties, or constants. Notes 9.0.1 LotusScript rules are strict. The collection has three layers: the complete IBM Domino Designer 9.0.1 API reference (com.ibm.designer… doc_* files), the Guirard white paper 'Performance basics for IBM Lotus Notes developers' (kapitola-01..13: formulas ch.4, views ch.6, code ch.7), and ~850 community articles (Title_UNID.html). For compile errors search the exact error text; for performance questions query the book chapters." +
+      [
+        "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 KB PROTOCOL: Before writing or editing LotusScript / @formula code you MUST query the 'lotus-notes' MCP collection (mcp__knowledge_base → kb_search, collection='lotus-notes'). Never guess API members, constants, or runtime behaviour — Notes 9.0.1 rules are strict.",
+        "Query recipes by task (pick the layer matching the question):",
+        "- API signature / member / constant → query the exact member name (IBM Designer 9.0.1 reference, doc_* layer).",
+        "- Performance (lookups, view rebuilds, document loops, full-text search) → query the topic together with 'Guirard' (book layer: formulas ch.4, views ch.6, code ch.7).",
+        "- Compile/runtime error → query the exact error text (community articles layer).",
+        "Quality bar for every change: On Error handling at each entry point; explicit object state (Set ... = Nothing after use; processed vs unprocessed documents inside agents); @DbLookup/@DbColumn never default to NoCache without a stated reason; prefer view.GetAllDocumentsByKey over hand-rolled document loops.",
+      ].join(" ") +
         (config.enforceKbGate
           ? " This is ENFORCED: edit/write calls on .lss/.dxl files are rejected until kb_search has been called in this session."
           : "")

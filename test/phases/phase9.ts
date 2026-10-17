@@ -95,8 +95,15 @@ export async function phase9(): Promise<void> {
     "sub_Fine.lss": "' @script-member-of: CleanAgent\n' @procedure: Fine\n' Účel: Procedura splňující všechny položky Definition of Done.\nSub Fine()\n    Print \"ok\"\n    ' druhá řádka popisu\nEnd Sub\n",
   });
 
-  const { pi: cleanPi, handlers: cleanHandlers } = mockPi(["tool_result", "agent_settled", "before_agent_start"]);
+  const { pi: cleanPi, handlers: cleanHandlers } = mockPi(["tool_call", "tool_result", "agent_settled", "before_agent_start"]);
   lotusscriptModularExtension(cleanPi);
+
+  // A clean session consults the KB before editing (DoD 7) — the tool_call
+  // handler flips state.kbConsulted when any kb_search tool runs.
+  cleanHandlers["tool_call"]({
+    toolName: "mcp__knowledge_base__kb_search",
+    input: { collection: "lotus-notes", query: "NotesDocument Save" },
+  });
 
   await cleanHandlers["tool_result"]({
     toolName: "edit",
