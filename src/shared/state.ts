@@ -54,8 +54,10 @@ export interface PluginState {
   readonly recurringGotchaReported: Set<string>;
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
-  /** True once a knowledge-base search tool ran in the current run (settle verification). */
-  kbConsultedThisRun: boolean;
+  /** Queries sent to the knowledge base in the current run (plural KB verification). */
+  readonly kbQueriesThisRun: string[];
+  /** Record a kb_search query observed in tool_call. */
+  recordKbQuery(query: string): void;
   /** True once an edit/write succeeded on a .lss/.dxl source in the current run. */
   notesMutatedThisRun: boolean;
   /** One-shot latch: the settle verification turn was already injected for this run. */
@@ -121,7 +123,7 @@ export function createPluginState(): PluginState {
   const diagnosticHistory = new Map<string, string[][]>();
   const recurringGotchaReported = new Set<string>();
   let kbConsulted = false;
-  let kbConsultedThisRun = false;
+  const kbQueriesThisRun: string[] = [];
   let notesMutatedThisRun = false;
   let settleKbNudgeSent = false;
   const telemetry = createTelemetry();
@@ -155,7 +157,7 @@ export function createPluginState(): PluginState {
   // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
   const insights = createStateInsights({
     getConfig: () => config,
-    getKbConsulted: () => kbConsulted,
+    getKbSearchCount: () => kbQueriesThisRun.length,
     isManifestSynced,
     renderStatusline,
     setLatestScorecard: (sc) => {
@@ -276,11 +278,9 @@ export function createPluginState(): PluginState {
     set kbConsulted(v: boolean) {
       kbConsulted = v;
     },
-    get kbConsultedThisRun() {
-      return kbConsultedThisRun;
-    },
-    set kbConsultedThisRun(v: boolean) {
-      kbConsultedThisRun = v;
+    kbQueriesThisRun,
+    recordKbQuery(query: string) {
+      kbQueriesThisRun.push(query);
     },
     get notesMutatedThisRun() {
       return notesMutatedThisRun;
@@ -295,7 +295,7 @@ export function createPluginState(): PluginState {
       settleKbNudgeSent = v;
     },
     beginRun() {
-      kbConsultedThisRun = false;
+      kbQueriesThisRun.length = 0;
       notesMutatedThisRun = false;
       settleKbNudgeSent = false;
     },

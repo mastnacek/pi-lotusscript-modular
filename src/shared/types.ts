@@ -24,6 +24,8 @@ export interface ModularConfig {
   enforceKbGate: boolean;
   /** Before the agent settles, require a lotus-notes KB query in any run that mutated .lss/.dxl sources (one-shot verification turn) */
   verifyKbBeforeSettle: boolean;
+  /** Minimum kb_search calls per run that touches LotusScript sources — one per KB layer (IBM reference, Guirard book, community/error text) */
+  minKbSearchesPerRun: number;
   /** Automatically inject top LotusScript gotchas into system prompt */
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */
@@ -135,8 +137,10 @@ export interface ScorecardInput {
   artifact: "written" | "pending";
   /** KB verification is part of the DoD only when at least one KB enforcement toggle is on. */
   kbExpected: boolean;
-  /** Any kb_search on the lotus-notes collection ran this session. */
-  kbConsulted: boolean;
+  /** kb_search calls on the lotus-notes collection observed in the current run. */
+  kbSearchCount: number;
+  /** Required kb_search calls per run (config.minKbSearchesPerRun). */
+  minKbSearches: number;
 }
 
 export interface ProcedureLintItem {

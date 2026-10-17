@@ -29,6 +29,7 @@ export const STRINGS_EN: Strings = {
     kbPrompt: "Enforce lotus-notes KB prompt",
     kbGate: "Enforce lotus-notes KB hard gate",
     kbSettle: "Verify KB before settle",
+    kbMin: "Min KB searches per run",
     gotchaCapture: "Enforce gotcha recording",
     gotchasSummary: "Inject gotchas summary",
     timestamp: "Keep timestamp in name",
@@ -274,9 +275,12 @@ export const STRINGS_EN: Strings = {
       off: "Off — only remind via the prompt, never block",
     },
     verifyKbBeforeSettle: {
-      description: "Require a lotus-notes KB query before the agent settles after mutating .lss/.dxl sources",
-      on: "On — inject one verification turn when a run mutated LotusScript sources without kb_search",
+      description: "Require lotus-notes KB queries before the agent settles after mutating .lss/.dxl sources",
+      on: "On — inject one verification turn when a run mutated LotusScript sources without enough kb_search calls",
       off: "Off — no settle-time verification",
+    },
+    minKbSearchesPerRun: {
+      description: "Minimum kb_search calls per run touching LotusScript sources — one per KB layer (IBM reference, Guirard book, community) (default: 3)",
     },
     injectGotchasSummary: {
       description: "Inject an overview of key LotusScript Gotchas into the context",

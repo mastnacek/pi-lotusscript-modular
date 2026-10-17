@@ -93,7 +93,7 @@ injected as a feedback signal.
 4. `manifest.json` compilationOrder matches the files on disk.
 5. The final artifact is written: original `.lss` overwritten, or `<Agent>.lss` created for `.dxl`.
 6. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
-7. The `lotus-notes` knowledge base was consulted (`kb_search`) for the APIs, patterns and performance choices used.
+7. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
 
 Scorecard is attached to every recompile result:
 
@@ -104,7 +104,7 @@ Scorecard is attached to every recompile result:
   ❌ LSP diagnostics (2 errors)
   ✅ manifest.json in sync
   ⬜ final artifact written
-  ✅ lotus-notes KB consulted
+  ✅ lotus-notes KB consulted (3/3)
   Remaining:
     - LSP diagnostics (2 errors): <first lines of the diagnostic output>
 ```
@@ -133,9 +133,11 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
 2b. **Proactive KB verification:** the `before_agent_start` guideline is a
    task→layer query protocol (API member → IBM reference; performance →
    Guirard chapters; error → exact text) plus a quality bar (On Error
-   coverage, object state, NoCache discipline). The main.lss read banner
-   derives concrete `kb_search` suggestions from the agent's own `Notes*`
-   declarations, and the scorecard grades KB consultation as DoD item 7.
+   coverage, object state, NoCache discipline). KB calls are plural by rule:
+   at least `minKbSearchesPerRun` (default 3) per run, one per layer. The
+   main.lss read banner derives concrete `kb_search` suggestions from the
+   agent's own `Notes*` declarations, and the scorecard grades the per-run
+   query count as DoD item 7 (`(1/3)` progress label).
 2b. **Monolith read guard:** dumping the original `.lss` / `.dxl` through
    `bash`, `ctx_execute`, `ctx_batch_execute` or any other content-read tool is
    blocked. Read the modular files instead; the guard resolves `cd <dir>` and
@@ -149,11 +151,13 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
    the user to approve it — the model is not trusted to notice its own repeats.
    Toggle: `autoDraftRecurringGotchas`.
 5. **Verify-before-done (`agent_before_settle`):** when a run mutated any
-   `.lss`/`.dxl` source without a single `kb_search` on the `lotus-notes`
-   collection, the harness injects exactly one verification turn
-   (`continue: true` + a hidden `custom_message` ordering the KB check) instead
-   of letting the agent settle. One-shot per run; per-run flags reset at
-   `before_agent_start`. Toggle: `verifyKbBeforeSettle`.
+   `.lss`/`.dxl` source with fewer than `minKbSearchesPerRun` `kb_search`
+   calls on the `lotus-notes` collection, the harness injects exactly one
+   verification turn (`continue: true` + a hidden `custom_message` reporting
+   the 1/3 progress and the layers still to cover) instead of letting the
+   agent settle. One-shot per run; per-run flags reset at
+   `before_agent_start`. Toggles: `verifyKbBeforeSettle`,
+   `minKbSearchesPerRun`.
 
 The loop is closed: **evaluate → detect gap → harness drafts gotcha → user
 approves → stored in `gotchas.md` → surfaced pre-flight next session.**

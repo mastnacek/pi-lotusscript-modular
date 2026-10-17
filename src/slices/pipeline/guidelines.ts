@@ -17,7 +17,7 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
     guidelines.push(
       [
         "MANDATORY LOTUSSCRIPT / NOTES 9.0.1 KB PROTOCOL: Before writing or editing LotusScript / @formula code you MUST query the 'lotus-notes' MCP collection (mcp__knowledge_base → kb_search, collection='lotus-notes'). Never guess API members, constants, or runtime behaviour — Notes 9.0.1 rules are strict.",
-        "Query recipes by task (pick the layer matching the question):",
+        `Always run at least ${config.minKbSearchesPerRun} kb_search calls per task, balanced across the layers — pick the layer matching each question:`,
         "- API signature / member / constant → query the exact member name (IBM Designer 9.0.1 reference, doc_* layer).",
         "- Performance (lookups, view rebuilds, document loops, full-text search) → query the topic together with 'Guirard' (book layer: formulas ch.4, views ch.6, code ch.7).",
         "- Compile/runtime error → query the exact error text (community articles layer).",

@@ -18,7 +18,7 @@ import { computeScorecard } from "../slices/scorecard/index.js";
 
 export interface StateInsightsDeps {
   getConfig(): ModularConfig;
-  getKbConsulted(): boolean;
+  getKbSearchCount(): number;
   isManifestSynced(root: string): boolean;
   renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
   setLatestScorecard(sc: AgentScorecard | undefined): void;
@@ -65,7 +65,8 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       manifestSynced: opts.manifestSynced ?? deps.isManifestSynced(root),
       artifact: opts.artifact,
       kbExpected: cfg.enforceKbPrompt || cfg.enforceKbGate || cfg.verifyKbBeforeSettle,
-      kbConsulted: deps.getKbConsulted(),
+      kbSearchCount: deps.getKbSearchCount(),
+      minKbSearches: cfg.minKbSearchesPerRun,
     });
   }
 

@@ -106,15 +106,17 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
 
   // DoD 7 — KB verification. Scored only when a KB enforcement toggle is on;
   // a user who disabled all KB machinery is not punished for skipping it.
+  // Plural by design: one call per KB layer (reference / book / community).
   if (input.kbExpected) {
     items.push({
       id: "kb-consulted",
-      label: "lotus-notes KB consulted",
-      ok: input.kbConsulted,
+      label: `lotus-notes KB consulted (${Math.min(input.kbSearchCount, input.minKbSearches)}/${input.minKbSearches})`,
+      ok: input.kbSearchCount >= input.minKbSearches,
       weight: 2,
-      detail: input.kbConsulted
-        ? undefined
-        : "run kb_search on the APIs / patterns / performance choices used",
+      detail:
+        input.kbSearchCount >= input.minKbSearches
+          ? undefined
+          : "run kb_search once per layer: IBM API reference, Guirard book (performance), community/error text",
     });
   }
 
@@ -172,7 +174,7 @@ export function buildGradingRubric(config: ModularConfig): string {
 
   const kbExpected = config.enforceKbPrompt || config.enforceKbGate || config.verifyKbBeforeSettle;
   const kbRule = kbExpected
-    ? "7. The lotus-notes knowledge base was consulted (kb_search) for the APIs, patterns and performance choices used."
+    ? `7. The lotus-notes knowledge base was consulted at least ${config.minKbSearchesPerRun}× per run (kb_search) — once per layer: IBM API reference, Guirard book, community/error text.`
     : "7. (KB verification is disabled by config.)";
 
   const lspRule = config.enableLsp

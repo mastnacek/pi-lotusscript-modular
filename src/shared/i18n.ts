@@ -53,6 +53,7 @@ export interface Strings {
     kbPrompt: string;
     kbGate: string;
     kbSettle: string;
+    kbMin: string;
     gotchaCapture: string;
     gotchasSummary: string;
     timestamp: string;

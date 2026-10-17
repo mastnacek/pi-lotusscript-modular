@@ -45,7 +45,8 @@ export async function phase7(): Promise<void> {
     manifestSynced: false,
     artifact: "pending",
     kbExpected: true,
-    kbConsulted: false,
+    kbSearchCount: 0,
+    minKbSearches: 3,
   });
   const badOk =
     scBad.score === 0 &&
@@ -72,7 +73,8 @@ export async function phase7(): Promise<void> {
     manifestSynced: true,
     artifact: "written",
     kbExpected: true,
-    kbConsulted: true,
+    kbSearchCount: 3,
+    minKbSearches: 3,
   });
   const trend = trendLabel(scGood, scBad);
   const goodOk = scGood.score === 12 && scGood.max === 12 && trend.startsWith("▲ +12");

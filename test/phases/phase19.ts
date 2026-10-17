@@ -26,24 +26,26 @@ function baseInput(): ScorecardInput {
     manifestSynced: true,
     artifact: "written",
     kbExpected: true,
-    kbConsulted: true,
+    kbSearchCount: 3,
+    minKbSearches: 3,
   };
 }
 
 export async function phase19(): Promise<void> {
-  // --- 93: the KB DoD item scores consultation deterministically ---
+  // --- 93: the KB DoD item scores plural consultation deterministically ---
   const consulted = computeScorecard(baseInput());
-  const unconsulted = computeScorecard({ ...baseInput(), kbConsulted: false });
+  const partial = computeScorecard({ ...baseInput(), kbSearchCount: 1 });
   const excluded = computeScorecard({ ...baseInput(), kbExpected: false });
   const kbItem = (sc: ReturnType<typeof computeScorecard>) =>
     sc.items.find((i) => i.id === "kb-consulted");
   report(
     "93",
-    "scorecard grades KB consultation (+2 when consulted, fails when not, omitted when KB enforcement is off)",
+    "scorecard grades plural KB consultation (3/3 ok, 1/3 fails with progress label, omitted when KB enforcement is off)",
     kbItem(consulted)?.ok === true &&
       consulted.score === consulted.max &&
-      kbItem(unconsulted)?.ok === false &&
-      unconsulted.score === unconsulted.max - 2 &&
+      kbItem(partial)?.ok === false &&
+      kbItem(partial)?.label === "lotus-notes KB consulted (1/3)" &&
+      partial.score === partial.max - 2 &&
       kbItem(excluded) === undefined &&
       excluded.score === excluded.max
   );

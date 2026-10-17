@@ -29,6 +29,7 @@ export const STRINGS_CS: Strings = {
     kbPrompt: "Vynucovat lotus-notes KB prompt",
     kbGate: "Vynucovat tvrdou lotus-notes KB bránu",
     kbSettle: "Ověřit KB před ukončením běhu",
+    kbMin: "Min. počet KB dotazů za běh",
     gotchaCapture: "Vynucovat zápis gotchas",
     gotchasSummary: "Vkládat gotchas souhrn",
     timestamp: "Zachovat timestamp v názvu",
@@ -275,9 +276,12 @@ export const STRINGS_CS: Strings = {
       off: "Vypnuto — pouze připomínat v promptu, neblokovat",
     },
     verifyKbBeforeSettle: {
-      description: "Před ukončením běhu vyžadovat dotaz do lotus-notes KB, pokud běh měnil .lss/.dxl zdroje",
-      on: "Zapnuto — vložit jedno ověřovací kolo, když běh změnil LotusScript zdroje bez kb_search",
+      description: "Před ukončením běhu vyžadovat dotazy do lotus-notes KB, pokud běh měnil .lss/.dxl zdroje",
+      on: "Zapnuto — vložit jedno ověřovací kolo, když běh změnil LotusScript zdroje bez dostatečného počtu kb_search",
       off: "Vypnuto — bez ověření před ukončením",
+    },
+    minKbSearchesPerRun: {
+      description: "Minimální počet kb_search dotazů za běh, který se dotýká LotusScript zdrojů — jeden za každou KB vrstvu (IBM reference, Guirard kniha, community) (výchozí: 3)",
     },
     injectGotchasSummary: {
       description: "Vkládat přehled klíčových LotusScript Gotchas do kontextu",

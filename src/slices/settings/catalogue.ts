@@ -21,6 +21,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "enforceKbPrompt", kind: "boolean" },
   { key: "enforceKbGate", kind: "boolean" },
   { key: "verifyKbBeforeSettle", kind: "boolean" },
+  { key: "minKbSearchesPerRun", kind: "number" },
   { key: "injectGotchasSummary", kind: "boolean" },
   { key: "enforceGotchaCapture", kind: "boolean" },
   { key: "keepTimestampInCompiledName", kind: "boolean" },

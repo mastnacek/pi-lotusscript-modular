@@ -44,6 +44,7 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
     `- ${t.kbPrompt}: ${flag(config.enforceKbPrompt)}`,
     `- ${t.kbGate}: ${flag(config.enforceKbGate)}`,
     `- ${t.kbSettle}: ${flag(config.verifyKbBeforeSettle)}`,
+    `- ${t.kbMin}: ${config.minKbSearchesPerRun}`,
     `- ${t.gotchaCapture}: ${flag(config.enforceGotchaCapture)}`,
     `- ${t.gotchasSummary}: ${flag(config.injectGotchasSummary)}`,
     `- ${t.timestamp}: ${flag(config.keepTimestampInCompiledName)}`,

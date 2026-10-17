@@ -39,12 +39,25 @@ export async function phase18(): Promise<void> {
   const r1b = handleAgentBeforeSettle(s1);
   report("90", "the nudge is one-shot per run (settleKbNudgeSent latch)", r1b === undefined);
 
-  // --- 91: KB consulted, nothing mutated, or setting off → settle untouched ---
+  // --- 91: KB satisfied (≥ min queries), nothing mutated, or setting off → settle untouched ---
   const s2 = createPluginState();
   s2.beginRun();
   s2.notesMutatedThisRun = true;
-  s2.kbConsultedThisRun = true;
+  s2.recordKbQuery("NotesDocument Save");
+  s2.recordKbQuery("Guirard view performance");
+  s2.recordKbQuery("type mismatch error");
   const kbOk = handleAgentBeforeSettle(s2) === undefined;
+
+  // ...but below the per-run minimum the nudge still fires, reporting progress
+  const s2b = createPluginState();
+  s2b.beginRun();
+  s2b.notesMutatedThisRun = true;
+  s2b.recordKbQuery("NotesDocument Save");
+  const partial = handleAgentBeforeSettle(s2b);
+  const partialContent = typeof partial?.entries?.[0] === "object" && "content" in partial.entries[0]
+    ? String((partial.entries[0] as { content: unknown }).content)
+    : "";
+  const partialOk = partial?.continue === true && partialContent.includes("1/3");
 
   const s3 = createPluginState();
   s3.beginRun();
@@ -57,16 +70,17 @@ export async function phase18(): Promise<void> {
   const disabledOk = handleAgentBeforeSettle(s4) === undefined;
   report(
     "91",
-    "no nudge when KB was consulted in the run, nothing mutated, or verifyKbBeforeSettle is off",
-    kbOk && noMutationOk && disabledOk
+    "no nudge when the run made ≥3 KB queries, nothing mutated, or verifyKbBeforeSettle is off; below-minimum runs get a progress-aware nudge",
+    kbOk && partialOk && noMutationOk && disabledOk
   );
 
   // --- 92: beginRun() re-arms the gate for the next run ---
   s1.beginRun();
+  // Read through join() so TS literal narrowing on the earlier assignments
+  // cannot flag the expected reset values as impossible comparisons.
   const flagsReset =
-    s1.kbConsultedThisRun === false &&
-    s1.notesMutatedThisRun === false &&
-    s1.settleKbNudgeSent === false;
+    [s1.kbQueriesThisRun.length, s1.notesMutatedThisRun, s1.settleKbNudgeSent].join(",") ===
+    "0,false,false";
   s1.notesMutatedThisRun = true;
   const r2 = handleAgentBeforeSettle(s1);
   report(

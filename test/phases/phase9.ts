@@ -99,11 +99,19 @@ export async function phase9(): Promise<void> {
   lotusscriptModularExtension(cleanPi);
 
   // A clean session consults the KB before editing (DoD 7) — the tool_call
-  // handler flips state.kbConsulted when any kb_search tool runs.
-  cleanHandlers["tool_call"]({
-    toolName: "mcp__knowledge_base__kb_search",
-    input: { collection: "lotus-notes", query: "NotesDocument Save" },
-  });
+  // handler records every kb_search query; the scorecard requires 3 per run
+  // (minKbSearchesPerRun), one per KB layer.
+  const kbQueries = [
+    "NotesDocument Save", // IBM API reference layer
+    "Guirard document loop performance", // book layer
+    "NotesSession community best practice", // community layer
+  ];
+  for (const query of kbQueries) {
+    cleanHandlers["tool_call"]({
+      toolName: "mcp__knowledge_base__kb_search",
+      input: { collection: "lotus-notes", query },
+    });
+  }
 
   await cleanHandlers["tool_result"]({
     toolName: "edit",

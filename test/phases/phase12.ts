@@ -152,7 +152,8 @@ function buildCleanScorecard(lsp: any = null) {
     manifestSynced: true,
     artifact: "written",
     kbExpected: false,
-    kbConsulted: false,
+    kbSearchCount: 0,
+    minKbSearches: 3,
   });
 }
 
@@ -213,7 +214,8 @@ export async function phase12b(fixture: GuardFixture): Promise<void> {
     manifestSynced: true,
     artifact: "written",
     kbExpected: false,
-    kbConsulted: false,
+    kbSearchCount: 0,
+    minKbSearches: 3,
   });
   const scHarness = computeScorecard({
     agent: "ScoreAgent",
@@ -230,7 +232,8 @@ export async function phase12b(fixture: GuardFixture): Promise<void> {
     manifestSynced: true,
     artifact: "written",
     kbExpected: false,
-    kbConsulted: false,
+    kbSearchCount: 0,
+    minKbSearches: 3,
   });
   const lspItemUnmeasured = scNoLsp.items.find((i) => i.id === "lsp-clean");
   const lspItemHarness = scHarness.items.find((i) => i.id === "lsp-clean");

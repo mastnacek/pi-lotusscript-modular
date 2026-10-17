@@ -23,7 +23,8 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: P
   // for the rest of the session (recorded before any early return below).
   if (/kb_search|knowledge_base/i.test(rawName) || /kb_search|knowledge_base/i.test(base)) {
     state.kbConsulted = true;
-    state.kbConsultedThisRun = true;
+    const kbInput = event.input as Record<string, unknown> | undefined;
+    state.recordKbQuery(typeof kbInput?.query === "string" ? kbInput.query : "");
     state.telemetry.kbSearches++;
   }
 
