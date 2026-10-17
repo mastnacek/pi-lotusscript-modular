@@ -72,6 +72,11 @@ async function handleEditToolResult(
   if (!targetPath) return undefined;
 
   const resolved = path.resolve(targetPath);
+  // Settle-time KB verification tracks every .lss/.dxl mutation — inside a
+  // modular root or outside it (the outside-root advisory fires below).
+  if (/\.(lss|dxl)$/i.test(resolved) && !/_compiled\.lss$/i.test(resolved)) {
+    state.notesMutatedThisRun = true;
+  }
   const modularRoot = paths.findModularRoot(resolved);
   if (!modularRoot) {
     return outsideRootAdvisory(state, event, resolved);

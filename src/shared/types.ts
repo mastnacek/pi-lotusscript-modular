@@ -22,6 +22,8 @@ export interface ModularConfig {
   enforceKbPrompt: boolean;
   /** HARD GATE: reject edit/write of .lss/.dxl until kb_search on 'lotus-notes' was called this session */
   enforceKbGate: boolean;
+  /** Before the agent settles, require a lotus-notes KB query in any run that mutated .lss/.dxl sources (one-shot verification turn) */
+  verifyKbBeforeSettle: boolean;
   /** Automatically inject top LotusScript gotchas into system prompt */
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */
@@ -52,6 +54,7 @@ export type HookName =
   | "session_start"
   | "turn_end"
   | "agent_settled"
+  | "agent_before_settle"
   | "before_agent_start"
   | "tool_call"
   | "tool_result";
@@ -73,6 +76,8 @@ export interface HookTelemetry {
   
   /** Edit/write calls blocked until a KB query runs (enforceKbGate). */
   kbGateBlocks: number;
+  /** agent_before_settle verification turns injected (mutated .lss/.dxl without a KB query in the run). */
+  kbSettleNudges: number;
   /** Monolith dump attempts blocked in shell-like tools. */
   dumpBlocks: number;
   /** Edits of protected files (main.lss / manifest.json / *_compiled.lss) blocked. */

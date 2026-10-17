@@ -52,6 +52,7 @@ export interface Strings {
     autoRecompile: string;
     kbPrompt: string;
     kbGate: string;
+    kbSettle: string;
     gotchaCapture: string;
     gotchasSummary: string;
     timestamp: string;
@@ -202,7 +203,7 @@ export interface Strings {
   telemetry: {
     hooks: (total: number, calls: number, results: number, settled: number) => string;
     reads: (redirected: number, modular: number, kb: number) => string;
-    gates: (kb: number, dumps: number, protectedB: number, compiles: number) => string;
+    gates: (kb: number, dumps: number, protectedB: number, compiles: number, kbNudges: number) => string;
     codeNone: string;
     code: (procs: number, longest: number | null, max: number) => string;
     suffix: (code: string, lsp: string) => string;

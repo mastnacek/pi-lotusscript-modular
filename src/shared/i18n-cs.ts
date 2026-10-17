@@ -28,6 +28,7 @@ export const STRINGS_CS: Strings = {
     autoRecompile: "Auto-rekompilace při uložení",
     kbPrompt: "Vynucovat lotus-notes KB prompt",
     kbGate: "Vynucovat tvrdou lotus-notes KB bránu",
+    kbSettle: "Ověřit KB před ukončením běhu",
     gotchaCapture: "Vynucovat zápis gotchas",
     gotchasSummary: "Vkládat gotchas souhrn",
     timestamp: "Zachovat timestamp v názvu",
@@ -188,8 +189,8 @@ export const STRINGS_CS: Strings = {
       `🪷 LS haky ${total}: volání ${calls} · výsledky ${results} · dokončení ${settled}`,
     reads: (redirected, modular, kb) =>
       `   čtení: monolit→modul ${redirected} · modulární ${modular} · KB ${kb}`,
-    gates: (kb, dumps, protectedB, compiles) =>
-      `   brány: KB ${kb} · monolit ${dumps} · chráněné ${protectedB} · kompilace ${compiles}`,
+    gates: (kb, dumps, protectedB, compiles, kbNudges) =>
+      `   brány: KB ${kb} · monolit ${dumps} · chráněné ${protectedB} · kompilace ${compiles} · settle-nudges ${kbNudges}`,
     codeNone: "kód: zatím žádná kompilace",
     code: (procs, longest, max) => `kód: ${procs} proc. · nejdelší ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
@@ -272,6 +273,11 @@ export const STRINGS_CS: Strings = {
       description: "Tvrdě blokovat úpravy .lss/.dxl, dokud se v této session neproběhne dotaz do lotus-notes znalostní báze",
       on: "Zapnuto — zamítat úpravy, dokud neproběhne kb_search",
       off: "Vypnuto — pouze připomínat v promptu, neblokovat",
+    },
+    verifyKbBeforeSettle: {
+      description: "Před ukončením běhu vyžadovat dotaz do lotus-notes KB, pokud běh měnil .lss/.dxl zdroje",
+      on: "Zapnuto — vložit jedno ověřovací kolo, když běh změnil LotusScript zdroje bez kb_search",
+      off: "Vypnuto — bez ověření před ukončením",
     },
     injectGotchasSummary: {
       description: "Vkládat přehled klíčových LotusScript Gotchas do kontextu",

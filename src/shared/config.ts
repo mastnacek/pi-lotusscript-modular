@@ -14,6 +14,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   cleanupOnSettled: true,
   enforceKbPrompt: true,
   enforceKbGate: true,
+  verifyKbBeforeSettle: true,
   injectGotchasSummary: true,
   enforceGotchaCapture: true,
   checkProcedureLimits: true,

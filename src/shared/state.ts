@@ -54,6 +54,14 @@ export interface PluginState {
   readonly recurringGotchaReported: Set<string>;
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
+  /** True once a knowledge-base search tool ran in the current run (settle verification). */
+  kbConsultedThisRun: boolean;
+  /** True once an edit/write succeeded on a .lss/.dxl source in the current run. */
+  notesMutatedThisRun: boolean;
+  /** One-shot latch: the settle verification turn was already injected for this run. */
+  settleKbNudgeSent: boolean;
+  /** Reset per-run flags at before_agent_start. */
+  beginRun(): void;
   /** Live session counters for the in-TUI telemetry panel. */
   readonly telemetry: HookTelemetry;
 
@@ -113,6 +121,9 @@ export function createPluginState(): PluginState {
   const diagnosticHistory = new Map<string, string[][]>();
   const recurringGotchaReported = new Set<string>();
   let kbConsulted = false;
+  let kbConsultedThisRun = false;
+  let notesMutatedThisRun = false;
+  let settleKbNudgeSent = false;
   const telemetry = createTelemetry();
 
   /** Cheap content signature used to avoid re-prompting for unchanged files. */
@@ -263,6 +274,29 @@ export function createPluginState(): PluginState {
     },
     set kbConsulted(v: boolean) {
       kbConsulted = v;
+    },
+    get kbConsultedThisRun() {
+      return kbConsultedThisRun;
+    },
+    set kbConsultedThisRun(v: boolean) {
+      kbConsultedThisRun = v;
+    },
+    get notesMutatedThisRun() {
+      return notesMutatedThisRun;
+    },
+    set notesMutatedThisRun(v: boolean) {
+      notesMutatedThisRun = v;
+    },
+    get settleKbNudgeSent() {
+      return settleKbNudgeSent;
+    },
+    set settleKbNudgeSent(v: boolean) {
+      settleKbNudgeSent = v;
+    },
+    beginRun() {
+      kbConsultedThisRun = false;
+      notesMutatedThisRun = false;
+      settleKbNudgeSent = false;
     },
     telemetry,
     procedureSignature,

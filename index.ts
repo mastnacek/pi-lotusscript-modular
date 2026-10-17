@@ -22,6 +22,7 @@ import type {
 import { createPluginState } from "./src/shared/state.js";
 import {
   handleAgentSettled,
+  handleAgentBeforeSettle,
   buildPromptGuidelines,
   handleToolCall,
   handleToolResult,
@@ -162,9 +163,17 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
   }));
 
+  // Verify-before-done: one KB verification turn when a run mutated
+  // .lss/.dxl sources without any kb_search (see slices/pipeline/before-settle).
+  track(pi.on("agent_before_settle", () => {
+    state.countHook("agent_before_settle");
+    return handleAgentBeforeSettle(state);
+  }));
+
   // Prompt injection: debrief handoff + enforce KB query + inject gotchas reminder
   track(pi.on("before_agent_start", async (event, _ctx: ExtensionContext) => {
     state.countHook("before_agent_start");
+    state.beginRun(); // per-run flags: KB consult / mutation / settle nudge
     const pendingDebrief = state.pendingDebriefs.length > 0 ? state.pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) state.pendingDebriefs.length = 0;
     const debriefMessage = pendingDebrief

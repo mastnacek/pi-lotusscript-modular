@@ -20,6 +20,7 @@ import { phase14 } from "./phases/phase14.js";
 import { phase15 } from "./phases/phase15.js";
 import { phase16 } from "./phases/phase16.js";
 import { phase17 } from "./phases/phase17.js";
+import { phase18 } from "./phases/phase18.js";
 
 async function runTest(): Promise<void> {
   console.log("=== Testing LotusScript Modular Standalone Package (VSA Layout) ===");
@@ -46,6 +47,7 @@ async function runTest(): Promise<void> {
   await phase15();
   await phase16();
   await phase17();
+  await phase18();
 
   // Cleanup
   cleanupTestDir();

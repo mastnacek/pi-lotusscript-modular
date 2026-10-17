@@ -28,6 +28,7 @@ export const STRINGS_EN: Strings = {
     autoRecompile: "Auto-recompile on save",
     kbPrompt: "Enforce lotus-notes KB prompt",
     kbGate: "Enforce lotus-notes KB hard gate",
+    kbSettle: "Verify KB before settle",
     gotchaCapture: "Enforce gotcha recording",
     gotchasSummary: "Inject gotchas summary",
     timestamp: "Keep timestamp in name",
@@ -188,8 +189,8 @@ export const STRINGS_EN: Strings = {
       `🪷 LS hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
     reads: (redirected, modular, kb) =>
       `   reads: monolith→modular ${redirected} · modular ${modular} · KB ${kb}`,
-    gates: (kb, dumps, protectedB, compiles) =>
-      `   gates: KB ${kb} · monolith ${dumps} · protected ${protectedB} · compiles ${compiles}`,
+    gates: (kb, dumps, protectedB, compiles, kbNudges) =>
+      `   gates: KB ${kb} · monolith ${dumps} · protected ${protectedB} · compiles ${compiles} · settle-nudges ${kbNudges}`,
     codeNone: "code: no compile yet",
     code: (procs, longest, max) => `code: ${procs} procs · longest ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
@@ -271,6 +272,11 @@ export const STRINGS_EN: Strings = {
       description: "Hard-block .lss/.dxl edits until the lotus-notes knowledge base is queried this session",
       on: "On — reject edits until kb_search has run",
       off: "Off — only remind via the prompt, never block",
+    },
+    verifyKbBeforeSettle: {
+      description: "Require a lotus-notes KB query before the agent settles after mutating .lss/.dxl sources",
+      on: "On — inject one verification turn when a run mutated LotusScript sources without kb_search",
+      off: "Off — no settle-time verification",
     },
     injectGotchasSummary: {
       description: "Inject an overview of key LotusScript Gotchas into the context",

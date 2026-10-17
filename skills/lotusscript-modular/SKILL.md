@@ -140,6 +140,12 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
    signature appears in two compile cycles, the harness drafts a gotcha and asks
    the user to approve it — the model is not trusted to notice its own repeats.
    Toggle: `autoDraftRecurringGotchas`.
+5. **Verify-before-done (`agent_before_settle`):** when a run mutated any
+   `.lss`/`.dxl` source without a single `kb_search` on the `lotus-notes`
+   collection, the harness injects exactly one verification turn
+   (`continue: true` + a hidden `custom_message` ordering the KB check) instead
+   of letting the agent settle. One-shot per run; per-run flags reset at
+   `before_agent_start`. Toggle: `verifyKbBeforeSettle`.
 
 The loop is closed: **evaluate → detect gap → harness drafts gotcha → user
 approves → stored in `gotchas.md` → surfaced pre-flight next session.**
@@ -150,7 +156,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | --- | --- |
 | Composition root (pure wiring) | `index.ts` |
 | Decompile/compile/manifest (decompile-lss, decompile-dxl, sync-manifest, compile-agent) | `src/slices/parser/` |
-| Event translation (tool_call/tool_result/settled) | `src/slices/pipeline/` |
+| Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
 | Instant-failure guards (protected files, monolith dump) | `src/slices/guards/` |
 | `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
 | Model tools (compile/decompile/gotchas/scaffold) | `src/slices/tools/` |
