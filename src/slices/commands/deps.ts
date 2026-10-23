@@ -11,7 +11,7 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FolderLintResult,
+  FileLintResult,
   GotchaItem,
   GotchaReviewResult,
   LspCheckResult,
@@ -33,13 +33,6 @@ export interface SettingCopyLite {
   description: string;
   on?: string;
   off?: string;
-}
-
-export interface CompileOptionsLite {
-  keepTimestamp?: boolean;
-  overwriteSourceLss?: boolean;
-  createLssForDxl?: boolean;
-  deleteModularDir?: boolean;
 }
 
 export interface ScaffoldOptionsLite {
@@ -73,12 +66,10 @@ export interface CommandsDeps {
     body: string,
     strings?: Strings
   ): Promise<GotchaReviewResult>;
-  // parser slice
-  compileAgent(targetDirOrFile: string, options?: CompileOptionsLite): string;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
   // linter slice
-  lintModularFolder(folderPath: string, maxLines?: number, checkComments?: boolean): FolderLintResult;
+  lintLotusScriptFile(filePath: string, maxLines?: number, checkComments?: boolean): FileLintResult;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   // scaffold slice

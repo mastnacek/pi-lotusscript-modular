@@ -15,8 +15,6 @@ export const STRINGS_CS: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Stav konfigurace]:",
     lspCheck: "LSP kontrola",
-    overwriteSource: "Přepisovat .lss zdroják",
-    cleanup: "Uklízet složku po dokončení",
     procLimits: "Kontrola limitů procedur",
     maxLines: "Max řádků na proceduru",
     czechComments: "Vynucovat české komentáře",
@@ -24,14 +22,13 @@ export const STRINGS_CS: Strings = {
     rubric: "Rubrika Definition of Done",
     preflight: "Předletová kontrola gotchas",
     autoDraft: "Auto-návrh gotchy z opakované chyby",
-    autoRecompile: "Auto-rekompilace při uložení",
+    autoCheck: "Auto-kontrola celého souboru po úpravě",
     kbPrompt: "Vynucovat lotus-notes KB prompt",
     kbGate: "Vynucovat tvrdou lotus-notes KB bránu",
     kbSettle: "Ověřit KB před ukončením běhu",
     kbMin: "Min. počet KB dotazů za běh",
     gotchaCapture: "Vynucovat zápis gotchas",
     gotchasSummary: "Vkládat gotchas souhrn",
-    timestamp: "Zachovat timestamp v názvu",
     langLabel: "Jazyk rozhraní",
     gotchasFile: "Centrální Gotchas soubor",
     configFile: "Konfigurační soubor",
@@ -40,8 +37,6 @@ export const STRINGS_CS: Strings = {
   set: {
     lspToggled: (on, isGlobal) =>
       `LSP kontrola syntaxe je nyní ${on ? "ZAPNUTA" : "VYPNUTA"} (uloženo ${isGlobal ? "globálně" : "do projektu"}).`,
-    overwriteToggled: (on, isGlobal) =>
-      `Přepisování původního .lss souboru je nyní ${on ? "ZAPNUTO" : "VYPNUTO"} (uloženo ${isGlobal ? "globálně" : "do projektu"}).`,
     savedKV: (isGlobal, key, value) =>
       `Uloženo (${isGlobal ? "globálně" : "do projektu"}): ${key} = ${value}`,
     currentValue: (key, value, description) => `${key} = ${value} (${description})`,
@@ -70,17 +65,12 @@ export const STRINGS_CS: Strings = {
     localeEn: "Angličtina",
   },
 
-  compile: {
-    notModular: (target) => `Není modulární složka LotusScriptu: ${target}`,
-    compiledClean: (name) => `Sestaveno ${name} (LSP čisté)`,
-    compiledLspErrors: (diagnostics) => `Sestaveno s LSP chybami:\n${diagnostics}`,
-    compiled: (p) => `Sestaveno: ${p}`,
-    compileError: (msg) => `Chyba kompilace: ${msg}`,
-    packedClean: (name) => `Sestaveno a uklizeno: ${name} (LSP čisté)`,
-    packedLspErrors: (diagnostics) => `Sestaveno s chybami LSP:\n${diagnostics}`,
-    packedDone: (p) => `Sestaveno do: ${p} a modulární složka byla smazána.`,
-    packError: (msg) => `Chyba při úklidu: ${msg}`,
-    fileNotFound: (p) => `Soubor nenalezen: ${p}`,
+  check: {
+    usage: (p) => `Použití: /ls check <soubor.lss>${p ? ` (soubor nenalezen: ${p})` : ""}`,
+    clean: (name) => `✓ ${name}: celý soubor zkontrolován, 0 chyb`,
+    errors: (diagnostics) => `⚠ Chyby překladače:
+${diagnostics}`,
+    lspDisabled: "LSP kontrola je vypnutá (/ls lsp on) — nebylo co ověřit.",
   },
 
   scaffoldCmd: {
@@ -162,12 +152,7 @@ export const STRINGS_CS: Strings = {
 
   settled: {
     score: (s, m) => ` [skóre: ${s}/${m}]`,
-    tailKept: (score) =>
-      `sestaven${score}. Modulární složka ponechána — zdrojový .lss se nepřepisuje.`,
-    tailDeleted: (score) => `sestaven${score} a dočasná složka smazána.`,
     done: (file, tail) => `🪷 [LotusScript Modular] Hotovo: ${file} ${tail}`,
-    retained: (n, names) =>
-      `🪷 [LotusScript Modular] Ponecháno ${n} složek s obsahem, který plugin nevytvořil: ${names}`,
   },
 
   recurring: {
@@ -185,16 +170,16 @@ export const STRINGS_CS: Strings = {
     hooks: (total, calls, results, settled) =>
       `🪷 LS haky ${total}: volání ${calls} · výsledky ${results} · dokončení ${settled}`,
     reads: (kb) => `   KB dotazy ${kb}`,
-    gates: (kb, protectedB, compiles, kbNudges) =>
-      `   brány: KB ${kb} · chráněné ${protectedB} · kompilace ${compiles} · settle-nudges ${kbNudges}`,
-    codeNone: "kód: zatím žádná kompilace",
+    gates: (kb, checks, kbNudges) =>
+      `   brány: KB ${kb} · kontroly ${checks} · settle-nudges ${kbNudges}`,
+    codeNone: "kód: zatím žádná kontrola",
     code: (procs, longest, max) => `kód: ${procs} proc. · nejdelší ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
   },
 
   statusline: {
-    compiling: (badge) => `🪷 LS${badge}: kompiluji...`,
-    clean: (badge) => `🪷 LS${badge}: sestaveno ✓`,
+    checking: (badge) => `🪷 LS${badge}: kontroluji...`,
+    clean: (badge) => `🪷 LS${badge}: zkontrolováno ✓`,
     error: (badge) => `🪷 LS${badge}: LSP chyba ⚠`,
   },
 
@@ -203,11 +188,9 @@ export const STRINGS_CS: Strings = {
     subGlobal: "Uložit následující nastavení globálně (~/.pi/agent/)",
     subScaffold: "Vytvořit kostru LotusScript kódu (agent, library)",
     subLsp: "Přepnout LotusScript LSP kontrolu: on | off",
-    subOverwrite: "Přepnout přepisování .lss souboru: on | off",
-    subCompile: "Sestavit modulární složku do _compiled.lss",
-    subPack: "Sestavit do .lss a smazat modulární složku",
+    subCheck: "Zkontrolovat celý .lss soubor překladačem 9.0.1",
     subLint: "Zkontrolovat délku procedur (max 300 řádků) a komentáře",
-    subScore: "Zobrazit scorecard a trend hodnocení agenta",
+    subScore: "Zobrazit scorecard a trend hodnocení souboru",
     subGotchas: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)",
     subConfig: "Zobrazit nebo změnit nastavení (get/set, legacy)",
     subHelp: "Zobrazit nápovědu příkazů",
@@ -215,8 +198,6 @@ export const STRINGS_CS: Strings = {
     configSet: "Uložit novou hodnotu nastavení",
     scaffoldAgent: "Samostatný LotusScript agent (.lss) s ošetřením chyb",
     scaffoldLibrary: "Knihovna skriptů (Script Library .lss)",
-    scaffoldProcedure: "Procedura (sub_ nebo func_) do modulární složky",
-    scaffoldModular: "Kompletní modulární složka (manifest, options, declarations, subs)",
     gotchasSummary: "Zobrazit souhrn klíčových chyb",
     gotchasAdd: "Přidat novou gotchu se schvalovacím dialogem",
     topicShell: "Shell jako název proměnné (vyhrazené slovo)",
@@ -239,24 +220,18 @@ export const STRINGS_CS: Strings = {
 
   settings: {
     enableLsp: {
-      description: "Spouštět LotusScript LSP kontrolu syntaxe po rekompilaci",
+      description: "Spouštět kontrolu celého .lss souboru překladačem 9.0.1",
       on: "Zapnuto — ověřovat syntaxi přes LotusScript LSP server",
       off: "Vypnuto — přeskočit kontrolu LSP",
     },
-    overwriteSourceLss: {
-      description:
-        "Při rekompilaci přepsat původní .lss soubor na disku (pro .dxl se ignoruje)",
-      on: "Zapnuto — synchronizovat zdrojový .lss soubor",
-      off: "Vypnuto — zapisovat pouze do modular/<Nazev>_compiled.lss; složka zůstane na disku",
-    },
-    autoRecompileOnSave: {
-      description: "Automaticky rekompilovat při editaci procedurálních .lss souborů",
-      on: "Zapnuto — při uložení sub_*.lss sestavit kód",
-      off: "Vypnuto — kompilovat pouze ručně přes /ls compile",
+    autoCheckOnEdit: {
+      description: "Po každé úpravě .lss automaticky zkontrolovat celý soubor překladačem 9.0.1",
+      on: "Zapnuto — po úpravě proběhne kontrola celého souboru (limit procedur, LSP, scorecard)",
+      off: "Vypnuto — kontrolovat jen ručně přes /ls check nebo lotusscript_check",
     },
     autoFormatOnSave: {
-      description: "Před rekompilací automaticky naformátovat editovaný modulární soubor přes LSP (jen ASCII soubory)",
-      on: "Zapnuto — LSP formátování proběhne při uložení před rekompilací",
+      description: "Před kontrolou automaticky naformátovat editovaný .lss přes LSP (jen ASCII soubory)",
+      on: "Zapnuto — LSP formátování proběhne při uložení před kontrolou",
       off: "Vypnuto — formátovat jen na výslovnou žádost (lsp_format)",
     },
     autoExplainLspCodes: {
@@ -291,17 +266,6 @@ export const STRINGS_CS: Strings = {
       description: "Vynucovat zaznamenávání nově objevených chyb a gotchas",
       on: "Zapnuto — připomínat povinnost uložit nový gotcha po vyřešení problému",
       off: "Vypnuto — nepovinné",
-    },
-    keepTimestampInCompiledName: {
-      description: "Vytvářet navíc soubory s časovou značkou (<Nazev>_<timestamp>_compiled.lss)",
-      on: "Zapnuto — ukládat timestamp kopie",
-      off: "Vypnuto — pouze stabilní <Nazev>_compiled.lss",
-    },
-    cleanupOnSettled: {
-      description:
-        "Po dokončení práce agenta sestavit výsledný .lss a smazat modulární složku",
-      on: "Zapnuto — automaticky uklidit a smazat modulární složku po dokončení úkolu",
-      off: "Vypnuto — ponechat modulární složku na disku",
     },
     checkProcedureLimits: {
       description: "Kontrolovat maximální délku procedur (sub/funkcí) a přítomnost komentářů",
@@ -354,11 +318,9 @@ export const STRINGS_CS: Strings = {
       "  /ls --global <nastavení> <hodn> — Uložit nastavení globálně (~/.pi/agent/)",
       "  /ls scaffold <typ> [název]      — Vytvořit kostru (agent, library)",
       "  /ls lsp [on|off]                — Zapnout/vypnout LSP kontrolu",
-      "  /ls overwrite [on|off]          — Zapnout/vypnout přepis .lss souboru",
-      "  /ls compile [složka]            — Ručně sestavit modulárního agenta",
-      "  /ls lint [složka]               — Zkontrolovat délku procedur a komentáře",
-      "  /ls score [složka]              — Zobrazit scorecard a trend agenta",
-      "  /ls pack [složka]               — Sestavit do .lss a smazat modulární složku",
+      "  /ls check <soubor.lss>          — Zkontrolovat celý .lss překladačem 9.0.1",
+      "  /ls lint <soubor.lss>           — Zkontrolovat délku procedur a komentáře",
+      "  /ls score <soubor.lss>          — Zobrazit scorecard a trend souboru",
       "  /ls gotchas [dotaz]             — Prohledat centrální bázi 40+ gotchas",
     ],
   },

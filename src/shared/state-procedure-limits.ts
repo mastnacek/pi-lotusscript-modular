@@ -2,13 +2,15 @@
  * Procedure line-limit gate — extracted from the PluginState kernel so
  * state.ts stays under the plugin's own per-file limit (self-dogfooded).
  * Interactive approval modal, exception memory and rejection signatures.
+ *
+ * Whole-file workflow: the gate lints every procedure inside ONE `.lss` file.
  */
 
 import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { FolderLintResult, ModularConfig } from "./types.js";
+import type { FileLintResult, ModularConfig } from "./types.js";
 import { stringsFor } from "./i18n.js";
-import { lintModularFolder, promptProcedureLineReview } from "../slices/linter/index.js";
+import { lintLotusScriptFile, promptProcedureLineReview } from "../slices/linter/index.js";
 
 export interface ProcedureLimitDeps {
   getConfig(): ModularConfig;
@@ -23,22 +25,23 @@ export type VerifyLimitsResult = {
   message?: string;
   splitInstructions?: string;
   warnings: string[];
-  lint: FolderLintResult;
+  lint: FileLintResult;
 };
 
 export interface ProcedureLimitGate {
-  verifyProcedureLimits(folder: string, ctx?: ExtensionContext): Promise<VerifyLimitsResult>;
+  verifyProcedureLimits(filePath: string, ctx?: ExtensionContext): Promise<VerifyLimitsResult>;
 }
 
 export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLimitGate {
   async function verifyProcedureLimits(
-    folder: string,
+    filePath: string,
     ctx?: ExtensionContext
   ): Promise<VerifyLimitsResult> {
     const config = deps.getConfig();
     const warnings: string[] = [];
-    const lint = lintModularFolder(
-      folder,
+    const resolvedFile = path.resolve(filePath);
+    const lint = lintLotusScriptFile(
+      resolvedFile,
       config.maxProcedureLines,
       config.enforceCzechComments
     );
@@ -46,7 +49,7 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
     if (config.enforceCzechComments) {
       for (const m of lint.missingCommentProcedures) {
         warnings.push(
-          `Procedure '${m.fileName}' lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
+          `Procedure '${m.procedureName}' (line ${m.startLine}) lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
         );
       }
     }
@@ -54,21 +57,20 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
     if (!config.checkProcedureLimits) return { ok: true, warnings, lint };
 
     for (const item of lint.exceededProcedures) {
-      const key = `${path.resolve(folder)}:${item.fileName}`;
+      const key = resolvedFile;
       if (deps.approvedLineExceptions.has(key)) continue;
 
-      const filePath = path.join(folder, item.fileName);
-      const signature = deps.procedureSignature(filePath);
+      const signature = deps.procedureSignature(resolvedFile);
 
       // Already rejected for this exact content revision — do NOT re-open the
       // modal (prevents modal spam / infinite prompting on every unrelated
-      // edit in the same folder). The AI still receives the split directive.
+      // edit of the same file). The AI still receives the split directive.
       if (deps.rejectedLineSignatures.get(key) === signature) {
         return {
           ok: false,
           warnings,
           lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user already rejected the exception for this revision. Split it into smaller subroutines/functions in 'sub_*.lss' or 'func_*.lss' files.`,
+          message: `Procedure '${item.procedureName}' (line ${item.startLine}) has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user already rejected the exception for this revision. Split it into smaller subroutines/functions inside the same .lss file.`,
         };
       }
 
@@ -78,7 +80,7 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
           ok: false,
           warnings,
           lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. Approving an exception requires an interactive UI, which is unavailable. Split the procedure into smaller subroutines/functions.`,
+          message: `Procedure '${item.procedureName}' (line ${item.startLine}) has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. Approving an exception requires an interactive UI, which is unavailable. Split the procedure into smaller subroutines/functions.`,
         };
       }
 
@@ -88,7 +90,7 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
         deps.approvedLineExceptions.add(key);
         deps.rejectedLineSignatures.delete(key);
         effectiveCtx.ui.notify(
-          stringsFor(config.lang).limits.exceptionApproved(item.fileName, item.lineCount),
+          stringsFor(config.lang).limits.exceptionApproved(item.procedureName, item.lineCount),
           "info"
         );
       } else if (review.action === "split_instructions") {
@@ -98,7 +100,7 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
           warnings,
           lint,
           splitInstructions: review.instructions,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines (limit ${item.maxLines}). The user rejected the exception and provided splitting instructions: "${review.instructions}"`,
+          message: `Procedure '${item.procedureName}' (line ${item.startLine}) has ${item.lineCount} lines (limit ${item.maxLines}). The user rejected the exception and provided splitting instructions: "${review.instructions}"`,
         };
       } else {
         deps.rejectedLineSignatures.set(key, signature);
@@ -106,7 +108,7 @@ export function createProcedureLimitGate(deps: ProcedureLimitDeps): ProcedureLim
           ok: false,
           warnings,
           lint,
-          message: `Procedure '${item.fileName}' has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user rejected the exception and requests splitting it into smaller subroutines/functions according to LotusScript principles (avoiding the 32 KB procedure limit).`,
+          message: `Procedure '${item.procedureName}' (line ${item.startLine}) has ${item.lineCount} lines, exceeding the ${item.maxLines}-line limit. The user rejected the exception and requests splitting it into smaller subroutines/functions according to LotusScript principles (avoiding the 32 KB procedure limit).`,
         };
       }
     }

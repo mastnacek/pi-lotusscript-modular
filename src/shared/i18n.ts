@@ -39,8 +39,6 @@ export interface Strings {
   status: {
     title: string;
     lspCheck: string;
-    overwriteSource: string;
-    cleanup: string;
     procLimits: string;
     maxLines: string;
     czechComments: string;
@@ -48,14 +46,13 @@ export interface Strings {
     rubric: string;
     preflight: string;
     autoDraft: string;
-    autoRecompile: string;
+    autoCheck: string;
     kbPrompt: string;
     kbGate: string;
     kbSettle: string;
     kbMin: string;
     gotchaCapture: string;
     gotchasSummary: string;
-    timestamp: string;
     langLabel: string;
     gotchasFile: string;
     configFile: string;
@@ -63,7 +60,6 @@ export interface Strings {
 
   set: {
     lspToggled: (on: boolean, isGlobal: boolean) => string;
-    overwriteToggled: (on: boolean, isGlobal: boolean) => string;
     savedKV: (isGlobal: boolean, key: string, value: string) => string;
     currentValue: (key: string, value: string, description: string) => string;
     unknownSetting: (key: string) => string;
@@ -89,17 +85,11 @@ export interface Strings {
     localeEn: string;
   };
 
-  compile: {
-    notModular: (target: string) => string;
-    compiledClean: (name: string) => string;
-    compiledLspErrors: (diagnostics: string) => string;
-    compiled: (path: string) => string;
-    compileError: (msg: string) => string;
-    packedClean: (name: string) => string;
-    packedLspErrors: (diagnostics: string) => string;
-    packedDone: (path: string) => string;
-    packError: (msg: string) => string;
-    fileNotFound: (p: string) => string;
+  check: {
+    usage: (target: string) => string;
+    clean: (name: string) => string;
+    errors: (diagnostics: string) => string;
+    lspDisabled: string;
   };
 
   scaffoldCmd: {
@@ -179,10 +169,7 @@ export interface Strings {
 
   settled: {
     score: (s: number, m: number) => string;
-    tailKept: (score: string) => string;
-    tailDeleted: (score: string) => string;
     done: (file: string, tail: string) => string;
-    retained: (n: number, names: string) => string;
   };
 
   recurring: {
@@ -200,14 +187,14 @@ export interface Strings {
   telemetry: {
     hooks: (total: number, calls: number, results: number, settled: number) => string;
     reads: (kb: number) => string;
-    gates: (kb: number, protectedB: number, compiles: number, kbNudges: number) => string;
+    gates: (kb: number, checks: number, kbNudges: number) => string;
     codeNone: string;
     code: (procs: number, longest: number | null, max: number) => string;
     suffix: (code: string, lsp: string) => string;
   };
 
   statusline: {
-    compiling: (badge: string) => string;
+    checking: (badge: string) => string;
     clean: (badge: string) => string;
     error: (badge: string) => string;
   };
@@ -217,9 +204,7 @@ export interface Strings {
     subGlobal: string;
     subScaffold: string;
     subLsp: string;
-    subOverwrite: string;
-    subCompile: string;
-    subPack: string;
+    subCheck: string;
     subLint: string;
     subScore: string;
     subGotchas: string;
@@ -229,8 +214,6 @@ export interface Strings {
     configSet: string;
     scaffoldAgent: string;
     scaffoldLibrary: string;
-    scaffoldProcedure: string;
-    scaffoldModular: string;
     gotchasSummary: string;
     gotchasAdd: string;
     topicShell: string;

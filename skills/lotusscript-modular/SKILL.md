@@ -26,9 +26,9 @@ strict-mode probe, and every diagnostic position refers to the file itself.
 - **Never** create `manifest.json`, `main.lss`, `00_options.lss`,
   `01_declarations.lss`, `sub_*.lss` or `func_*.lss` for a new script — a new
   agent or library is a single `.lss` from `lotusscript_scaffold`.
-- A legacy modular folder found on disk (pre-2026-11) is still guarded: never
-  edit its `main.lss`, `manifest.json` or `*_compiled.lss`. Treat such a folder
-  as read-only archaeology; the artifact to edit is the compiled whole `.lss`.
+- A legacy modular folder (pre-2026-11) is read-only archaeology: the plugin no
+  longer compiles, syncs or guards it. Work with the whole `.lss` instead — and
+  do not "restore" the folder workflow.
 
 ## Checking a file
 
@@ -112,19 +112,17 @@ Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-5` per
 over-limit procedure without an approved exception, `-3` per procedure missing
 its Czech purpose comment.
 
-Instant failure conditions: creating a modular folder (`manifest.json`,
-`main.lss`, `sub_*.lss`) — the modular workflow was removed; and, inside a
-legacy pre-2026-11 modular root only, editing `main.lss`, `manifest.json` or
-`*_compiled.lss` directly.
+Instant failure condition: creating a modular folder (`manifest.json`,
+`main.lss`, `sub_*.lss`, `*_compiled.lss`) — the modular workflow is gone and
+every `.lss` is a whole script.
 
-Manual inspection: `/ls score [složka]` (scorecard + trend, modular folders),
-`/ls lint [složka]` (per-procedure line counts and comment status).
+Manual inspection: `/ls score <soubor.lss>` (scorecard + trend),
+`/ls lint <soubor.lss>` (per-procedure line counts and comment status).
 
 ## Self-Improvement Loop (pre-flight, debrief, recurring failures)
 
-1. **Instant-failure guards (legacy folders):** `edit`/`write` to `main.lss`,
-   `manifest.json`, or `*_compiled.lss` is blocked — those files only exist in
-   pre-2026-11 modular roots, where they are extension-maintained.
+1. **Instant-failure guard:** an `edit`/`write` to a `.lss`/`.dxl` is blocked
+   until a `kb_search` on `lotus-notes` has run this session.
 2. **Proactive KB verification:** the `before_agent_start` guideline is a
    task→layer query protocol (API member → IBM reference; performance →
    Guirard chapters; error → exact text) plus a quality bar (On Error
@@ -160,7 +158,6 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Concern | Location |
 | --- | --- |
 | Composition root (pure wiring) | `index.ts` |
-| Legacy modular compile (dormant; pre-2026-11 folders only) | `src/slices/parser/` |
 | Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
 | Instant-failure guards (protected files, KB edit gate) | `src/slices/guards/` |
 | `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
@@ -172,7 +169,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
-| Tests (96 checks, one file per phase under the per-file line limit) | `test/test_modular_workflow.ts` + `test/phases/` |
+| Tests (one file per phase under the per-file line limit) | `test/test_workflow.ts` + `test/phases/` |
 
 ## Language Policy (hard rule)
 

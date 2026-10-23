@@ -1,5 +1,5 @@
 /**
- * `/ls` subcommand handlers — status / lang / lsp / overwrite / config / help.
+ * `/ls` subcommand handlers — status / lang / lsp / config / help.
  * Split out of commands/index.ts for the per-file line limit; the switch in
  * index.ts dispatches into these pure-async functions.
  *
@@ -30,8 +30,6 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
   const lines = [
     t.title,
     `- ${t.lspCheck}: ${flag(config.enableLsp)}`,
-    `- ${t.overwriteSource}: ${flag(config.overwriteSourceLss)}`,
-    `- ${t.cleanup}: ${flag(config.cleanupOnSettled)}`,
     `- ${t.procLimits}: ${flag(config.checkProcedureLimits)}`,
     `- ${t.maxLines}: ${config.maxProcedureLines}`,
     `- ${t.czechComments}: ${flag(config.enforceCzechComments)}`,
@@ -39,14 +37,13 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
     `- ${t.rubric}: ${flag(config.enforceGradingRubric)}`,
     `- ${t.preflight}: ${flag(config.injectPreflightGotchas)}`,
     `- ${t.autoDraft}: ${flag(config.autoDraftRecurringGotchas)}`,
-    `- ${t.autoRecompile}: ${flag(config.autoRecompileOnSave)}`,
+    `- ${t.autoCheck}: ${flag(config.autoCheckOnEdit)}`,
     `- ${t.kbPrompt}: ${flag(config.enforceKbPrompt)}`,
     `- ${t.kbGate}: ${flag(config.enforceKbGate)}`,
     `- ${t.kbSettle}: ${flag(config.verifyKbBeforeSettle)}`,
     `- ${t.kbMin}: ${config.minKbSearchesPerRun}`,
     `- ${t.gotchaCapture}: ${flag(config.enforceGotchaCapture)}`,
     `- ${t.gotchasSummary}: ${flag(config.injectGotchasSummary)}`,
-    `- ${t.timestamp}: ${flag(config.keepTimestampInCompiledName)}`,
     `- ${t.langLabel}: ${normalizeLocale(config.lang)}`,
     `- ${t.gotchasFile}: ${deps.getEffectiveGotchasPath()}`,
     `- ${t.configFile}: ${cfgPath}`,
@@ -87,17 +84,6 @@ export async function lsLsp(state: PluginState, parts: LsParts, ctx: ExtensionCo
   else config.enableLsp = !config.enableLsp;
   state.updateConfig(config, isGlobal, ctx.cwd);
   ctx.ui.notify(stringsFor(config.lang).set.lspToggled(config.enableLsp, isGlobal), "info");
-}
-
-export async function lsOverwrite(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps, isGlobal = false): Promise<void> {
-  void deps;
-  const config = state.config;
-  const val = (parts[1] || "").toLowerCase();
-  if (val === "on") config.overwriteSourceLss = true;
-  else if (val === "off") config.overwriteSourceLss = false;
-  else config.overwriteSourceLss = !config.overwriteSourceLss;
-  state.updateConfig(config, isGlobal, ctx.cwd);
-  ctx.ui.notify(stringsFor(config.lang).set.overwriteToggled(config.overwriteSourceLss, isGlobal), "info");
 }
 
 export async function lsDirectSetting(state: PluginState, key: string, val: string | undefined, ctx: ExtensionCommandContext, deps: CommandsDeps, isGlobal = false): Promise<void> {

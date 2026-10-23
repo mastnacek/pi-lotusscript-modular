@@ -7,12 +7,9 @@ import type { ModularConfig } from "./types.js";
 export const DEFAULT_CONFIG: ModularConfig = {
   lang: "cs",
   enableLsp: false,
-  autoRecompileOnSave: true,
+  autoCheckOnEdit: true,
   autoFormatOnSave: true,
   autoExplainLspCodes: true,
-  keepTimestampInCompiledName: false,
-  overwriteSourceLss: true,
-  cleanupOnSettled: true,
   enforceKbPrompt: true,
   enforceKbGate: true,
   verifyKbBeforeSettle: true,
@@ -40,6 +37,24 @@ export function projectConfigPath(cwd?: string): string {
   return path.join(cwd || process.cwd(), CONFIG_DIR_NAME, "lotusscript-modular.json");
 }
 
+/**
+ * Settings that belonged to the removed modular pipeline. They are dropped from
+ * a loaded config file so a stale project/global config cannot resurrect a
+ * behaviour that no longer exists.
+ */
+const RETIRED_KEYS = [
+  "autoRecompileOnSave",
+  "cleanupOnSettled",
+  "keepTimestampInCompiledName",
+  "overwriteSourceLss",
+] as const;
+
+function withoutRetiredKeys(parsed: Record<string, unknown>): Partial<ModularConfig> {
+  const clean = { ...parsed };
+  for (const key of RETIRED_KEYS) delete clean[key];
+  return clean as Partial<ModularConfig>;
+}
+
 export function loadConfig(cwd?: string): ModularConfig {
   let merged: ModularConfig = { ...DEFAULT_CONFIG };
 
@@ -47,7 +62,7 @@ export function loadConfig(cwd?: string): ModularConfig {
   try {
     if (fs.existsSync(GLOBAL_CONFIG_FILE)) {
       const raw = fs.readFileSync(GLOBAL_CONFIG_FILE, "utf-8");
-      merged = { ...merged, ...JSON.parse(raw) };
+      merged = { ...merged, ...withoutRetiredKeys(JSON.parse(raw)) };
     }
   } catch {
     // ignore
@@ -58,8 +73,7 @@ export function loadConfig(cwd?: string): ModularConfig {
   if (fs.existsSync(filePath)) {
     try {
       const raw = fs.readFileSync(filePath, "utf-8");
-      const parsed = JSON.parse(raw) as Partial<ModularConfig>;
-      merged = { ...merged, ...parsed };
+      merged = { ...merged, ...withoutRetiredKeys(JSON.parse(raw)) };
     } catch {
       // ignore
     }

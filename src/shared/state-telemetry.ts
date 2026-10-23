@@ -32,8 +32,7 @@ export function createTelemetry(): HookTelemetry {
     kbSearches: 0,
     kbGateBlocks: 0,
     kbSettleNudges: 0,
-    protectedBlocks: 0,
-    recompiles: 0,
+    checks: 0,
     lastProcCount: null,
     lastLongestProc: null,
     lastLspOk: null,
@@ -67,7 +66,7 @@ export function telemetryLines(t: HookTelemetry, config: ModularConfig): string[
   return [
     s.hooks(totalHookCalls(t), t.hookCalls.tool_call, t.hookCalls.tool_result, t.hookCalls.agent_settled),
     s.reads(t.kbSearches),
-    s.gates(t.kbGateBlocks, t.protectedBlocks, t.recompiles, t.kbSettleNudges),
+    s.gates(t.kbGateBlocks, t.checks, t.kbSettleNudges),
     s.suffix(code, lsp),
   ];
 }

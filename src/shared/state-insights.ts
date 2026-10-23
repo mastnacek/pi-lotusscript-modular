@@ -1,5 +1,5 @@
 /**
- * State insights — scorecards, score history, root-token collection and the
+ * State insights — scorecards, score history, file-token collection and the
  * pre-flight gotcha banner. Extracted from the PluginState kernel so
  * state.ts stays under the plugin's own per-file limit (self-dogfooded).
  */
@@ -8,7 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   AgentScorecard,
-  FolderLintResult,
+  FileLintResult,
   GotchaItem,
   LspCheckResult,
   ModularConfig,
@@ -19,8 +19,7 @@ import { computeScorecard } from "../slices/scorecard/index.js";
 export interface StateInsightsDeps {
   getConfig(): ModularConfig;
   getKbSearchCount(): number;
-  isManifestSynced(root: string): boolean;
-  renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
+  renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
   setLatestScorecard(sc: AgentScorecard | undefined): void;
   scoreHistory: Map<string, AgentScorecard[]>;
   preflightBannerCache: Map<string, string>;
@@ -28,42 +27,36 @@ export interface StateInsightsDeps {
 
 export interface StateInsights {
   buildScorecard(
-    root: string,
+    filePath: string,
     opts: {
-      lint: FolderLintResult;
+      lint: FileLintResult;
       lsp: LspCheckResult | null;
-      artifact: "written" | "pending";
-      manifestSynced?: boolean;
     }
   ): AgentScorecard;
-  recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined;
-  collectRootTokens(root: string): string[];
-  buildGotchasBanner(root: string): string;
+  recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined;
+  collectFileTokens(filePath: string): string[];
+  buildGotchasBanner(filePath: string): string;
 }
 
 export function createStateInsights(deps: StateInsightsDeps): StateInsights {
   const config = deps.getConfig;
 
-  /** Builds a deterministic scorecard for one modular agent root. */
+  /** Builds a deterministic scorecard for one whole LotusScript file. */
   function buildScorecard(
-    root: string,
+    filePath: string,
     opts: {
-      lint: FolderLintResult;
+      lint: FileLintResult;
       lsp: LspCheckResult | null;
-      artifact: "written" | "pending";
-      manifestSynced?: boolean;
     }
   ): AgentScorecard {
     const cfg = config();
     return computeScorecard({
-      agent: path.basename(root),
+      agent: path.basename(filePath),
       maxProcedureLines: cfg.maxProcedureLines,
       lint: opts.lint,
       lsp: opts.lsp,
       lspEnabled: cfg.enableLsp,
       enforceCzechComments: cfg.enforceCzechComments,
-      manifestSynced: opts.manifestSynced ?? deps.isManifestSynced(root),
-      artifact: opts.artifact,
       kbExpected: cfg.enforceKbPrompt || cfg.enforceKbGate || cfg.verifyKbBeforeSettle,
       kbSearchCount: deps.getKbSearchCount(),
       minKbSearches: cfg.minKbSearchesPerRun,
@@ -71,40 +64,33 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
   }
 
   /** Appends to session history and returns the previous scorecard (for the trend line). */
-  function recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined {
+  function recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined {
     deps.setLatestScorecard(scorecard);
-    const history = deps.scoreHistory.get(root) ?? [];
+    const history = deps.scoreHistory.get(filePath) ?? [];
     const previous = history.at(-1);
-    deps.scoreHistory.set(root, [...history, scorecard].slice(-20));
+    deps.scoreHistory.set(filePath, [...history, scorecard].slice(-20));
     deps.renderStatusline("clean");
     return previous;
   }
 
   /**
-   * Identifiers and procedure names declared by this agent. These are the tokens
-   * most likely to collide with a registered LotusScript trap (reserved words,
-   * built-in function names, risky API usage).
+   * Identifiers declared by this file: declarations, procedure names and type
+   * names. These are the tokens most likely to collide with a registered
+   * LotusScript trap (reserved words, built-in function names, risky API usage).
    */
-  function collectRootTokens(root: string): string[] {
+  function collectFileTokens(filePath: string): string[] {
     const tokens = new Set<string>();
     try {
-      const declPath = path.join(root, "01_declarations.lss");
-      if (fs.existsSync(declPath)) {
-        const text = fs.readFileSync(declPath, "utf-8");
-        for (const m of text.matchAll(
-          /\b(?:Dim|Static|Const|Global|Type|Class|Sub|Function|Property(?:\s+Get|\s+Set)?)\s+([A-Za-z_][A-Za-z0-9_]*)/gi
-        )) {
-          const name = m[1];
-          if (name) tokens.add(name);
-        }
-        for (const m of text.matchAll(/\bAs\s+([A-Za-z_][A-Za-z0-9_]*)/gi)) {
-          const name = m[1];
-          if (name) tokens.add(name);
-        }
+      const text = fs.readFileSync(filePath, "utf-8");
+      for (const m of text.matchAll(
+        /\b(?:Dim|Static|Const|Global|Type|Class|Sub|Function|Property(?:\s+Get|\s+Set)?)\s+([A-Za-z_][A-Za-z0-9_]*)/gi
+      )) {
+        const name = m[1];
+        if (name) tokens.add(name);
       }
-      for (const f of fs.readdirSync(root)) {
-        if (!/^(?:sub_|func_).*\.lss$/i.test(f)) continue;
-        tokens.add(f.replace(/\.lss$/i, "").replace(/^(?:sub_|func_)/i, ""));
+      for (const m of text.matchAll(/\bAs\s+([A-Za-z_][A-Za-z0-9_]*)/gi)) {
+        const name = m[1];
+        if (name) tokens.add(name);
       }
     } catch {
       // best effort — pre-flight is advisory only
@@ -114,13 +100,13 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
 
   /**
    * Pre-flight gotcha banner. With `injectPreflightGotchas` it surfaces only the
-   * traps matching this agent's own identifiers; otherwise the generic summary.
-   * Computed once per root per session and cached.
+   * traps matching this file's own identifiers; otherwise the generic summary.
+   * Computed once per file per session and cached.
    */
-  function buildGotchasBanner(root: string): string {
+  function buildGotchasBanner(filePath: string): string {
     if (!config().injectGotchasSummary) return "";
 
-    const cached = deps.preflightBannerCache.get(root);
+    const cached = deps.preflightBannerCache.get(filePath);
     if (cached !== undefined) return cached;
 
     let banner: string;
@@ -128,7 +114,7 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       banner = `\n\n${getGotchasSummary(8)}`;
     } else {
       const found = new Map<string, GotchaItem>();
-      for (const token of collectRootTokens(root)) {
+      for (const token of collectFileTokens(filePath)) {
         for (const hit of searchGotchas(token, 3)) {
           if (`${hit.title}\n${hit.body}`.toLowerCase().includes(token.toLowerCase())) {
             found.set(hit.id, hit);
@@ -141,7 +127,7 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
         banner = `\n\n${getGotchasSummary(8)}`;
       } else {
         const lines = [
-          "⚠️ PRE-FLIGHT GOTCHA CHECK (matches against this agent's own declarations):",
+          "⚠️ PRE-FLIGHT GOTCHA CHECK (matches against this file's own declarations):",
         ];
         for (const g of [...found.values()].slice(0, 3)) {
           const gist = g.body
@@ -158,14 +144,14 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       }
     }
 
-    deps.preflightBannerCache.set(root, banner);
+    deps.preflightBannerCache.set(filePath, banner);
     return banner;
   }
 
   return {
     buildScorecard,
     recordScorecard,
-    collectRootTokens,
+    collectFileTokens,
     buildGotchasBanner,
   };
 }

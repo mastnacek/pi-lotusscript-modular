@@ -1,18 +1,16 @@
 /**
- * tool_result interception — read-time context injection for main.lss and
- * auto-recompile on edit/write (limit gate, LSP, scorecard, recurring gotchas).
+ * tool_result interception — pre-flight gotcha banner on read, whole-file
+ * auto-check on edit/write (limit gate, LSP, scorecard, recurring gotchas).
  * The read banner and recurring-gotcha flow live in sibling modules
  * (read-banner.ts, recurring-gotcha.ts) — per-file line limit split.
  *
- * Cross-slice capabilities (parser / lsp / scorecard / guards) arrive via
- * PipelineDeps wired in the composition root — slices never import each
- * other (VSA).
+ * Cross-slice capabilities (lsp / scorecard) arrive via PipelineDeps wired in
+ * the composition root — slices never import each other (VSA).
  */
 
 import path from "node:path";
 import fs from "node:fs";
 import type { ExtensionContext, ToolResultEvent } from "@earendil-works/pi-coding-agent";
-import { isEditToolResult, isWriteToolResult } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
 import type { PipelineDeps } from "./deps.js";
 import * as paths from "../../shared/paths.js";
@@ -21,7 +19,6 @@ import { baseToolName, type ToolResultEventResultShape } from "./shared.js";
 import { readBanner } from "./read-banner.js";
 import { draftRecurringGotcha } from "./recurring-gotcha.js";
 
-// 2. Tool Result Interception (Context injection on Read/Inspect, Auto-recompile on Edit/Write)
 export async function handleToolResult(
   state: PluginState,
   event: ToolResultEvent,
@@ -31,7 +28,7 @@ export async function handleToolResult(
   const rawName = event.toolName || "";
   const base = baseToolName(rawName);
 
-  // A) If reading or inspecting main.lss of a modular agent
+  // A) Reading a LotusScript file: attach the pre-flight gotcha banner once.
   if (!deps.mutatingToolNames.has(base)) {
     const input = event.input as Record<string, unknown> | undefined;
     const readPath =
@@ -43,17 +40,14 @@ export async function handleToolResult(
 
     if (readPath) {
       const resolved = path.resolve(readPath);
-      const modularRoot = paths.findModularRoot(resolved);
-      const isMain = path.basename(resolved).toLowerCase() === "main.lss";
-
-      if (modularRoot && isMain) {
-        return readBanner(state, event, modularRoot);
+      if (paths.isLotusScriptSource(resolved) && fs.existsSync(resolved)) {
+        return readBanner(state, event, resolved);
       }
     }
   }
 
-  // B) If editing or writing a file inside a modular folder
-  if ((isEditToolResult(event) || isWriteToolResult(event) || base === "edit" || base === "write") && !event.isError) {
+  // B) Editing or writing a LotusScript file: whole-file auto-check.
+  if ((base === "edit" || base === "write") && !event.isError) {
     return await handleEditToolResult(state, event, ctx, deps);
   }
 
@@ -67,68 +61,36 @@ async function handleEditToolResult(
   deps: PipelineDeps
 ): Promise<ToolResultEventResultShape | undefined> {
   const { config } = state;
-  if (!config.autoRecompileOnSave) return undefined;
 
   const targetPath = (event.input as { path?: string })?.path;
   if (!targetPath) return undefined;
 
   const resolved = path.resolve(targetPath);
-  // Settle-time KB verification tracks every .lss/.dxl mutation — inside a
-  // modular root or outside it (the outside-root advisory fires below).
-  if (/\.(lss|dxl)$/i.test(resolved) && !/_compiled\.lss$/i.test(resolved)) {
-    state.notesMutatedThisRun = true;
-  }
-  const modularRoot = paths.findModularRoot(resolved);
-  if (!modularRoot) {
-    return outsideRootAdvisory(state, event, resolved);
-  }
+  if (!paths.isLotusScriptOrDxl(resolved)) return undefined;
 
-  if (resolved.toLowerCase().endsWith("_compiled.lss")) return undefined;
+  // Settle-time KB verification tracks every .lss/.dxl mutation.
+  state.notesMutatedThisRun = true;
 
-  state.modifiedModularDirs.add(modularRoot);
-  state.readModularDirs.add(modularRoot);
+  if (!config.autoCheckOnEdit) return undefined;
+  // Only a real LotusScript source can be compiled; DXL is a design export.
+  if (!paths.isLotusScriptSource(resolved)) return undefined;
+  if (!fs.existsSync(resolved)) return undefined;
 
-  // Verify procedure line limits and comments
-  const limitCheck = await state.verifyProcedureLimits(modularRoot, state.latestUiContext ?? undefined);
+  // Verify procedure line limits and comments inside this one file.
+  const limitCheck = await state.verifyProcedureLimits(resolved, state.latestUiContext ?? undefined);
   if (!limitCheck.ok) {
     return limitGateError(state, event, limitCheck);
   }
 
   try {
-    return await recompileAndReport(state, event, ctx, deps, modularRoot, resolved, limitCheck);
+    return await checkAndReport(state, event, ctx, deps, resolved, limitCheck);
   } catch (err: unknown) {
     state.renderStatusline("error");
     const msg = err instanceof Error ? err.message : String(err);
-    const errorNotice = `\n\n⚠️ [LotusScript Modular: Recompile Failed]: ${msg}`;
     return {
-      content: [...event.content, { type: "text", text: errorNotice }],
+      content: [...event.content, { type: "text", text: `\n\n⚠️ [LotusScript: Check Failed]: ${msg}` }],
     };
   }
-}
-
-/** Advisory for edits landing on a LotusScript file outside any active modular root. */
-function outsideRootAdvisory(
-  state: PluginState,
-  event: ToolResultEvent,
-  resolved: string
-): ToolResultEventResultShape | undefined {
-  const activeRoots = [...state.modifiedModularDirs, ...state.readModularDirs];
-  if (
-    activeRoots.length > 0 &&
-    /\.(lss|dxl)$/i.test(resolved) &&
-    !/_compiled\.lss$/i.test(resolved)
-  ) {
-    return {
-      content: [
-        ...event.content,
-        {
-          type: "text",
-          text: `\n\n⚠️ [LotusScript Modular] Advisory: this edit targets a LotusScript file outside the active modular root(s): ${activeRoots.map((r) => path.basename(r)).join(", ")}. If you meant to change a decompiled agent, edit its 'sub_*.lss' / 'func_*.lss' files so manifest sync and recompile stay correct.`,
-        },
-      ],
-    };
-  }
-  return undefined;
 }
 
 /** Blocking tool result when the user rejected an over-limit procedure. */
@@ -148,8 +110,8 @@ function limitGateError(
     limitCheck.message,
     instructionsNotice,
     "Mandatory step for AI:",
-    `- Split the logic of this procedure into smaller 'sub_*.lss' or 'func_*.lss' files.`,
-    `- Update calls in the original code so that no procedure exceeds the ${state.config.maxProcedureLines}-line limit.`,
+    `- Split the oversized procedure into smaller Sub/Function blocks inside the same .lss file.`,
+    `- Update the calls so that no procedure exceeds the ${state.config.maxProcedureLines}-line limit.`,
     `- Do NOT retry the same oversized procedure unchanged; it will be rejected again.`,
     "---",
   ].filter(Boolean).join("\n");
@@ -174,18 +136,12 @@ function isAsciiOnlyFile(filePath: string): boolean {
   }
 }
 
-/**
- * Auto-format the edited modular file via the LSP formatter before the
- * recompile so the assembled artifact inherits clean layout. Never touches
- * compiled artifacts or non-ASCII files. Returns a one-line notice.
- */
+/** Auto-format the edited file via the LSP formatter. Returns a one-line notice. */
 async function autoFormatEditedFile(
   state: PluginState,
   deps: PipelineDeps,
   resolved: string
 ): Promise<string> {
-  if (!resolved.toLowerCase().endsWith(".lss")) return "";
-  if (/_compiled\.lss$/i.test(resolved)) return "";
   if (!isAsciiOnlyFile(resolved)) return "";
   const before = fs.readFileSync(resolved, "utf8");
   const formatted = await deps.formatLotusScriptFile(resolved);
@@ -195,21 +151,19 @@ async function autoFormatEditedFile(
   return `\n✨ LSP auto-format applied to ${path.basename(resolved)} (ASCII-only file)`;
 }
 
-/** Recompiles the modular root and assembles the scorecard/LSP notice block. */
-async function recompileAndReport(
+/** Runs the whole-file check and assembles the scorecard/LSP notice block. */
+async function checkAndReport(
   state: PluginState,
   event: ToolResultEvent,
   ctx: ExtensionContext,
   deps: PipelineDeps,
-  modularRoot: string,
   resolved: string,
-  limitCheck: { warnings: string[]; lint: import("../../shared/types.js").FolderLintResult }
+  limitCheck: { warnings: string[]; lint: import("../../shared/types.js").FileLintResult }
 ): Promise<ToolResultEventResultShape> {
   const { config } = state;
-  state.renderStatusline("compiling");
+  state.renderStatusline("checking");
 
-  // SPAI-008 automation: format the edited file BEFORE the compile so the
-  // artifact inherits the clean layout (ASCII-only files, see helper above).
+  // SPAI-008 automation: format the edited file BEFORE the check.
   let formatNotice = "";
   if (config.autoFormatOnSave) {
     try {
@@ -219,16 +173,10 @@ async function recompileAndReport(
     }
   }
 
-  const compiledPath = deps.compileAgent(modularRoot, {
-    keepTimestamp: config.keepTimestampInCompiledName,
-    overwriteSourceLss: config.overwriteSourceLss,
-    createLssForDxl: true,
-  });
-
   let lspNotice = "";
   let lspResult: LspCheckResult | null = null;
   if (config.enableLsp) {
-    lspResult = await deps.checkLotusScriptDiagnostics(compiledPath);
+    lspResult = await deps.checkLotusScriptDiagnostics(resolved);
     if (lspResult.ok) {
       state.renderStatusline("clean");
     } else {
@@ -239,7 +187,7 @@ async function recompileAndReport(
     state.renderStatusline("clean");
   }
 
-  // SPAI-008 automation: attach lsp_explain help for NEW error codes so the
+  // SPAI-008 automation: attach lsp_explain help for the error codes so the
   // agent gets the fix guidance without an extra MCP round-trip.
   let explainNotice = "";
   if (config.autoExplainLspCodes && config.enableLsp && lspResult && !lspResult.ok) {
@@ -250,8 +198,10 @@ async function recompileAndReport(
     }
   }
 
-  // Telemetry: recompile count + code-length snapshot for the TUI panel.
-  state.telemetry.recompiles++;
+  state.lastCheckedFile = resolved;
+
+  // Telemetry: check count + code-length snapshot for the TUI panel.
+  state.telemetry.checks++;
   state.telemetry.lastProcCount = limitCheck.lint.allItems.length;
   state.telemetry.lastLongestProc = limitCheck.lint.allItems.reduce(
     (max, item) => Math.max(max, item.lineCount),
@@ -259,10 +209,6 @@ async function recompileAndReport(
   );
   state.telemetry.lastLspOk = config.enableLsp ? (lspResult ? lspResult.ok : null) : null;
 
-  const overwriteNotice = config.overwriteSourceLss ? " (source .lss updated)" : "";
-  const cleanupNotice = config.cleanupOnSettled
-    ? "\nℹ️ (the temporary modular folder is deleted automatically once the agent finishes)"
-    : "";
   const gotchaNudge = config.enforceGotchaCapture
     ? "\n💡 GOTCHA CHECK: If this fix resolved an unexpected LotusScript bug or compiler error, propose recording it via 'lotusscript_gotchas(action: \"add\")'. The user will review and approve it via modal window."
     : "";
@@ -272,26 +218,25 @@ async function recompileAndReport(
 
   let scorecardBlock = "";
   if (config.enableScorecard) {
-    const scorecard = state.buildScorecard(modularRoot, {
+    const scorecard = state.buildScorecard(resolved, {
       lint: limitCheck.lint,
       lsp: lspResult,
-      artifact: "pending",
     });
-    const previous = state.recordScorecard(modularRoot, scorecard);
+    const previous = state.recordScorecard(resolved, scorecard);
     scorecardBlock = deps.formatScorecard(scorecard, previous);
   }
 
   // Recurring-failure detection → harness-generated gotcha draft (user-approved).
   let recurringNotice = "";
   if (config.autoDraftRecurringGotchas && config.enableLsp && lspResult && !lspResult.ok) {
-    recurringNotice = await draftRecurringGotcha(state, ctx, deps, modularRoot, resolved, lspResult);
+    recurringNotice = await draftRecurringGotcha(state, ctx, deps, resolved, lspResult);
   }
 
-  const recompileNotice = [
+  const checkNotice = [
     "",
     "---",
-    `🔨 [LotusScript Modular: Recompiled]`,
-    `- Artifact: ${compiledPath}${overwriteNotice}${cleanupNotice}`,
+    "🔍 [LotusScript: Checked]",
+    `- File: ${resolved} (whole script)`,
     ...(formatNotice ? [formatNotice] : []),
     ...(scorecardBlock ? ["", scorecardBlock] : []),
     ...(recurringNotice ? [recurringNotice.trimStart()] : []),
@@ -303,6 +248,6 @@ async function recompileAndReport(
   ].join("\n");
 
   return {
-    content: [...event.content, { type: "text", text: recompileNotice }],
+    content: [...event.content, { type: "text", text: checkNotice }],
   };
 }

@@ -54,7 +54,7 @@ function capSegment(seg: string, cap: number): string {
  */
 export function suggestAlias(
   name: string,
-  type: "agent" | "library" | "procedure" | "modular"
+  type: "agent" | "library"
 ): string {
   const prefix = type === "library" ? "lib_" : "ag_";
   const raw = name.replace(/\.(lss|dxl)$/i, "");
@@ -74,7 +74,7 @@ export function suggestAlias(
 }
 
 export interface NoticeInfo {
-  elementType: "Agent (standalone .lss)" | "Script Library (.lss)" | "Procedure (modular file)" | "Modular agent folder";
+  elementType: "Agent (standalone .lss)" | "Script Library (.lss)";
   name: string;
   alias: string;
   purpose?: string;
@@ -104,14 +104,8 @@ export function buildDesignerNotice(
       `Účel:     ${purpose}`,
       "",
       "Postup vložení:",
-      info.elementType === "Modular agent folder"
-        ? "  1. Spusťte /ls pack " + (info.targetDir ?? "") + " (sestaví .lss a uklidí složku)"
-        : "  1. Otevřete databázi → kategorie elementu → New",
-      info.elementType === "Agent (standalone .lss)"
-        ? `  2. Name: ${info.name}   Alias: ${info.alias}`
-        : info.elementType === "Script Library (.lss)"
-        ? `  2. Name: ${info.name}   Alias: ${info.alias}`
-        : "  2. Alias nastavte dle references/naming-conventions.md",
+      "  1. Otevřete databázi → kategorie elementu → New",
+      `  2. Name: ${info.name}   Alias: ${info.alias}`,
       "  3. Runtime: On event ▸ Action menu selection, Target: Selected documents (agenty)",
       "  4. Vložte obsah .lss do (Options)/(Declarations) + sekce dle hlaviček",
       "  5. Uložte a přeložte: Ctrl+Shift+F9",
@@ -131,16 +125,12 @@ export function buildDesignerNotice(
     `Purpose:  ${purpose}`,
     "",
     "Registration steps:",
-    info.elementType === "Modular agent folder"
-      ? `  1. Run /ls pack ${info.targetDir ?? ""} (compiles .lss and deletes the modular folder)`
-      : "  1. Open the target database in Domino Designer → New <element type>",
-    info.elementType === "Procedure (modular file)"
-      ? "  2. The procedure joins the parent agent's modular folder — no separate Designer registration"
-      : `  2. Name: ${info.name}   Alias: ${info.alias}`,
-    info.elementType === "Agent (standalone .lss)" || info.elementType === "Modular agent folder"
+    "  1. Open the target database in Domino Designer → New <element type>",
+    `  2. Name: ${info.name}   Alias: ${info.alias}`,
+    info.elementType === "Agent (standalone .lss)"
       ? "  3. Runtime: On event ▸ Action menu selection, Target: Selected documents"
       : "  3. Script libraries: (Options)/(Declarations) per header",
-    "  4. Paste the compiled .lss content into the matching sections",
+    "  4. Paste the .lss content into the matching sections",
     "  5. Save + recompile: Ctrl+Shift+F9",
     "",
     `Element description (Designer 'Comment' field — copy-paste):`,

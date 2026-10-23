@@ -1,6 +1,6 @@
 /**
  * `/ls` subcommand handlers — scaffold / lint / score (inspection and
- * evaluation side). Split out of commands/index.ts for the per-file line limit.
+ * evaluation side). Split out of commands/index.ts for the per-file limit.
  *
  * Cross-slice capabilities (lsp / linter / scorecard / scaffold) arrive via
  * CommandsDeps — slices never import each other (VSA). User-facing text
@@ -11,7 +11,6 @@ import path from "node:path";
 import fs from "node:fs";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
-import { findModularRoot } from "../../shared/paths.js";
 import { normalizeLocale, stringsFor } from "../../shared/i18n.js";
 import type { PluginState } from "../../shared/state.js";
 import type { CommandsDeps } from "./deps.js";
@@ -42,18 +41,24 @@ export async function lsScaffold(state: PluginState, parts: LsParts, ctx: Extens
   }
 }
 
+/** Resolves the `.lss` file a `/ls lint|score` call targets. */
+function resolveTarget(parts: LsParts, ctx: ExtensionCommandContext): string | null {
+  const target = parts[1] ? path.resolve(ctx.cwd, parts[1]) : "";
+  if (!target || !fs.existsSync(target)) return null;
+  return target;
+}
+
 export async function lsLint(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps): Promise<void> {
   const config = state.config;
   const s = stringsFor(config.lang);
-  const target = parts[1] || ctx.cwd;
-  const root = findModularRoot(target);
-  if (!root) {
-    ctx.ui.notify(s.compile.notModular(target), "error");
+  const target = resolveTarget(parts, ctx);
+  if (!target) {
+    ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
     return;
   }
-  const res = deps.lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
+  const res = deps.lintLotusScriptFile(target, config.maxProcedureLines, config.enforceCzechComments);
   const lines = [
-    s.lint.title(path.basename(root)),
+    s.lint.title(path.basename(target)),
     s.lint.total(res.allItems.length),
     s.lint.exceeding(config.maxProcedureLines, res.exceededProcedures.length),
     s.lint.missingComment(res.missingCommentProcedures.length),
@@ -61,11 +66,13 @@ export async function lsLint(state: PluginState, parts: LsParts, ctx: ExtensionC
   for (const item of res.allItems) {
     const statusIcon = item.isExceeded ? "❌" : "✓";
     const docIcon = item.hasDocComment ? "📝" : s.lint.missingDesc;
-    lines.push(`  ${statusIcon} ${item.fileName} — ${s.lint.linesCount(item.lineCount)} [${docIcon}]`);
+    lines.push(
+      `  ${statusIcon} ${item.procedureName} (${item.startLine}) — ${s.lint.linesCount(item.lineCount)} [${docIcon}]`
+    );
   }
   if (config.enableScorecard) {
-    const sc = state.buildScorecard(root, { lint: res, lsp: null, artifact: "pending" });
-    lines.push("", deps.formatScorecard(sc, state.scoreHistory.get(root)?.at(-1)));
+    const sc = state.buildScorecard(target, { lint: res, lsp: null });
+    lines.push("", deps.formatScorecard(sc, state.scoreHistory.get(target)?.at(-1)));
   }
   ctx.ui.notify(lines.join("\n"), res.ok ? "info" : "warning");
 }
@@ -73,20 +80,18 @@ export async function lsLint(state: PluginState, parts: LsParts, ctx: ExtensionC
 export async function lsScore(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps): Promise<void> {
   const config = state.config;
   const s = stringsFor(config.lang);
-  const target = parts[1] || ctx.cwd;
-  const root = findModularRoot(target);
-  if (!root) {
-    ctx.ui.notify(s.compile.notModular(target), "error");
+  const target = resolveTarget(parts, ctx);
+  if (!target) {
+    ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
     return;
   }
-  const lintRes = deps.lintModularFolder(root, config.maxProcedureLines, config.enforceCzechComments);
-  const compiledName = fs.readdirSync(root).find((f) => /_compiled\.lss$/i.test(f));
+  const lintRes = deps.lintLotusScriptFile(target, config.maxProcedureLines, config.enforceCzechComments);
   let lspRes: LspCheckResult | null = null;
-  if (config.enableLsp && compiledName) {
-    lspRes = await deps.checkLotusScriptDiagnostics(path.join(root, compiledName));
+  if (config.enableLsp) {
+    lspRes = await deps.checkLotusScriptDiagnostics(target);
   }
-  const sc = state.buildScorecard(root, { lint: lintRes, lsp: lspRes, artifact: "pending" });
-  const history = state.scoreHistory.get(root) ?? [];
+  const sc = state.buildScorecard(target, { lint: lintRes, lsp: lspRes });
+  const history = state.scoreHistory.get(target) ?? [];
   const out = [deps.formatScorecard(sc, history.at(-1))];
   if (history.length > 0) {
     const trend = history.map((h) => `${h.score}/${h.max}`).join(" → ");

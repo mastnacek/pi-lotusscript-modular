@@ -15,8 +15,7 @@ export interface SettingSpec {
  */
 export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "enableLsp", kind: "boolean" },
-  { key: "overwriteSourceLss", kind: "boolean" },
-  { key: "autoRecompileOnSave", kind: "boolean" },
+  { key: "autoCheckOnEdit", kind: "boolean" },
   { key: "autoFormatOnSave", kind: "boolean" },
   { key: "autoExplainLspCodes", kind: "boolean" },
   { key: "enforceKbPrompt", kind: "boolean" },
@@ -25,8 +24,6 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "minKbSearchesPerRun", kind: "number" },
   { key: "injectGotchasSummary", kind: "boolean" },
   { key: "enforceGotchaCapture", kind: "boolean" },
-  { key: "keepTimestampInCompiledName", kind: "boolean" },
-  { key: "cleanupOnSettled", kind: "boolean" },
   { key: "checkProcedureLimits", kind: "boolean" },
   { key: "maxProcedureLines", kind: "number" },
   { key: "enforceCzechComments", kind: "boolean" },

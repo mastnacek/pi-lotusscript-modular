@@ -4,8 +4,8 @@
  */
 
 export {
-  lintProcedureFile,
-  lintModularFolder,
+  findProcedures,
+  lintLotusScriptFile,
 } from "./checker.js";
 
 export {

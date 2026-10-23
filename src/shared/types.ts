@@ -6,20 +6,14 @@
 export interface ModularConfig {
   /** UI language for user-facing text (cs | en). Model-facing text stays English. */
   lang: string;
-  /** Run LotusScript LSP diagnostics check after compile */
+  /** Run the whole-file LotusScript LSP check after each edit (auto-check). */
+  autoCheckOnEdit: boolean;
+  /** Run the whole-file LSP check at all (check tool, /ls check, auto-check) */
   enableLsp: boolean;
-  /** Automatically recompile on edits to modular procedure files */
-  autoRecompileOnSave: boolean;
-  /** Auto-format the edited modular file via the LSP formatter before recompile (ASCII-only files) */
+  /** Auto-format the edited .lss via the LSP formatter (ASCII-only files) */
   autoFormatOnSave: boolean;
   /** Auto-attach lsp_explain help pages for new LSP error codes after a failed check */
   autoExplainLspCodes: boolean;
-  /** Keep timestamped copy of compiled file (<Name>_<timestamp>_compiled.lss) */
-  keepTimestampInCompiledName: boolean;
-  /** Overwrite original .lss file with recompiled code (never touches .dxl) */
-  overwriteSourceLss: boolean;
-  /** Clean up (compile then delete) the modular folder when the agent finishes modifications */
-  cleanupOnSettled: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */
   enforceKbPrompt: boolean;
   /** HARD GATE: reject edit/write of .lss/.dxl until kb_search on 'lotus-notes' was called this session */
@@ -38,17 +32,14 @@ export interface ModularConfig {
   maxProcedureLines: number;
   /** Enforce concise Czech documentation comments on procedures */
   enforceCzechComments: boolean;
-  /** Compute and inject a deterministic per-agent scorecard after every compile */
+  /** Compute and inject a deterministic per-file scorecard after every check */
   enableScorecard: boolean;
   /** Inject the LotusScript Definition of Done + grading rubric into the system prompt */
   enforceGradingRubric: boolean;
-  /** Replace the generic gotcha summary with traps matching this agent's own identifiers */
+  /** Replace the generic gotcha summary with traps matching the file's own identifiers */
   injectPreflightGotchas: boolean;
-  /** Auto-draft a gotcha when the same LSP diagnostic recurs across compile cycles */
+  /** Auto-draft a gotcha when the same LSP diagnostic recurs across check cycles */
   autoDraftRecurringGotchas: boolean;
-  
-  /** Custom OpenRouter API key override (falls back to process.env.OPENROUTER_API_KEY or ~/.pi/agent/auth.json) */
-  
   /** Show the in-TUI telemetry panel (hook usage, reads, gate blocks, code length) above the editor */
   showTelemetryPanel: boolean;
 }
@@ -73,18 +64,15 @@ export interface HookTelemetry {
   hookCalls: Record<HookName, number>;
   /** kb_search calls observed this session (satisfies the KB edit gate). */
   kbSearches: number;
-  
   /** Edit/write calls blocked until a KB query runs (enforceKbGate). */
   kbGateBlocks: number;
   /** agent_before_settle verification turns injected (mutated .lss/.dxl without a KB query in the run). */
   kbSettleNudges: number;
-  /** Edits of protected files (main.lss / manifest.json / *_compiled.lss) blocked. */
-  protectedBlocks: number;
-  /** Edit-triggered recompiles of a modular root. */
-  recompiles: number;
-  /** Procedure count in the last recompiled folder (null before the first compile). */
+  /** Whole-file checks performed (auto-check on edit, check tool, /ls check). */
+  checks: number;
+  /** Procedure count in the last checked file (null before the first check). */
   lastProcCount: number | null;
-  /** Longest procedure line count (null before the first compile). */
+  /** Longest procedure line count (null before the first check). */
   lastLongestProc: number | null;
   /** Last LSP outcome (null = LSP disabled or not run yet). */
   lastLspOk: boolean | null;
@@ -109,7 +97,7 @@ export interface ScorecardItem {
   label: string;
   ok: boolean;
   weight: number;
-  /** Item is not yet applicable (e.g. final artifact during mid-work compiles). */
+  /** Item is not yet applicable (e.g. a later check of the same file). */
   pending?: boolean;
   detail?: string;
 }
@@ -125,12 +113,10 @@ export interface AgentScorecard {
 export interface ScorecardInput {
   agent: string;
   maxProcedureLines: number;
-  lint: FolderLintResult;
+  lint: FileLintResult;
   lsp: LspCheckResult | null;
   lspEnabled: boolean;
   enforceCzechComments: boolean;
-  manifestSynced: boolean;
-  artifact: "written" | "pending";
   /** KB verification is part of the DoD only when at least one KB enforcement toggle is on. */
   kbExpected: boolean;
   /** kb_search calls on the lotus-notes collection observed in the current run. */
@@ -139,9 +125,13 @@ export interface ScorecardInput {
   minKbSearches: number;
 }
 
+/** One procedure located inside a whole `.lss` file. */
 export interface ProcedureLintItem {
-  fileName: string;
+  /** Absolute path of the `.lss` file the procedure lives in. */
+  filePath: string;
   procedureName: string;
+  /** First line of the procedure block (1-based), for coordinates. */
+  startLine: number;
   lineCount: number;
   maxLines: number;
   isExceeded: boolean;
@@ -150,26 +140,12 @@ export interface ProcedureLintItem {
   commentStyle?: CommentStyle;
 }
 
-export interface FolderLintResult {
+/** Lint result for one whole LotusScript file. */
+export interface FileLintResult {
   ok: boolean;
   exceededProcedures: ProcedureLintItem[];
   missingCommentProcedures: ProcedureLintItem[];
   allItems: ProcedureLintItem[];
-}
-
-export interface CodeBlock {
-  event: string;
-  code: string;
-  kind: "options" | "declarations" | "procedure" | "initialize" | "terminate";
-  fileName: string;
-}
-
-export interface AgentManifest {
-  formatVersion: string;
-  agentName: string;
-  sourceDxl?: string;
-  decompileTimestamp: string;
-  compilationOrder: string[];
 }
 
 export interface LspCheckResult {

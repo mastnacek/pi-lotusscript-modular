@@ -1,9 +1,9 @@
 /**
- * tool_call interception — instant-failure guards only (protected files, KB edit
- * gate). Split out of pipeline/index.ts for the per-file line limit.
+ * tool_call interception — the KB edit gate. Split out of pipeline/index.ts for
+ * the per-file line limit.
  *
- * LotusScript reads are not intercepted here: reading a monolithic `.lss`/`.dxl`
- * returns the file as it is (the decompiler was removed on 2026-10-23).
+ * LotusScript reads are not intercepted here: reading a `.lss`/`.dxl` returns
+ * the file as it is, and nothing is generated alongside it.
  *
  * Cross-slice capabilities (guards) arrive via PipelineDeps wired in the
  * composition root — slices never import each other (VSA).
@@ -35,14 +35,9 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: P
         ? "file"
         : null;
 
-  // --- Instant-failure guards (edit/write only) ---
+  // --- KB edit gate (edit/write only) ---
   if ((base === "edit" || base === "write") && input && pathKey) {
     const guardPath = path.resolve(input[pathKey] as string);
-    const guard = deps.guardProtectedFiles(guardPath);
-    if (guard) {
-      state.telemetry.protectedBlocks++;
-      return guard;
-    }
     // HARD GATE: .lss/.dxl edits require a lotus-notes KB query first.
     const kbGuard = deps.guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
     if (kbGuard) {

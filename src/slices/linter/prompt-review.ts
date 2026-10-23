@@ -49,7 +49,7 @@ export async function promptProcedureLineReview(
   let instructions = result.instructions.trim();
   if (!instructions) {
     const inputVal = await ctx.ui.input(
-      strings.limitModal.inputPrompt(item.fileName),
+      strings.limitModal.inputPrompt(item.procedureName),
       strings.limitModal.inputDialogPlaceholder
     );
     if (!inputVal || !inputVal.trim()) {

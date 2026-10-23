@@ -12,7 +12,6 @@ interface Suggestion {
 /** Dedicated toggle subcommands that map onto a boolean setting from the catalogue. */
 const TOGGLE_KEYS = new Map<string, keyof ModularConfig>([
   ["lsp", "enableLsp"],
-  ["overwrite", "overwriteSourceLss"],
 ]);
 
 function directSettingSubcommands(s: Strings): readonly Suggestion[] {
@@ -31,14 +30,12 @@ function lsSubcommands(s: Strings): readonly Suggestion[] {
     { value: "scaffold", description: c.subScaffold, space: true },
     { value: "lang", description: s.lang.description, space: true },
     { value: "lsp", description: c.subLsp, space: true },
-    { value: "overwrite", description: c.subOverwrite, space: true },
-    { value: "compile", description: c.subCompile, space: true },
-    { value: "pack", description: c.subPack, space: true },
+    { value: "check", description: c.subCheck, space: true },
     { value: "lint", description: c.subLint, space: true },
     { value: "score", description: c.subScore, space: true },
     { value: "gotchas", description: c.subGotchas, space: true },
     ...directSettingSubcommands(s).filter(
-      (x) => !["enableLsp", "overwriteSourceLss"].includes(x.value)
+      (x) => x.value !== "enableLsp" 
     ),
     { value: "config", description: c.subConfig, space: true },
     { value: "help", description: c.subHelp },

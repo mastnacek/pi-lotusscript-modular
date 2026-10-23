@@ -78,7 +78,6 @@ nové elementy vznikají takhle.
 | Agent | `agent_<Název>.lss` |
 | Tlačítko/akce | `button_<Název>.lss` |
 | Knihovna | `lib_<Název>.lss` |
-| Modulární složka | `<NázevAgenta>/` (manifest.json uvnitř) |
 
 ---
 

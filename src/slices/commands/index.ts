@@ -18,12 +18,11 @@ import {
   lsHelp,
   lsLang,
   lsLsp,
-  lsOverwrite,
   lsStatus,
   type LsParts,
 } from "./ls-config.js";
 import { lsLint, lsScaffold, lsScore } from "./ls-inspect.js";
-import { lsCompile, lsPack } from "./ls-compile.js";
+import { lsCheck } from "./ls-check.js";
 import { lsGotchas } from "./ls-gotchas.js";
 
 export interface RegisteredLsCommand {
@@ -40,9 +39,7 @@ const SUBCOMMANDS: Record<string, LsSubHandler> = {
   scaffold: lsScaffold,
   lint: lsLint,
   score: lsScore,
-  compile: lsCompile,
-  pack: lsPack,
-  clean: lsPack,
+  check: lsCheck,
   gotchas: lsGotchas,
 };
 
@@ -57,10 +54,6 @@ export function createLsCommand(state: PluginState, deps: CommandsDeps): Registe
 
     if (sub === "lsp") {
       await lsLsp(state, parts, ctx, deps, isGlobal);
-      return;
-    }
-    if (sub === "overwrite") {
-      await lsOverwrite(state, parts, ctx, deps, isGlobal);
       return;
     }
     if (sub === "lang") {

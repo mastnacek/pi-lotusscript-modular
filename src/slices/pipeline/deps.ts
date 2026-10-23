@@ -4,15 +4,14 @@
  * Slices never import each other (VSA, pi-plugin-dev §6); the composition
  * root (index.ts) is the only multi-slice importer. Everything the
  * tool_call / tool_result / agent_settled / guideline handlers need from
- * sibling slices (parser, guards, lsp, scorecard, gotchas) arrives through
- * this object, wired in the root. Types are structural on purpose: even
+ * sibling slices (guards, lsp, scorecard, gotchas) arrives through this
+ * object, wired in the root. Types are structural on purpose: even
  * `import type` into another slice trips the slice-isolation invariant.
  */
 
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FolderLintResult,
   GotchaItem,
   GotchaReviewResult,
   LspCheckResult,
@@ -26,21 +25,10 @@ export interface GuardBlockLite {
   reason: string;
 }
 
-/** Structural compile options (no cross-slice type imports). */
-export interface PipelineCompileOptions {
-  keepTimestamp?: boolean;
-  overwriteSourceLss?: boolean;
-  createLssForDxl?: boolean;
-  deleteModularDir?: boolean;
-}
-
 export interface PipelineDeps {
-  // parser slice
-  compileAgent(targetDirOrFile: string, options?: PipelineCompileOptions): string;
   // guards slice (constants exposed as sets; blocks are structural)
   /** Tools that mutate sources and must never be treated as a read. */
   readonly mutatingToolNames: ReadonlySet<string>;
-  guardProtectedFiles(guardPath: string): GuardBlockLite | null;
   guardKbBeforeEdit(guardPath: string, kbConsulted: boolean, enforce: boolean): GuardBlockLite | null;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
@@ -71,6 +59,4 @@ export interface PipelineDeps {
     body: string,
     strings?: Strings
   ): Promise<GotchaReviewResult>;
-  /** Lint re-export used by the settled flow through PluginState (structural). */
-  lintSignature?(folder: string, maxLines: number, checkComments: boolean): FolderLintResult;
 }

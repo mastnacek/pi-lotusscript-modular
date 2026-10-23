@@ -31,7 +31,7 @@ function condense(text: string, maxLines = 3): string | undefined {
 }
 
 /**
- * Deterministic, plugin-computed evaluation of one modular LotusScript agent.
+ * Deterministic, plugin-computed evaluation of one whole LotusScript file.
  * Pure function: takes plain data, returns a plain scorecard.
  *
  * This is the "how you're graded" signal. It is never derived from model output.
@@ -48,7 +48,7 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     weight: 2,
     detail:
       exceeded.length > 0
-        ? condense(exceeded.map((p) => `${p.fileName} (${p.lineCount})`).join(", "), 1)
+        ? condense(exceeded.map((p) => `${p.procedureName} (${p.lineCount})`).join(", "), 1)
         : undefined,
   });
 
@@ -61,7 +61,7 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
       label: `Czech purpose comments (${total - missing.length}/${total})`,
       ok: missing.length === 0,
       weight: 2,
-      detail: missing.length > 0 ? condense(missing.map((p) => p.fileName).join(", "), 1) : undefined,
+      detail: missing.length > 0 ? condense(missing.map((p) => p.procedureName).join(", "), 1) : undefined,
     });
   }
 
@@ -86,25 +86,7 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     });
   }
 
-  // DoD 4 — manifest sync
-  items.push({
-    id: "manifest-sync",
-    label: "manifest.json in sync",
-    ok: input.manifestSynced,
-    weight: 2,
-  });
-
-  // DoD 5 — final artifact. Mid-work compiles report it as pending (⬜) rather
-  // than failed, so incremental progress is not punished.
-  items.push({
-    id: "artifact",
-    label: "final artifact written",
-    ok: input.artifact === "written",
-    pending: input.artifact === "pending",
-    weight: 2,
-  });
-
-  // DoD 7 — KB verification. Scored only when a KB enforcement toggle is on;
+  // DoD 4 — KB verification. Scored only when a KB enforcement toggle is on;
   // a user who disabled all KB machinery is not punished for skipping it.
   // Plural by design: one call per KB layer (reference / book / community).
   if (input.kbExpected) {
@@ -131,15 +113,15 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
  * Trend line relative to the previous scorecard for the same agent.
  */
 export function trendLabel(current: AgentScorecard, previous?: AgentScorecard): string {
-  if (!previous) return "(first compile)";
+  if (!previous) return "(first check)";
   const delta = current.score - previous.score;
-  if (delta > 0) return `▲ +${delta} since last compile`;
-  if (delta < 0) return `▼ ${delta} since last compile`;
-  return "= no change since last compile";
+  if (delta > 0) return `▲ +${delta} since last check`;
+  if (delta < 0) return `▼ ${delta} since last check`;
+  return "= no change since last check";
 }
 
 /**
- * Compact, stable text block injected into the compile result.
+ * Compact, stable text block injected into the check result.
  * Format is intentionally fixed so the model can read it as a signal.
  */
 export function formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string {
@@ -163,7 +145,7 @@ export function formatScorecard(current: AgentScorecard, previous?: AgentScoreca
 
 /**
  * LotusScript Definition of Done + grading rubric injected into the system prompt.
- * Static rules only — live numbers belong in the per-compile scorecard.
+ * Static rules only — live numbers belong in the per-check scorecard.
  */
 export function buildGradingRubric(config: ModularConfig): string {
   const n = config.maxProcedureLines;
@@ -195,7 +177,6 @@ export function buildGradingRubric(config: ModularConfig): string {
     `  -5 per procedure over ${n} lines without an approved exception`,
     "  -3 per procedure missing its Czech purpose comment",
     "  INSTANT FAILURE: creating a modular folder (manifest.json / main.lss / sub_*.lss) — the modular workflow was removed; every .lss is a whole script",
-    "  INSTANT FAILURE (legacy folders only): editing 'main.lss', 'manifest.json' or '*_compiled.lss' inside a pre-2026-11 modular root",
     "  A live scorecard is attached to every check result — treat it as your feedback signal.",
   ].join("\n");
 }
@@ -220,8 +201,9 @@ function isLspHarnessFailure(lsp: LspCheckResult): boolean {
  * Reduces a diagnostics blob to stable, location-free signatures so the same
  * underlying compiler/LSP problem is recognised across compile cycles.
  *
- * Line numbers, columns and file paths are normalised away — they change on
- * every edit even when the underlying fault is identical.
+ * Line numbers, columns (`col 9` / `column 9`) and file paths are normalised
+ * away — they change on every edit even when the underlying fault is identical,
+ * so the same fault must not look new merely because it moved a few columns.
  */
 export function normalizeDiagnostics(diagnostics: string): string[] {
   const seen = new Set<string>();
@@ -236,7 +218,7 @@ export function normalizeDiagnostics(diagnostics: string): string[] {
       .replace(/\b[\w.-]+\.(?:lss|dxl|txt|log)\b/gi, "<file>")
       .replace(/\(\s*\d+\s*[;,:]\s*\d+\s*\)/g, "(<loc>)")
       .replace(/:\s*\d+(?:\s*[;,:]\s*\d+)?/g, ": <loc>")
-      .replace(/\b(?:line|column|row)\s+\d+\b/gi, "line <n>")
+      .replace(/\b(?:line|column|col|row)\s+\d+\b/gi, "line <n>")
       .replace(/\s+/g, " ")
       .toLowerCase()
       .trim();

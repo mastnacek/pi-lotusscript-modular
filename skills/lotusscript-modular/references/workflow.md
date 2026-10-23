@@ -14,16 +14,10 @@ file — the module exactly as Designer stores it: `Option …`/`Use …` header
 
 - Read with `read` offset/limit; inspect with `grep`/`bash`; edit with anchored
   edits. Nothing is split or generated alongside.
-- There is no `manifest.json`, no `main.lss` index, no `sub_*.lss` fragments.
-  The modular workflow was removed (decompiler 2026-10-23, LSP module-aware
-  checking 2026-11). Never recreate it.
-
-### Legacy modular folders (archaeology)
-
-A folder with `manifest.json` + `main.lss` + `sub_*.lss` predates 2026-11.
-Do not edit its generated files (`main.lss`, `manifest.json`, `*_compiled.lss`
-are guarded); do not extend it. The maintained artifact is the whole `.lss`
-that was compiled out of it — edit that file directly.
+- There is no `manifest.json`, no `main.lss` index, no `sub_*.lss` fragments,
+  and no compiled artifact: the modular workflow is gone end to end (decompiler
+  2026-10-23, LSP module-aware checking 2026-11, plugin compile pipeline 2026-11).
+  Never recreate it.
 
 ---
 
@@ -79,11 +73,9 @@ that was compiled out of it — edit that file directly.
 | `/ls status` | Show live plugin configuration |
 | `/ls config get\|set <key>` | Read/write a setting |
 | `/ls scaffold <agent\|library> [name]` | Create a compliant whole-file skeleton (see `scaffolding.md`) |
-| `/ls compile <soubor.lss>` | Whole-file 9.0.1 compiler check |
-| `/ls compile [složka]` | Legacy: recompile a pre-2026-11 modular folder |
-| `/ls pack [složka]` | Legacy: compile a modular folder, write artifact, delete the folder |
-| `/ls lint [složka]` | Per-procedure line counts + Czech comment check |
-| `/ls score [složka]` | Scorecard + trend |
+| `/ls check <soubor.lss>` | Whole-file 9.0.1 compiler check |
+| `/ls lint <soubor.lss>` | Per-procedure line counts + Czech comment check |
+| `/ls score <soubor.lss>` | Scorecard + trend |
 | `/ls gotchas [query]` | Search the gotcha base |
 | `lotusscript_check` | Tool: whole-file 9.0.1 compiler diagnostics (+ error-code help) |
 | `lotusscript_scaffold` | Tool: generate agent/library whole-file skeletons |

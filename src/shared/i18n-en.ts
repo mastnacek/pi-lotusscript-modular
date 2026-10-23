@@ -6,7 +6,7 @@
 import type { Strings } from "./i18n.js";
 
 export const STRINGS_EN: Strings = {
-  cmdDescription: "Manage modular LotusScript agents, LSP and the Gotchas registry",
+  cmdDescription: "Manage LotusScript whole-file checks, LSP and the Gotchas registry",
   on: "ON",
   off: "OFF",
   onF: "ON",
@@ -15,8 +15,6 @@ export const STRINGS_EN: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Configuration status]:",
     lspCheck: "LSP check",
-    overwriteSource: "Overwrite source .lss",
-    cleanup: "Clean up folder on completion",
     procLimits: "Procedure limit check",
     maxLines: "Max lines per procedure",
     czechComments: "Enforce Czech comments",
@@ -24,14 +22,13 @@ export const STRINGS_EN: Strings = {
     rubric: "Definition of Done rubric",
     preflight: "Pre-flight gotchas check",
     autoDraft: "Auto-draft gotcha from recurring errors",
-    autoRecompile: "Auto-recompile on save",
+    autoCheck: "Auto-check whole file on edit",
     kbPrompt: "Enforce lotus-notes KB prompt",
     kbGate: "Enforce lotus-notes KB hard gate",
     kbSettle: "Verify KB before settle",
     kbMin: "Min KB searches per run",
     gotchaCapture: "Enforce gotcha recording",
     gotchasSummary: "Inject gotchas summary",
-    timestamp: "Keep timestamp in name",
     langLabel: "UI language",
     gotchasFile: "Central Gotchas file",
     configFile: "Config file",
@@ -40,8 +37,6 @@ export const STRINGS_EN: Strings = {
   set: {
     lspToggled: (on, isGlobal) =>
       `LSP syntax check is now ${on ? "ON" : "OFF"} (saved ${isGlobal ? "globally" : "to the project"}).`,
-    overwriteToggled: (on, isGlobal) =>
-      `Source .lss overwriting is now ${on ? "ON" : "OFF"} (saved ${isGlobal ? "globally" : "to the project"}).`,
     savedKV: (isGlobal, key, value) =>
       `Saved (${isGlobal ? "globally" : "to the project"}): ${key} = ${value}`,
     currentValue: (key, value, description) => `${key} = ${value} (${description})`,
@@ -70,17 +65,12 @@ export const STRINGS_EN: Strings = {
     localeEn: "English",
   },
 
-  compile: {
-    notModular: (target) => `Not a LotusScript modular folder: ${target}`,
-    compiledClean: (name) => `Compiled ${name} (LSP clean)`,
-    compiledLspErrors: (diagnostics) => `Compiled with LSP errors:\n${diagnostics}`,
-    compiled: (p) => `Compiled: ${p}`,
-    compileError: (msg) => `Compile error: ${msg}`,
-    packedClean: (name) => `Compiled and cleaned up: ${name} (LSP clean)`,
-    packedLspErrors: (diagnostics) => `Compiled with LSP errors:\n${diagnostics}`,
-    packedDone: (p) => `Compiled to: ${p} and the modular folder was deleted.`,
-    packError: (msg) => `Cleanup error: ${msg}`,
-    fileNotFound: (p) => `File not found: ${p}`,
+  check: {
+    usage: (p) => `Usage: /ls check <file.lss>${p ? ` (file not found: ${p})` : ""}`,
+    clean: (name) => `✓ ${name}: whole file checked, 0 errors`,
+    errors: (diagnostics) => `⚠ Compiler errors:
+${diagnostics}`,
+    lspDisabled: "LSP checking is off (/ls lsp on) — nothing to verify.",
   },
 
   scaffoldCmd: {
@@ -162,12 +152,7 @@ export const STRINGS_EN: Strings = {
 
   settled: {
     score: (s, m) => ` [score: ${s}/${m}]`,
-    tailKept: (score) =>
-      `compiled${score}. Modular folder kept — the source .lss is not overwritten.`,
-    tailDeleted: (score) => `compiled${score} and the temporary folder was deleted.`,
     done: (file, tail) => `🪷 [LotusScript Modular] Done: ${file} ${tail}`,
-    retained: (n, names) =>
-      `🪷 [LotusScript Modular] Kept ${n} folder(s) with content the plugin did not create: ${names}`,
   },
 
   recurring: {
@@ -185,16 +170,16 @@ export const STRINGS_EN: Strings = {
     hooks: (total, calls, results, settled) =>
       `🪷 LS hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
     reads: (kb) => `   KB queries ${kb}`,
-    gates: (kb, protectedB, compiles, kbNudges) =>
-      `   gates: KB ${kb} · protected ${protectedB} · compiles ${compiles} · settle-nudges ${kbNudges}`,
-    codeNone: "code: no compile yet",
+    gates: (kb, checks, kbNudges) =>
+      `   gates: KB ${kb} · checks ${checks} · settle-nudges ${kbNudges}`,
+    codeNone: "code: no check yet",
     code: (procs, longest, max) => `code: ${procs} procs · longest ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
   },
 
   statusline: {
-    compiling: (badge) => `🪷 LS${badge}: compiling...`,
-    clean: (badge) => `🪷 LS${badge}: compiled ✓`,
+    checking: (badge) => `🪷 LS${badge}: checking...`,
+    clean: (badge) => `🪷 LS${badge}: clean ✓`,
     error: (badge) => `🪷 LS${badge}: LSP error ⚠`,
   },
 
@@ -203,9 +188,7 @@ export const STRINGS_EN: Strings = {
     subGlobal: "Save the following setting globally (~/.pi/agent/)",
     subScaffold: "Create a LotusScript code skeleton (agent, library)",
     subLsp: "Toggle LotusScript LSP check: on | off",
-    subOverwrite: "Toggle .lss file overwriting: on | off",
-    subCompile: "Build the modular folder into _compiled.lss",
-    subPack: "Build into .lss and delete the modular folder",
+    subCheck: "Check a whole .lss file with the 9.0.1 compiler",
     subLint: "Check procedure length (max 300 lines) and comments",
     subScore: "Show the agent scorecard and grading trend",
     subGotchas: "Search the LotusScript Gotchas database (40+ rules)",
@@ -215,8 +198,6 @@ export const STRINGS_EN: Strings = {
     configSet: "Save a new setting value",
     scaffoldAgent: "Standalone LotusScript agent (.lss) with error handling",
     scaffoldLibrary: "Script library (.lss)",
-    scaffoldProcedure: "Procedure (sub_ or func_) into a modular folder",
-    scaffoldModular: "Complete modular folder (manifest, options, declarations, subs)",
     gotchasSummary: "Show a summary of key pitfalls",
     gotchasAdd: "Add a new gotcha with an approval dialog",
     topicShell: "Shell as a variable name (reserved word)",
@@ -239,23 +220,18 @@ export const STRINGS_EN: Strings = {
 
   settings: {
     enableLsp: {
-      description: "Run the LotusScript LSP syntax check after recompilation",
+      description: "Run the whole-file LotusScript LSP syntax check after each edit",
       on: "On — verify syntax via the LotusScript LSP server",
       off: "Off — skip the LSP check",
     },
-    overwriteSourceLss: {
-      description: "Overwrite the original .lss file on disk when recompiling (ignored for .dxl)",
-      on: "On — sync the source .lss file",
-      off: "Off — write only to modular/<Name>_compiled.lss; the folder stays on disk",
-    },
-    autoRecompileOnSave: {
-      description: "Automatically recompile when procedural .lss files are edited",
-      on: "On — build the code when sub_*.lss is saved",
-      off: "Off — compile only manually via /ls compile",
+    autoCheckOnEdit: {
+      description: "Check the whole .lss file with the 9.0.1 compiler after every edit",
+      on: "On — every edit triggers a whole-file check (procedure limits, LSP, scorecard)",
+      off: "Off — check manually with /ls check or lotusscript_check",
     },
     autoFormatOnSave: {
-      description: "Auto-format the edited modular file via the LSP formatter before recompile (ASCII-only files)",
-      on: "On — LSP formatting runs on save before the recompile",
+      description: "Auto-format the edited .lss via the LSP formatter before the check (ASCII-only files)",
+      on: "On — LSP formatting runs on save before the check",
       off: "Off — format only on explicit request (lsp_format)",
     },
     autoExplainLspCodes: {
@@ -283,24 +259,13 @@ export const STRINGS_EN: Strings = {
     },
     injectGotchasSummary: {
       description: "Inject an overview of key LotusScript Gotchas into the context",
-      on: "On — inject the gotchas summary when reading modular scripts",
+      on: "On — inject the gotchas summary when reading a .lss file",
       off: "Off — gotchas available only via /ls gotchas",
     },
     enforceGotchaCapture: {
       description: "Enforce recording newly discovered pitfalls and gotchas",
       on: "On — remind to save a new gotcha after solving a problem",
       off: "Off — optional",
-    },
-    keepTimestampInCompiledName: {
-      description: "Also create timestamped files (<Name>_<timestamp>_compiled.lss)",
-      on: "On — keep timestamped copies",
-      off: "Off — only the stable <Name>_compiled.lss",
-    },
-    cleanupOnSettled: {
-      description:
-        "Build the final .lss and delete the modular folder when the agent finishes",
-      on: "On — automatically clean up and delete the modular folder after the task",
-      off: "Off — keep the modular folder on disk",
     },
     checkProcedureLimits: {
       description: "Check the maximum procedure (sub/function) length and comment presence",
@@ -353,11 +318,9 @@ export const STRINGS_EN: Strings = {
       "  /ls --global <setting> <value>  — Save the setting globally (~/.pi/agent/)",
       "  /ls scaffold <type> [name]      — Create a skeleton (agent, library)",
       "  /ls lsp [on|off]                — Turn the LSP check on/off",
-      "  /ls overwrite [on|off]          — Turn .lss file overwriting on/off",
-      "  /ls compile [folder]            — Build the modular agent manually",
-      "  /ls lint [folder]               — Check procedure length and comments",
-      "  /ls score [folder]              — Show the agent scorecard and trend",
-      "  /ls pack [folder]               — Build into .lss and delete the modular folder",
+      "  /ls check <file.lss>            — Check the whole .lss with the 9.0.1 compiler",
+      "  /ls lint <file.lss>             — Check procedure length and comments",
+      "  /ls score <file.lss>            — Show the file scorecard and trend",
       "  /ls gotchas [query]             — Search the central registry of 40+ gotchas",
     ],
   },

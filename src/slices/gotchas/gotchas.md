@@ -848,49 +848,37 @@ value** formulas run only on document creation.
 
 ---
 
-## [toolchain] A `Účel:` comment above a procedure disappears on recompile
+## [toolchain] The `' Účel:` comment must sit directly above the Sub/Function
 
-In the pi-lotusscript-modular agent layout, a comment written **before**
-`Function`/`Sub` is moved into `01_declarations.lss` during assembly and is gone
-from the procedure file after the next decompile. The scorecard linter counts
-comments that remain in the procedure file, so a compile→decompile cycle reports
-a missing description that was actually written.
+The scorecard linter walks upward from the declaration: blank lines are skipped
+and the first non-comment line stops the scan. A comment placed inside the body,
+or up at `Option`/`Declare` level, does not describe the procedure — the lint
+reports a missing description even though the text exists in the file.
 
 ```lotusscript
-' WRONG - lost from the procedure file after a recompile/decompile cycle
-' Účel: Load distributed safety sheets.
-Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
-
-' CORRECT - lives in the body, survives the cycle
-Function NactiZmenyBL(ByVal apiToken As String, nacteneZmeny() As String) As Long
-
+' WRONG - inside the body, invisible to the lint
+Function NactiZmenyBL(ByVal apiToken As String) As Long
    ' Účel: Load distributed safety sheets.
    Dim pocet As Long
+
+' CORRECT - directly above the declaration
+' Účel: Load distributed safety sheets.
+Function NactiZmenyBL(ByVal apiToken As String) As Long
 ```
 
 ---
 
-## [toolchain] `' === SECTION: … ===` and `%REM … Assembled from modular source files` are generated
+## [toolchain] One `.lss` is the whole module — nothing is generated alongside it
 
-`compileAgent` writes two kinds of scaffolding into the assembled artifact: a
-provenance header `%REM … Assembled from modular source files … %END REM`, and
-`' === SECTION: <file> ===` / `' === END SECTION: <file> ===` markers.
-
-When the artifact is also the source (`overwriteSourceLss: true`), the
-decompiler strips both before parsing, and `compileAgent` strips them from each
-modular file before concatenation — otherwise `01_declarations.lss` accumulates
-another copy on every cycle and the artifact grows without bound.
-
-Practical consequences:
-
-- Section markers in `01_declarations.lss` are always a bug. Never write or copy
-  them there; they belong only in the assembled artifact.
-- An `' === END SECTION: … ===` without its opening marker means the file went
-  through a cycle before the fix; the next compile cleans it.
-- A user `%REM` documentation block is untouched — stripping only removes blocks
-  containing the `Assembled from modular source files` marker.
+There is no modular layout any more: no `manifest.json`, no `main.lss` index, no
+`sub_*.lss` fragments and no `*_compiled.lss` artifact. The tooling neither reads
+nor writes them, so a missing folder is normal, and creating one is an instant
+failure. Options, declarations and every procedure live in that single file —
+which is exactly what the 9.0.1 compiler receives.
 
 ---
+
+
 
 ## PowerShell 5.1 — `SignedCms` (PKCS#7/CMS) requires `Add-Type`
 

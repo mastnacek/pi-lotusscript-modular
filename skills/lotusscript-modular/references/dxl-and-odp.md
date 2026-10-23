@@ -38,13 +38,9 @@ akci/sloupec", "změň popisek", "doplň hide-when", "uprav view", or hands over
 ## 3. DXL Agents and Modular Folders
 
 Agents exported as `.dxl` (`<agent>` with `<code event="initialize">` etc.) are
-edited as DXL — the decompiler that turned them into `<AgentName>/` was removed
-on 2026-10-23, so do not split a `.dxl` and do not create the folder by hand.
-
-- A modular folder for a DXL agent exists only if it predates that removal or was
-  scaffolded; there, `main.lss` and `manifest.json` stay extension-maintained.
-- Compiling such a folder creates `<AgentName>.lss` next to the `.dxl`
-  (`createLssForDxl: true`); the `.dxl` itself is never overwritten.
+edited as DXL. Nothing is extracted or compiled out of a `.dxl` any more: the
+decompiler was removed on 2026-10-23 and with it every generated `.lss` next to
+it. Edit the DXL in place, or hand-write a whole `.lss` for the code.
 
 ---
 

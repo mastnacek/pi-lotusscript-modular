@@ -7,16 +7,13 @@
  *   constants collide — see template.lss and gotcha #37)
  * - Structured error handling (On Error GoTo ErrorHandler with Err, Error$, Erl)
  * - Mandatory Czech purpose comments (' Účel: ...)
- * - Synthetic modular headers for modular files (@script-member-of, @procedure, @parent-declarations)
  */
 
 export interface ScaffoldOptions {
   name: string;
   author?: string;
   purpose?: string;
-  agentName?: string; // For modular procedures
   returnType?: string; // For functions
-  params?: string; // Procedure parameters
   /** Fixed YYYY-MM-DD; omit to use today. Set it to make scaffolds byte-reproducible. */
   date?: string;
 }
@@ -170,150 +167,3 @@ End Function
 `;
 }
 
-/**
- * Modular Subroutine or Function file (.lss)
- */
-export function procedureTemplate(options: ScaffoldOptions & { isFunction?: boolean }): string {
-  const procName = options.name.replace(/^(sub_|func_)/i, "").replace(/\.lss$/i, "");
-  const agentName = options.agentName || "MainAgent";
-  const isFunc = options.isFunction ?? false;
-  const returnType = options.returnType || "String";
-  const params = options.params || "";
-  const purpose = options.purpose || (isFunc ? `Pomocná funkce pro výpočet hodnoty ${procName}.` : `Procedura pro zpracování ${procName}.`);
-
-  if (isFunc) {
-    return `' @script-member-of: ${agentName}
-' @procedure: ${procName}
-' @parent-declarations: 01_declarations.lss
-' Účel: ${purpose}
-Function ${procName}(${params}) As ${returnType}
-    On Error GoTo ErrorHandler
-
-    ' Implementace
-    ${procName} = ""
-    Exit Function
-
-ErrorHandler:
-    Error Err, "${procName} (řádek " & CStr(Erl) & "): " & Error$
-End Function
-`;
-  }
-
-  return `' @script-member-of: ${agentName}
-' @procedure: ${procName}
-' @parent-declarations: 01_declarations.lss
-' Účel: ${purpose}
-Sub ${procName}(${params})
-    On Error GoTo ErrorHandler
-
-    ' Implementace
-
-    Exit Sub
-
-ErrorHandler:
-    Error Err, "${procName} (řádek " & CStr(Erl) & "): " & Error$
-End Sub
-`;
-}
-
-/**
- * Complete Modular Directory Skeleton
- */
-export interface ModularFolderFiles {
-  "00_options.lss": string;
-  "01_declarations.lss": string;
-  "sub_Process.lss": string;
-  "99_initialize.lss": string;
-  "manifest.json": string;
-  "main.lss": string;
-}
-
-export function modularFolderTemplate(agentName: string, purpose?: string): ModularFolderFiles {
-  const cleanAgent = agentName.replace(/[\\/:\*\?"<>\|]/g, "_").replace(/\.lss$/i, "");
-  const desc = purpose || `Modulární agent ${cleanAgent}`;
-  const now = new Date().toISOString();
-
-  const optionsLss = `Option Public
-Option Declare
-%Include "lsconst.lss"
-`;
-
-  const declarationsLss = `' @script-member-of: ${cleanAgent}
-' Globální proměnné a sdílené instance
-Dim g_session As NotesSession
-Dim g_db As NotesDatabase
-`;
-
-  const subProcessLss = `' @script-member-of: ${cleanAgent}
-' @procedure: Process
-' @parent-declarations: 01_declarations.lss
-' Účel: Zpracování hlavní logiky agenta ${cleanAgent}.
-Sub Process()
-    On Error GoTo ErrorHandler
-
-    Print "Zpracovávám logiku v agentu ${cleanAgent}..."
-
-    Exit Sub
-
-ErrorHandler:
-    Error Err, "Process (řádek " & CStr(Erl) & "): " & Error$
-End Sub
-`;
-
-  const initializeLss = `' @script-member-of: ${cleanAgent}
-' @procedure: Initialize
-' @parent-declarations: 01_declarations.lss
-' Účel: Inicializace runtime prostředí agenta a spuštění procesů.
-Sub Initialize
-    On Error GoTo ErrorHandler
-
-    Set g_session = New NotesSession
-    Set g_db = g_session.CurrentDatabase
-
-    Print "Start agenta ${cleanAgent}: " & g_db.Title
-
-    Call Process()
-
-    Print "Konec agenta ${cleanAgent}."
-    Exit Sub
-
-ErrorHandler:
-    Print "Kritická chyba v Sub Initialize: " & CStr(Err) & " - " & Error$ & " (řádek " & CStr(Erl) & ")"
-    Exit Sub
-End Sub
-`;
-
-  const compilationOrder = [
-    "00_options.lss",
-    "01_declarations.lss",
-    "sub_Process.lss",
-    "99_initialize.lss",
-  ];
-
-  const manifestJson = JSON.stringify(
-    {
-      formatVersion: "1.0",
-      agentName: cleanAgent,
-      description: desc,
-      decompileTimestamp: now,
-      compilationOrder,
-    },
-    null,
-    2
-  );
-
-  const mainLss = `' %pi-import "00_options.lss"
-' %pi-import "01_declarations.lss"
-' %pi-import "sub_Process.lss"
-' %pi-import "99_initialize.lss"
-`;
-
-  return {
-    "00_options.lss": optionsLss,
-    "01_declarations.lss": declarationsLss,
-    "sub_Process.lss": subProcessLss,
-    "99_initialize.lss": initializeLss,
-    "manifest.json": manifestJson,
-    "main.lss": mainLss,
-  };
-}

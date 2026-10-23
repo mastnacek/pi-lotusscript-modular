@@ -3,8 +3,6 @@ import path from "node:path";
 import {
   agentTemplate,
   libraryTemplate,
-  procedureTemplate,
-  modularFolderTemplate,
   fillTemplate,
 } from "./templates.js";
 import { getBundledTemplatePath } from "./template-source.js";
@@ -14,14 +12,14 @@ export * from "./templates.js";
 export * from "./template-source.js";
 export { suggestAlias, buildDesignerNotice } from "./naming.js";
 
-export type ScaffoldTargetType = "agent" | "library" | "procedure" | "modular";
+export type ScaffoldTargetType = "agent" | "library";
 
 export interface ScaffoldResult {
   ok: boolean;
   type: ScaffoldTargetType;
   createdFiles: string[];
   message: string;
-  /** Convention-compliant alias suggestion (empty for procedures). */
+  /** Convention-compliant alias suggestion. */
   alias?: string;
   /** User-facing Designer registration notice (Czech). */
   noticeCs?: string;
@@ -141,77 +139,6 @@ export function scaffoldLotusScriptArtifact(options: {
       };
     }
 
-    case "procedure": {
-      const isFunc = options.isFunction ?? false;
-      const prefix = isFunc ? "func_" : "sub_";
-      const baseName = rawName.replace(/^(sub_|func_)/i, "").replace(/\.lss$/i, "");
-      const fileName = `${prefix}${baseName}.lss`;
-      const targetFile = path.join(dir, fileName);
-      if (fs.existsSync(targetFile)) {
-        throw new Error(`Procedure file already exists: ${targetFile}`);
-      }
-      const content = procedureTemplate({
-        name: baseName,
-        agentName: options.parentAgent || path.basename(dir),
-        isFunction: isFunc,
-        returnType: options.returnType,
-        params: options.params,
-        purpose: options.purpose,
-        author: options.author,
-      });
-      fs.writeFileSync(targetFile, content, "utf-8");
-      const info = {
-        elementType: "Procedure (modular file)" as const,
-        name: fileName,
-        alias: "",
-        purpose: options.purpose,
-        targetDir: dir,
-      };
-      return {
-        ok: true,
-        type: "procedure",
-        createdFiles: [targetFile],
-        message: `Procedure scaffold (${isFunc ? "Function" : "Sub"}) created at: ${targetFile}`,
-        noticeCs: buildDesignerNotice(info, "cs"),
-        noticeEn: buildDesignerNotice(info, "en"),
-      };
-    }
-
-    case "modular": {
-      const folderName = rawName.replace(/\.lss$/i, "");
-      const targetFolder = path.join(dir, folderName);
-      if (fs.existsSync(targetFolder)) {
-        throw new Error(`Modular directory already exists: ${targetFolder}`);
-      }
-      fs.mkdirSync(targetFolder, { recursive: true });
-
-      const files = modularFolderTemplate(folderName, options.purpose);
-      const created: string[] = [];
-
-      for (const [filename, content] of Object.entries(files)) {
-        const filePath = path.join(targetFolder, filename);
-        fs.writeFileSync(filePath, content, "utf-8");
-        created.push(filePath);
-      }
-
-      const alias = suggestAlias(folderName, "modular");
-      const info = {
-        elementType: "Modular agent folder" as const,
-        name: folderName,
-        alias,
-        purpose: options.purpose,
-        targetDir: targetFolder,
-      };
-      return {
-        ok: true,
-        type: "modular",
-        createdFiles: created,
-        message: `Modular agent folder scaffolded at: ${targetFolder} (${created.length} files)`,
-        alias,
-        noticeCs: buildDesignerNotice(info, "cs"),
-        noticeEn: buildDesignerNotice(info, "en"),
-      };
-    }
 
     default: {
       throw new Error(`Unknown scaffold target type: ${options.type}`);

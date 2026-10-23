@@ -4,6 +4,7 @@
  * helper in line-review-prompt.ts (per-file line limit split).
  */
 
+import path from "node:path";
 import type { Theme } from "@earendil-works/pi-coding-agent";
 import {
   type Focusable,
@@ -189,7 +190,7 @@ export class ProcedureLimitComponent implements Focusable {
 
     this.pushWrapped(
       rows,
-      ` ${th.fg("dim", lm.procedureLabel)} ${th.fg("accent", this.item.fileName)} ${th.fg("dim", `(${this.item.procedureName})`)}`,
+      ` ${th.fg("dim", lm.procedureLabel)} ${th.fg("accent", this.item.procedureName)} ${th.fg("dim", `(${path.basename(this.item.filePath)}:${this.item.startLine})`)}`,
       innerW
     );
     this.pushWrapped(

@@ -3,14 +3,17 @@
 Inventory of every file the plugin and its skill use, with a description of each.
 Written for a **review agent**: each entry states what the file is responsible
 for, what it exports, and where the risk sits. Line counts are from the working
-tree at commit `f684b55`.
+tree at the whole-file workflow commit.
 
 - **Repo root:** `D:\01_programovani\pi\plugins\pi-lotusscript-modular`
-- **Engine:** `@earendil-works/pi-coding-agent` 1.0.0 (installed = npm latest, aligned)
+- **Engine:** `@earendil-works/pi-coding-agent` (installed = npm latest, aligned)
 - **Target platform:** IBM Notes/Domino 9.0.1, LotusScript
 - **Architecture:** Vertical Slice Architecture (VSA) — thin composition root, `src/shared/` kernel, `src/slices/<feature>/`. Slices never import each other, only via `src/shared/`.
 
-Totals: 60 TypeScript modules, 7 Markdown docs, 2 data assets, 13 test files.
+**One source shape.** Every `.lss` is a whole script. There is no modular
+folder, no compilation, no manifest and no fragment assembly anywhere in this
+repo: the decompiler left on 2026-10-23 and the compile/manifest pipeline was
+deleted together with the LSP's module-aware checking.
 
 ---
 
@@ -18,12 +21,11 @@ Totals: 60 TypeScript modules, 7 Markdown docs, 2 data assets, 13 test files.
 
 | File | Lines | Purpose |
 |---|---:|---|
-| `index.ts` | 107 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice's registration into the `ExtensionAPI`, holds the subagent-recursion guard (`PI_SUBAGENT`/`PI_CHILD_SESSION` early return), and counts every hook invocation for the telemetry panel. |
+| `index.ts` | 205 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice's registration into the `ExtensionAPI`, holds the subagent-recursion guard (`PI_SUBAGENT`/`PI_CHILD_SESSION` early return), and counts every hook invocation for the telemetry panel. |
 | `package.json` | — | Manifest. `"type": "module"`; core packages in `peerDependencies: {"*": "*"}` (never `dependencies`); `files: [index.ts, src, skills, README.md, LICENSE, package.json]`; `test` script runs the tsx harness. |
 | `tsconfig.json` | — | TypeScript config used by `npx tsc --noEmit`. |
 | `AGENTS.md` | — | Repo-local agent instructions. |
 | `README.md` | — | User-facing plugin documentation. |
-| `todo.md` | — | Working notes. |
 | `FILE-MAP.md` | — | This file. |
 
 > **Review note:** there is **no build step**. `dist/` exists on disk but is untracked, and pi loads `index.ts` (TypeScript) directly. This matters for `template.lss` — see §4.
@@ -33,20 +35,18 @@ Totals: 60 TypeScript modules, 7 Markdown docs, 2 data assets, 13 test files.
 ## 2. Skill (`skills/lotusscript-modular/`)
 
 Model-facing instructions. This is what the agent reads to decide what to do;
-the code in §4–§6 is what actually executes.
+the code in §3–§6 is what actually executes.
 
 | File | Lines | Purpose |
 |---|---:|---|
-| `SKILL.md` | 195 | Frontmatter (`name: lotusscript-modular`) + the operating manual: Scaffold Fast Path, Definition of Done, file-map table of `src/slices/*`, KB-lookup block naming the collection's three layers. Loaded by pi's skill discovery. |
-| `references/workflow.md` | ~90 | Whole-file workflow reference — the edit → check → Designer paste lifecycle and when the plugin intervenes. |
-| `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
+| `SKILL.md` | ~205 | Frontmatter (`name: lotusscript-modular`) + the operating manual: whole-file contract, check tool, Scaffold Fast Path, Definition of Done, architecture map, language policy. Loaded by pi's skill discovery. |
+| `references/workflow.md` | ~90 | Whole-file lifecycle: edit → check → Designer paste, and the CLI/tool table. |
+| `references/scaffolding.md` | ~120 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
-| `references/gotchas-index.md` | 101 | Index of the 64 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
+| `references/gotchas-index.md` | 101 | Index of the bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
 | `references/naming-conventions.md` | 117 | Alias grammar and the type→prefix table (`ag_`, `lib_`, …). |
 | `references/dxl-and-odp.md` | 66 | DXL/ODP design-element reference (forms, views, agents, ODP). |
 | `references/formula-language.md` | 150 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, `@Today` in views, formula/DXL escaping. Names the KB layers and cites `kapitola-04..07`. |
-
-> **Review note:** `SKILL.md` was stale until commit `f684b55` — it still promised `%Include "lsconst.lss"` and an `On Error GoTo Catch` label, neither of which the template emits. Worth re-reading `SKILL.md` §"Scaffold Fast Path" against `template.lss` on any future template change; the two are kept in sync by hand.
 
 ---
 
@@ -56,140 +56,127 @@ Imported by slices. No slice may import another slice.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `types.ts` | 209 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FolderLintResult`, `CodeBlock`, `AgentManifest`, `LspCheckResult`, `GotchaItem`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (16 settings). |
-| `config.ts` | 94 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. |
-| `paths.ts` | 235 | `sanitizeFileName`, `getTimestamp`, `decodeXml`, `makeUniqueFileNames`, `detectProcPrefix`, `findModularRoot`, `getExistingModularDir`, `isMonolithicLss`, `isMonolithicDxl`, `MonolithicReadHit`, `findMonolithicScriptReads` | Path/protocol kernel: modular-root discovery, monolithic-vs-modular detection, DXL entity decoding, unique-name suffixing, timestamp format. |
-| `state.ts` | 282 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry` + `countHook` (panel refresh on every hook). |
-| `state-insights.ts` | 170 | `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Derived session insights (what has been decompiled, touched, compiled). |
-| `state-procedure-limits.ts` | 117 | `ProcedureLimitDeps`, `VerifyLimitsResult`, `ProcedureLimitGate`, `createProcedureLimitGate` | Anti-loop gate: enforces `maxProcedureLines` and prevents repeated lint prompts within a session. |
-| `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, monolithic/modular reads, KB-gate/dump/protected blocks, recompiles and code length. |
+| `types.ts` | 175 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FileLintResult`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (19 settings); `ProcedureLintItem` carries `filePath` + `startLine` for a procedure inside a whole file. |
+| `config.ts` | 115 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`) so a stale file cannot revive removed behaviour. |
+| `paths.ts` | 29 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `sanitizeFileName` | Path protocol only — the modular-root/monolith detection helpers were deleted with the pipeline. |
+| `state.ts` | 295 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry`, `countHook`, `lastCheckedFile` (the file the settle debrief grades) and `beginRun()` per-run resets. |
+| `state-insights.ts` | 157 | `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Derived session insights: scorecard build/history, `collectFileTokens(filePath)` (declarations of ONE file), pre-flight gotcha banner. |
+| `state-procedure-limits.ts` | 139 | `ProcedureLimitDeps`, `VerifyLimitsResult`, `ProcedureLimitGate`, `createProcedureLimitGate` | Anti-loop gate: enforces `maxProcedureLines` within one file and prevents repeated lint prompts for the same content revision. |
+| `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, KB-gate blocks, whole-file checks and code length. |
+| `i18n.ts` / `i18n-cs.ts` / `i18n-en.ts` | 263 / 327 / 327 | `Strings`, `stringsFor`, `normalizeLocale`, `LOCALES`, `STRINGS_CS`, `STRINGS_EN` | The complete user-facing string table. Every key exists in both locales (compile-time via `Record<Locale, Strings>`, test-time via `test/test_i18n.ts`). |
 
 ---
 
 ## 4. `src/slices/scaffold/` — code generation
 
-Generates new LotusScript files. Most recently reworked in this session.
+Generates new whole-file LotusScript sources.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `template.lss` | 114 | *(data asset)* | **The shipped template.** Versioned header (NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI + VERZE + CHANGELOG), `ERROR_NOTIFY_EMAIL$`/`MAIL_SERVER$`/`MAIL_DB$` header constants, `LSI_THREAD_*` block, `SendErrorEmail` helper, `Initialize` with `On Error GoTo ErrorHandler`. |
-| `templates.ts` | 319 | `ScaffoldOptions`, `formatCurrentDate`, `fillTemplate`, `agentTemplate`, `libraryTemplate`, `procedureTemplate`, `ModularFolderFiles`, `modularFolderTemplate` | `fillTemplate` substitutes the `<…>` placeholders (pure, no fs, no clock) and keeps the template's own `.lss` suffix in the `NÁZEV` header. The four `*Template` functions are the **fallback** skeletons used only if `template.lss` cannot be read — they mirror its conventions (no `%Include lsconst`, `On Error GoTo ErrorHandler`). |
+| `templates.ts` | 185 | `ScaffoldOptions`, `formatCurrentDate`, `fillTemplate`, `agentTemplate`, `libraryTemplate` | `fillTemplate` substitutes the `<…>` placeholders (pure, no fs, no clock). The two `*Template` functions are the **fallback** skeletons used only if `template.lss` cannot be read. |
 | `template-source.ts` | 24 | `getBundledTemplatePath` | Resolves the template to `template.lss` **inside the installed package**, so template and code are always the same version. |
-| `index.ts` | 220 | `scaffoldLotusScriptArtifact`, `ScaffoldTargetType`, `ScaffoldResult` + re-exports | Orchestrates the four scaffold types, refuses to overwrite, derives the alias, builds the Designer notice. |
-| `naming.ts` | 156 | `normalizeAscii`, `suggestAlias`, `NoticeInfo`, `buildDesignerNotice` | Alias derivation and the Czech/English Designer-registration notice. |
+| `index.ts` | 147 | `scaffoldLotusScriptArtifact`, `ScaffoldTargetType` (`"agent" \| "library"`), `ScaffoldResult` + re-exports | Orchestrates the two scaffold types, refuses to overwrite, derives the alias, builds the Designer notice. |
+| `naming.ts` | 146 | `normalizeAscii`, `suggestAlias`, `NoticeInfo`, `buildDesignerNotice` | Alias derivation and the Czech/English Designer-registration notice. |
 
-> **Review targets in this slice:**
-> - `templates.ts` is **319 lines** — over the 300-line soft target the tooling warns about (hard limit 400). Split candidate: the four fallback skeletons into `templates/`.
-> - `naming.ts` **diverges from the project's own naming convention** (see §8). Known issues: no domain segment, 6-char per-segment truncation, and an explicit allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell.
-> - `template.lss` declares `LSI_THREAD_*` itself. That is required for a standalone `.lss` outside Designer but is a **compile error** when pasted into a Script Library / design element (`LSPRVAL.LSS` is auto-included there). The file warns about this in Czech; nothing enforces it.
+> **Review note:** `template.lss` declares `LSI_THREAD_*` itself. That is required for a standalone `.lss` outside Designer but is a **compile error** when pasted into a Script Library / design element (`LSPRVAL.LSS` is auto-included there). The file warns about this in Czech; nothing enforces it.
 
 ---
 
 ## 5. `src/slices/` — the other features
 
-### parser — modular folder → artifact
+### linter — procedure limits and comments inside one file
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `compile-agent.ts` | 124 | `compileAgent` | Reassembles a modular folder into one compiled `.lss`. |
-| `agent-parser.ts` | 41 | `AgentParser` | Low-level block extraction from LotusScript source. |
-| `scaffolding.ts` | 84 | `ASSEMBLED_HEADER_MARKER`, `isSectionTagLine`, `sectionTag`, `endSectionTag`, `buildArtifactHeader`, `stripArtifactScaffolding` | Generated provenance markers and their removal, so recompiles stay idempotent. |
-| `sync-manifest.ts` | 97 | `syncManifest` | Keeps `manifest.json` consistent with files actually on disk. |
-| `emitters.ts` | 66 | `writeModuleFile`, `writeManifest`, `writeMainLss`, `rewriteMainLssFromManifest` | Filesystem writers for the modular layout. |
-| `index.ts` | 1 | re-export | Barrel. |
-
-### gotchas — trap catalogue
-| File | Lines | Exports | Purpose |
-|---|---:|---|---|
-| `gotchas.md` | 1263 | *(data asset)* | 64 traps, `##`-delimited. Parsed at runtime. |
-| `catalogue.ts` | 153 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md`, seeded from the bundled file on first use and never overwritten. `addGotcha` appends **only** to the global file — the bundled copy is never touched at runtime (it sits inside a git tree that `pi update` reconciles). mtime-cached. |
-| `review-modal.ts` | 295 | `GotchaReviewResult`, `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
-| `index.ts` | 13 | re-export | Barrel. |
-
-> **Review note:** `gotchas.md` is user-owned by design — the opposite case from `template.lss`. Its 59 entries have **zero heading overlap** with the 40 real-world traps in `D:\01_programovani\pi\plugins` … precisely, with `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md`. See §8.
-
-### pipeline — event translation
-| File | Lines | Exports | Purpose |
-|---|---:|---|---|
-| `tool-call.ts` | 54 | `handleToolCall` | Instant-failure guards only (protected files, KB edit gate) plus KB-search telemetry. Reads of monolithic scripts pass through untouched. |
-| `tool-result.ts` | 254 | `handleToolResult` | Post-edit recompile, lint gate, scorecard injection. Feeds recompile/code-length/LSP outcome into telemetry. |
-| `settled.ts` | 97 | `handleAgentSettled` | At settle: recompile folders the agent edited, write the artifact, delete the folder. Folders that were only read are the user's and are never deleted. |
-| `guidelines.ts` | 48 | `buildPromptGuidelines` | Builds the system-prompt text: DoD, rubric, top gotchas, KB prompt (names the collection's three layers and the Guirard chapters). |
-| `recurring-gotcha.ts` | 70 | `draftRecurringGotcha` | Auto-drafts a gotcha when the same diagnostic repeats. |
-| `read-banner.ts` | 52 | `readBanner` | Banner shown when `main.lss` of an existing modular folder is read (index semantics, not truncation). |
-| `shared.ts` | 19 | `ToolResultEventResultShape`, `baseToolName` | Small shared helpers. |
-| `index.ts` | 11 | re-export | Barrel. |
-
-### linter — procedure limits and comments
-| File | Lines | Exports | Purpose |
-|---|---:|---|---|
-| `checker.ts` | 152 | `lintProcedureFile`, `lintModularFolder` | The **only two rules**: per-procedure line count vs `maxProcedureLines`, and presence of a doc/`Účel:` comment. |
-| `modal.ts` | 284 | `ProcedureReviewResult`, `ProcedureLimitComponent` | TUI modal for over-limit procedures. |
+| `checker.ts` | 139 | `findProcedures`, `lintLotusScriptFile` | Splits ONE `.lss` into `Sub`/`Function`/`Property` blocks and applies the **only two rules**: block line count vs `maxProcedureLines`, and a Czech `' Účel:` comment above the declaration. |
+| `modal.ts` | 289 | `ProcedureReviewResult`, `ProcedureLimitComponent` | TUI modal for over-limit procedures (shows procedure name, file:line, over-by). |
 | `prompt-review.ts` | 58 | `promptProcedureLineReview` | Single-shot review gate. |
-| `instructions-input.ts` | 71 | `InstructionsInput` | Text input widget for pasting instructions. |
-| `index.ts` | 15 | re-export | Barrel. |
+| `instructions-input.ts` | 71 | `InstructionsInput` | Text input widget for pasting splitting instructions. |
+| `index.ts` | 17 | re-export | Barrel. |
 
-> **Review note:** the linter has **no performance or correctness rules** — nothing from `best_practices.md` is enforced. See §8.
+> **Review note:** the linter has **no performance or correctness rules** — nothing from `best_practices.md` is enforced.
 
 ### guards — instant-failure prevention
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `index.ts` | 26 | `GuardBlock`, `guardProtectedFiles`, `guardKbBeforeEdit` | Blocks edits to plugin-maintained files and hard-gates `.lss`/`.dxl` edits behind a `kb_search`. |
+| `index.ts` | 35 | `GuardBlock`, `guardKbBeforeEdit` | Hard-gates `.lss`/`.dxl` edits behind a `kb_search` on the `lotus-notes` collection. No protected-file guard remains: the plugin generates nothing behind the agent's back. |
 
 ### commands — `/ls` slash commands
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `index.ts` | 96 | `RegisteredLsCommand`, `createLsCommand` | `/ls` dispatcher. |
-| `ls-inspect.ts` | 92 | `lsScaffold`, `lsLint`, `lsScore` | Inspect/act commands, including the scaffold path. |
-| `ls-compile.ts` | 96 | `lsCompile`, `lsPack` | Compile / pack-and-clean. |
-| `ls-config.ts` | 142 | `LsParts`, `lsStatus`, `lsLsp`, `lsOverwrite`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu with current-value annotation. |
+| `index.ts` | 90 | `RegisteredLsCommand`, `createLsCommand` | `/ls` dispatcher (`status` / `check` / `lint` / `score` / `scaffold` / `gotchas` / `config` / `help`, direct setting access, `--global`). |
+| `ls-check.ts` | 64 | `lsCheck` | `/ls check <file.lss>` — whole-file 9.0.1 check + scorecard. |
+| `ls-inspect.ts` | 115 | `lsScaffold`, `lsLint`, `lsScore` | Scaffold + per-file lint/score inspection. |
+| `ls-config.ts` | 154 | `LsParts`, `lsStatus`, `lsLsp`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu with current-value annotation. |
 | `ls-gotchas.ts` | 48 | `lsGotchas` | Gotcha query. |
+| `deps.ts` | 91 | `CommandsDeps` + structural option/result types | Slice-isolation seam (no `compileAgent`, no `lintModularFolder`). |
 
 ### tools — model tools
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `index.ts` | 17 | `registerModelTools` | Registers all four tools. |
-| `scaffold-tool.ts` | 78 | `registerScaffoldTool` | `lotusscript_scaffold`. TypeBox schema with `StringEnum` for `type`; `date` pins the header date for a reproducible scaffold. |
-| `compile-tool.ts` | 70 | `registerCompileTools` | `lotusscript_check` — whole-file IBM 9.0.1 compiler-oracle check (replaces the retired `lotusscript_compile`). |
-| `gotchas-tool.ts` | 136 | `registerGotchasTool` | `lotusscript_gotchas`. |
+| `index.ts` | 17 | `registerModelTools` | Registers the three tools. |
+| `compile-tool.ts` | 66 | `registerCompileTools` | `lotusscript_check` — whole-file IBM 9.0.1 compiler-oracle check (+ `lsp_explain` help pages). Kept under the historical file name. |
+| `scaffold-tool.ts` | 78 | `registerScaffoldTool` | `lotusscript_scaffold`. TypeBox schema with `StringEnum(["agent","library"])`; `date` pins the header date for a reproducible scaffold. |
+| `gotchas-tool.ts` | 142 | `registerGotchasTool` | `lotusscript_gotchas`. |
+| `deps.ts` | 62 | `ToolsDeps`, `ScaffoldOptionsFull`, `ScaffoldResultFull` | Slice-isolation seam (LSP / gotchas / scaffold only). |
+
+### pipeline — event translation
+| File | Lines | Exports | Purpose |
+|---|---:|---|---|
+| `tool-call.ts` | 45 | `handleToolCall` | KB edit gate + KB-search telemetry. Reads pass through untouched. |
+| `tool-result.ts` | 253 | `handleToolResult` | Read banner for `.lss`; on edit: whole-file auto-check (limit gate → LSP → scorecard → recurring gotchas), grid of notices, telemetry. Sets `lastCheckedFile`. |
+| `settled.ts` | 66 | `handleAgentSettled`, `SettledDeps` | At settle: final whole-file check of `lastCheckedFile`, scorecard, and the debrief for unmet DoD items. Nothing is written or deleted. |
+| `before-settle.ts` | 50 | `handleAgentBeforeSettle` | One-shot KB verification turn when a run mutated sources below `minKbSearchesPerRun`. |
+| `guidelines.ts` | 62 | `buildPromptGuidelines` | System-prompt text: KB protocol, gotchas, procedure limits, rubric, whole-file source shape. |
+| `recurring-gotcha.ts` | 70 | `draftRecurringGotcha` | Auto-drafts a gotcha when the same diagnostic signature repeats across checks of the same file. |
+| `read-banner.ts` | 62 | `readBanner`, `suggestedKbQueries` | Banner on reading a `.lss`: whole-file orientation, LSP state, KB protocol, pre-flight gotchas. |
+| `mutating-tools.ts` | 12 | `MUTATING_TOOL_NAMES` | `edit` / `write` — the only mutating tools left. |
+| `shared.ts` | 19 | `ToolResultEventResultShape`, `baseToolName` | Small shared helpers. |
+| `index.ts` | 11 | re-export | Barrel. |
+| `deps.ts` | 66 | `PipelineDeps`, `GuardBlockLite` | Slice-isolation seam. |
 
 ### settings — slash-command completion
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `catalogue.ts` | 227 | `SettingKind`, `SettingSpec`, `SETTING_SPECS`, `findSetting`, `parseValue`, `formatValue` | Declarative catalogue of every `ModularConfig` setting (incl. `showTelemetryPanel`). |
-| `complete.ts` | 193 | `LS_SUBCOMMANDS`, `completeLsArguments` | Multi-level autocompletion with the trailing-space contract. |
+| `catalogue.ts` | 96 | `SettingKind`, `SettingSpec`, `SETTING_SPECS`, `findSetting`, `settingCopy`, `parseValue`, `formatValue` | Declarative catalogue of every `ModularConfig` setting (retired keys removed). |
+| `complete.ts` | 275 | `completeLsArguments` | Multi-level autocompletion with the trailing-space contract. |
 | `index.ts` | 10 | re-export | Barrel. |
 
 ### scorecard / lsp
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `scorecard/compute.ts` | 294 | `computeScorecard`, `trendLabel`, `formatScorecard`, `buildGradingRubric`, `normalizeDiagnostics`, `findRecurringSignatures`, `buildRecurringGotchaDraft` | Deterministic per-agent DoD scorecard + rubric. |
+| `scorecard/compute.ts` | 273 | `computeScorecard`, `trendLabel`, `formatScorecard`, `buildGradingRubric`, `normalizeDiagnostics`, `findRecurringSignatures`, `buildRecurringGotchaDraft` | Deterministic per-file DoD scorecard (procedure limit, comments, LSP, KB) + rubric. `normalizeDiagnostics` masks line **and column** numbers. |
 | `scorecard/index.ts` | 8 | re-export | Barrel. |
-| `lsp/lsp-check.ts` | 216 | `checkLotusScriptDiagnostics` | LotusScript LSP diagnostics; distinguishes measured / unmeasured / pending. |
+| `lsp/lsp-check.ts` | 217 | `checkLotusScriptDiagnostics` | Whole-file LSP diagnostics via the MCP lane; distinguishes measured / unmeasured / pending. |
+| `lsp/mcp-client.ts` | 202 | `DEFAULT_SERVER_JS`, MCP-over-stdio helpers | Automation lane (SPAI-008): `lsp_explain`, `lsp_format`. |
 | `lsp/index.ts` | 1 | re-export | Barrel. |
+
+### gotchas — trap catalogue
+| File | Lines | Exports | Purpose |
+|---|---:|---|---|
+| `gotchas.md` | 1358 | *(data asset)* | The traps, `##`-delimited. Parsed at runtime. |
+| `catalogue.ts` | 153 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md`, seeded from the bundled file on first use and never overwritten. `addGotcha` appends **only** to the global file. mtime-cached. |
+| `review-modal.ts` | 297 | `GotchaReviewResult`, `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
+| `index.ts` | 13 | re-export | Barrel. |
 
 ---
 
 ## 6. Tests
 
-Harness: `test/test_modular_workflow.ts` (58 lines) runs numbered assertions across phases. `npm test` → 94 assertions.
+Harness: `test/test_workflow.ts` — `npm test` runs `test/test_i18n.ts` + the
+workflow phases. Every check throws on failure (no log-only assertions).
 
 | File | Lines | Covers |
 |---|---:|---|
-| `test/helpers.ts` | 105 | Temp-dir fixtures and a `mockPi` ExtensionAPI double. |
-| `test/phases/phase1.ts` | 284 | Phases 1–4: gotchas catalogue, menu completions, core compile→LSP, gotcha review modal + approval gate. Fixture modular folders are built by `test/fixtures/` (archived decompiler). |
-| `test/phases/phase5.ts` | 100 | Phase 5 (20–22): ephemeral modularization and cleanup on `agent_settled`. |
-| `test/phases/phase6.ts` | 187 | Phases 6 (23–28): procedure line-limit + comment linter, modal, tool_result lint gate, anti-loop gate, sizing. |
-| `test/phases/phase7.ts` | 80 | Phases 7 (29–34): scorecard / grading — compute, trend, format, rubric, prompt injection, recompile integration. |
-| `test/phases/phase8.ts` | 112 | Phases 8 (35–39): instant-failure guards — protected files, KB edit gate, legitimate files pass, outside-root advisory. |
-| `test/phases/phase9.ts` | 97 | Phases 9 (40–43): pre-flight gotcha banners + debrief handoff. |
-| `test/phases/phase10.ts` | 132 | Phase 10 (44–47): recurring-failure gotcha drafting. |
-| `test/phases/phase12.ts` | 223 | Phases 12a/12b (55–62): shell/code-execution read guards, English language guard, unmeasured-LSP pending semantics. |
-| `test/phases/phase13.ts` | 216 | Phases 13a/13b (63–75b): scaffold slice + naming conventions. Includes 63b (determinism + placeholder substitution) and 75b (formula-language.md exists and cites the KB layers). |
-| `test/phases/phase14.ts` | 136 | Phase 14 (76–79): artifact-scaffolding round-trip idempotency. Regression guard for the scaffolding-accumulation bug. |
-| `test/phases/phase15.ts` | 198 | Phase 15 (80–84): repeated-event module names. Regression guard for the lost-button bug. |
-| `test/phases/phase16.ts` | 104 | Phase 16 (85a–87b): hook telemetry — counters through `handleToolCall`, panel line content + width safety at 40 cols, `countHook` totals + `syncConfig` reset. |
-
-> **Review note:** test 63b reads `getBundledTemplatePath()` — the file the scaffolder actually uses. That was deliberately changed when the global seed was removed; previously the tests validated the bundled copy while a stale global file did the work.
+| `test/helpers.ts` | 105 | Temp workspace, `SAMPLE_LSS` whole-file fixture, `writeLss`, `mockCtx`, `mockPi`. |
+| `test/test_i18n.ts` | 134 | Deep locale parity, catalogue copy, telemetry/completion rendering in both locales, `normalizeLocale`, help parity. |
+| `test/test_workflow.ts` | 39 | Phase runner + cleanup. |
+| `test/phases/phase-linter.ts` | 66 | `findProcedures` spans, missing `' Účel:` detection, limit flagging, comment check toggle, missing-file degradation. |
+| `test/phases/phase-scorecard.ts` | 135 | Full-marks clean file, absence of manifest/artifact items, failure rendering, check-based trend, pending LSP semantics, whole-file rubric, diagnostic normalisation, recurring draft. |
+| `test/phases/phase-pipeline.ts` | 165 | KB gate, auto-check on edit + telemetry, auto-check off, `.dxl` tracking, limit gate, read banner, settle nudge + latch. |
+| `test/phases/phase-commands.ts` | 108 | `/ls` menu, removal of modular subcommands, scaffold completions, catalogue ↔ config parity, parse/format, retired-key dropping on load. |
+| `test/phases/phase-tools.ts` | 147 | `lotusscript_check` registration + clean/failing execution, scaffold tool params, agent/library artifacts, pinned date, overwrite refusal, gotcha registry. |
+| `test/phases/phase-extension.ts` | 108 | Composition root: tools, command, hooks, subscription draining, injected whole-file guidelines. |
 
 ---
 
@@ -198,38 +185,12 @@ Harness: `test/test_modular_workflow.ts` (58 lines) runs numbered assertions acr
 | Asset | Location | Owner | Update path |
 |---|---|---|---|
 | `template.lss` | `src/slices/scaffold/template.lss` (shipped, git-tracked) | **Developer** | Edit in the repo → push → `pi update`. Never edit the installed checkout — it is a git working tree that `pi update` reconciles. |
-| `gotchas.md` | bundled + seeded to `~/.pi/lotusscript/gotchas.md` | **User** | Tool/appended entries persist across `pi update`. Delete the global file to re-seed from the bundled copy. |
+| `gotchas.md` | `src/slices/gotchas/gotchas.md` (bundled seed) | **User** once seeded to `~/.pi/lotusscript/gotchas.md` | Approved gotchas are appended to the global copy only. |
 
 ---
 
-## 8. External sources of truth (not in this repo)
+## 8. Known gaps
 
-These govern the plugin's conventions but live outside it. A reviewer should
-read them before judging whether a slice is correct.
-
-| Path | Lines | Governs | Current state |
-|---|---:|---|---|
-| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\template.lss` | — | Origin of the shipped `template.lss` | Copied in `30a83ce`, then refined. |
-| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\gotchas.md` | 40 entries | Real-world LotusScript traps | **Zero heading overlap** with the bundled 59. |
-| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\sablona-ls-konvence.md` | 397 B | Conventions v0.2 — header shape, versioning, forbidden variable names | Source of the `ZÁVISLOSTI` header line. |
-| `E:\Z_DECKA_MALO_MISTA\fakutry-ln\howto\sablona-ls.md` | 28 KB | "Vzorový kód pro nové skripty" — Try/Catch/Finally, central ErrorLog, `OpenMail()` | Largely **not** implemented (see below). |
-| `D:\01_programovani\konvence_jmena_prvku.md` | 397 | Alias convention: `typ_domena_entita`, prefix table, příležky, 64-char limit | **Partially** implemented — prefixes and snake_case only. |
-| `D:\01_programovani\best_practices.md` | 458 | Performance/correctness rules from Guirard's IBM handbook | **Almost entirely unimplemented.** |
-
-### Known gaps (highest-value review targets)
-
-1. **`best_practices.md` has no enforcement.** All six of its "do this first" priorities are absent from `src/` and `skills/`: `@Max(@DbColumn)+1` ID generation, lookup-view indexing, `On Error Goto BubbleError`, `":""` → `""`, `@Unique` over lookups, cache-choice review. The linter (`checker.ts`) has two rules, neither of them performance-related.
-2. **`naming.ts` contradicts the alias convention** — no domain segment, 6-char truncation, and an allow-list that preserves exactly the suffix tokens the convention calls a copy-smell.
-3. **The 40 real-world gotchas are not in the plugin.** Merging them needs de-duplication against the existing 59. The Guirard chapter-7 performance rules (GetNthDocument, GetView-in-loop, save-churn, search-method choice) **were** merged as #49–52; the 7 runtime-approved gotchas were committed as #53–59.
-4. **`sablona-ls.md` recommends `OpenMail()`** rather than the hardcoded `MAIL_SERVER$` + `mail.box` the template uses. A deliberate choice was made to use constants; it is still a divergence worth a decision.
-5. **Recipient address is inconsistent across sources** — `sluzbyict@veba.cz` in `template.lss` and the conventions doc, `jaroslav.havel@veba.cz` in `sablona-ls.md`. The template ships the former.
-6. **Error-handler label differs** — `template.lss` uses `ErrorHandler`; `best_practices.md` §7 standardises on `BubbleError`.
-
----
-
-## 9. Operational state
-
-- Installed copy: `~/.pi/agent/git/github.com/mastnacek/pi-lotusscript-modular` (a git working tree).
-- As of writing, the installed checkout is **behind** the repo — it predates the `template.lss` work entirely. Run `pi update` to reconcile.
-- Repo is clean and in sync with `origin/main` at `f684b55`.
-- Verification commands: `npx tsc --noEmit`, `npm test` (94 assertions).
+- `naming.ts` **diverges from the project's own naming convention**: no domain segment, 6-char per-segment truncation, and an explicit allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell.
+- The linter enforces size and comment presence only; performance rules from `best_practices.md` are unenforced.
+- Plugin/package/skill names still say "modular" while the feature set no longer is — deliberate deferral, not an oversight.

@@ -7,7 +7,6 @@
  * - tool_call/tool_result/settled translation → src/slices/pipeline
  * - /ls command               → src/slices/commands
  * - model tools               → src/slices/tools
- * - parsing logic             → src/slices/parser
  * - LSP logic                 → src/slices/lsp
  * - gotchas                   → src/slices/gotchas
  * - settings and completions  → src/slices/settings
@@ -33,7 +32,7 @@ import type { CommandsDeps } from "./src/slices/commands/deps.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
 import type { ToolsDeps } from "./src/slices/tools/deps.js";
 import type { PipelineDeps } from "./src/slices/pipeline/deps.js";
-import { guardKbBeforeEdit, guardProtectedFiles } from "./src/slices/guards/index.js";
+import { guardKbBeforeEdit } from "./src/slices/guards/index.js";
 import { MUTATING_TOOL_NAMES } from "./src/slices/pipeline/mutating-tools.js";
 import {
   buildGradingRubric,
@@ -56,13 +55,12 @@ import {
   promptGotchaReview,
   searchGotchas,
 } from "./src/slices/gotchas/index.js";
-import { AgentParser } from "./src/slices/parser/index.js";
 import {
   checkLotusScriptDiagnostics,
   explainLotusScriptCodes,
   formatLotusScriptFile,
 } from "./src/slices/lsp/index.js";
-import { lintModularFolder } from "./src/slices/linter/index.js";
+import { lintLotusScriptFile } from "./src/slices/linter/index.js";
 import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 
@@ -89,24 +87,21 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     searchGotchas,
     addGotcha,
     promptGotchaReview,
-    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
     checkLotusScriptDiagnostics,
-    lintModularFolder,
+    lintLotusScriptFile,
     formatScorecard,
     scaffoldLotusScriptArtifact,
   };
 
   const settledDeps: SettledDeps = {
-    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
     checkLotusScriptDiagnostics,
+    lintFile: lintLotusScriptFile,
     trendLabel,
   };
 
   // Pipeline slice wiring: tool_call / tool_result / guideline handlers reach
   // parser / guards / lsp / scorecard / gotchas only through this seam (VSA §6).
   const pipelineDeps: PipelineDeps = {
-    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
-    guardProtectedFiles,
     guardKbBeforeEdit,
     mutatingToolNames: MUTATING_TOOL_NAMES,
     checkLotusScriptDiagnostics,

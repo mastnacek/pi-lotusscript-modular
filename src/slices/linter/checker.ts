@@ -1,152 +1,139 @@
-import fs from "node:fs";
-import path from "node:path";
-import type { FolderLintResult, ProcedureLintItem } from "../../shared/types.js";
-
 /**
- * Checks if a line is an internal tool directive or synthetic header.
+ * Whole-file procedure linter.
+ *
+ * A LotusScript module is ONE `.lss` file holding every `Sub`/`Function`, so the
+ * linter splits that file into procedure blocks and measures each one: line
+ * count against `maxProcedureLines`, and the presence of a Czech purpose
+ * comment (`' Účel: ...`) above the declaration.
  */
-function isSyntheticDirective(line: string): boolean {
+
+import fs from "node:fs";
+import type { FileLintResult, ProcedureLintItem } from "../../shared/types.js";
+
+/** A procedure declaration (`Sub`/`Function`/`Property Get|Set`), at any indent. */
+const PROC_DECL =
+  /^\s*(?:(?:Public|Private)\s+)?(?:Sub|Function|Property\s+(?:Get|Set))\s+([A-Za-z_][A-Za-z0-9_]*)/i;
+
+/** A block terminator that closes a procedure. */
+const PROC_END = /^\s*End\s+(?:Sub|Function|Property)\b/i;
+
+/** Comment prefixes that carry a real documented purpose. */
+function commentTextOf(line: string): string | null {
   const trimmed = line.trim();
-  return (
-    trimmed.startsWith("' @script-member-of:") ||
-    trimmed.startsWith("' @agent-member-of:") ||
-    trimmed.startsWith("' @procedure:") ||
-    trimmed.startsWith("' @event:") ||
-    trimmed.startsWith("' @parent-declarations:") ||
-    trimmed.startsWith("' %pi-import")
-  );
+  if (trimmed.startsWith("'")) return trimmed.replace(/^'+/, "").trim();
+  if (/^REM\b/i.test(trimmed)) return trimmed.replace(/^REM\s*/i, "").trim();
+  if (/^%REM\b/i.test(trimmed)) return trimmed.replace(/^%REM\s*/i, "").trim();
+  return null;
 }
 
 /**
- * Checks if procedure content contains meaningful documentation comment.
+ * Documentation check for one procedure block: a comment of at least 8 comment
+ * characters must sit directly above the declaration (blank lines allowed).
  */
-function checkProcedureDocComment(lines: string[]): { hasDocComment: boolean; notice?: string } {
-  let foundComment = false;
+function checkProcedureDocComment(blockStart: number, lines: string[]): { hasDocComment: boolean; notice?: string } {
   let commentChars = 0;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (isSyntheticDirective(trimmed)) continue;
-
-    if (trimmed.startsWith("'") || trimmed.startsWith("REM ") || trimmed.startsWith("%REM")) {
-      const commentText = trimmed.replace(/^('+|REM\s+|%REM)/i, "").trim();
-      if (commentText.length >= 6) {
-        foundComment = true;
-        commentChars += commentText.length;
-      }
-    } else if (
-      /^\s*(?:(?:Public|Private)\s+)?(?:Sub|Function|Property)\b/i.test(trimmed)
-    ) {
-      // Reached procedure declaration line
-      if (foundComment) break;
-    }
+  for (let i = blockStart - 1; i >= 0; i--) {
+    const line = lines[i] ?? "";
+    if (!line.trim()) continue;
+    const text = commentTextOf(line);
+    if (text === null) break;
+    commentChars += text.length;
   }
 
-  if (!foundComment || commentChars < 8) {
+  if (commentChars < 8) {
     return {
       hasDocComment: false,
       notice: "Procedura postrádá stručný český komentář s popisem účelu (' Účel: ...)",
     };
   }
-
   return { hasDocComment: true };
 }
 
 /**
- * Extract clean procedure name from file name or declaration.
+ * Splits a whole LotusScript source into procedure blocks.
+ * Exposed for tests: `[{ name, startLine, lineCount }]` with 1-based startLine.
  */
-function extractProcedureName(fileName: string, content: string): string {
-  const match = /^\s*(?:(?:Public|Private)\s+)?(?:Sub|Function|Property\s+(?:Get|Set))\s+([A-Za-z_][A-Za-z0-9_]*)/im.exec(content);
-  if (match && match[1]) {
-    return match[1];
-  }
-  return fileName.replace(/\.lss$/i, "");
-}
+export function findProcedures(content: string): Array<{ name: string; startLine: number; lineCount: number }> {
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const found: Array<{ name: string; startLine: number; lineCount: number }> = [];
 
-/**
- * Lints an individual procedure file for line limit and documentation.
- */
-export function lintProcedureFile(
-  filePath: string,
-  maxLines = 300,
-  checkComments = true
-): ProcedureLintItem | null {
-  if (!fs.existsSync(filePath)) return null;
-
-  const fileName = path.basename(filePath);
-  const isProc =
-    fileName.startsWith("sub_") ||
-    fileName.startsWith("func_") ||
-    fileName === "99_initialize.lss" ||
-    fileName === "99_terminate.lss";
-
-  if (!isProc) return null;
-
-  const content = fs.readFileSync(filePath, "utf-8");
-  const lines = content.replace(/\r\n/g, "\n").trimEnd().split("\n");
-  const lineCount = lines.length;
-  const isExceeded = lineCount > maxLines;
-  const procedureName = extractProcedureName(fileName, content);
-
-  const docCheck = checkComments
-    ? checkProcedureDocComment(lines)
-    : { hasDocComment: true };
-
-  return {
-    fileName,
-    procedureName,
-    lineCount,
-    maxLines,
-    isExceeded,
-    hasDocComment: docCheck.hasDocComment,
-    commentNotice: docCheck.notice,
-  };
-}
-
-/**
- * Lints all procedure files in a modular agent directory.
- */
-export function lintModularFolder(
-  folderPath: string,
-  maxLines = 300,
-  checkComments = true
-): FolderLintResult {
-  const folder = path.resolve(folderPath);
-  if (!fs.existsSync(folder)) {
-    return { ok: true, exceededProcedures: [], missingCommentProcedures: [], allItems: [] };
-  }
-
-  const files = fs.readdirSync(folder);
-  const allItems: ProcedureLintItem[] = [];
-  const exceededProcedures: ProcedureLintItem[] = [];
-  const missingCommentProcedures: ProcedureLintItem[] = [];
-
-  for (const file of files) {
-    if (!file.endsWith(".lss") || file === "main.lss" || file.endsWith("_compiled.lss")) {
+  let i = 0;
+  while (i < lines.length) {
+    const decl = PROC_DECL.exec(lines[i] ?? "");
+    if (!decl) {
+      i++;
       continue;
     }
 
-    const fullPath = path.join(folder, file);
-    const item = lintProcedureFile(fullPath, maxLines, checkComments);
-    if (!item) continue;
-
-    allItems.push(item);
-
-    if (item.isExceeded) {
-      exceededProcedures.push(item);
+    const name = decl[1] ?? "Unknown";
+    const startIndex = i;
+    let endIndex = i;
+    // Scan to the matching End Sub/Function/Property. Nested declarations inside
+    // a block (rare, e.g. a Type inside a Sub) must not open a second block, so
+    // the scan only accepts the terminator that closes this declaration.
+    let j = i + 1;
+    while (j < lines.length) {
+      if (PROC_END.test(lines[j] ?? "")) {
+        endIndex = j;
+        break;
+      }
+      j++;
     }
+    if (j >= lines.length) endIndex = lines.length - 1;
 
-    if (!item.hasDocComment) {
-      missingCommentProcedures.push(item);
-    }
+    found.push({
+      name,
+      startLine: startIndex + 1,
+      lineCount: endIndex - startIndex + 1,
+    });
+    i = endIndex + 1;
   }
 
-  const ok = exceededProcedures.length === 0;
+  return found;
+}
+
+/**
+ * Lints one whole `.lss` file: every procedure inside it.
+ * Returns an empty result when the file is missing or holds no procedure.
+ */
+export function lintLotusScriptFile(
+  filePath: string,
+  maxLines = 300,
+  checkComments = true
+): FileLintResult {
+  const empty: FileLintResult = {
+    ok: true,
+    exceededProcedures: [],
+    missingCommentProcedures: [],
+    allItems: [],
+  };
+  if (!fs.existsSync(filePath)) return empty;
+
+  const content = fs.readFileSync(filePath, "utf-8");
+  const lines = content.replace(/\r\n/g, "\n").split("\n");
+  const allItems: ProcedureLintItem[] = [];
+
+  for (const proc of findProcedures(content)) {
+    const docCheck = checkComments
+      ? checkProcedureDocComment(proc.startLine - 1, lines)
+      : { hasDocComment: true };
+
+    allItems.push({
+      filePath,
+      procedureName: proc.name,
+      startLine: proc.startLine,
+      lineCount: proc.lineCount,
+      maxLines,
+      isExceeded: proc.lineCount > maxLines,
+      hasDocComment: docCheck.hasDocComment,
+      commentNotice: (docCheck as { notice?: string }).notice,
+    });
+  }
 
   return {
-    ok,
-    exceededProcedures,
-    missingCommentProcedures,
+    ok: allItems.every((item) => !item.isExceeded),
+    exceededProcedures: allItems.filter((item) => item.isExceeded),
+    missingCommentProcedures: allItems.filter((item) => !item.hasDocComment),
     allItems,
   };
 }

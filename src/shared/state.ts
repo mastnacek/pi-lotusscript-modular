@@ -12,11 +12,10 @@
  */
 
 import fs from "node:fs";
-import path from "node:path";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FolderLintResult,
+  FileLintResult,
   HookName,
   HookTelemetry,
   LspCheckResult,
@@ -43,8 +42,8 @@ export interface PluginState {
   activeCwd: string;
   latestUiContext: ExtensionContext | null;
   latestScorecard: AgentScorecard | undefined;
-  readonly readModularDirs: Set<string>;
-  readonly modifiedModularDirs: Set<string>;
+  /** Absolute path of the file the current run last ran a whole-file check on. */
+  lastCheckedFile: string | null;
   readonly approvedLineExceptions: Set<string>;
   readonly rejectedLineSignatures: Map<string, string>;
   readonly scoreHistory: Map<string, AgentScorecard[]>;
@@ -69,30 +68,27 @@ export interface PluginState {
 
   // --- helpers ---
   procedureSignature(filePath: string): string;
-  isManifestSynced(root: string): boolean;
   buildScorecard(
-    root: string,
+    filePath: string,
     opts: {
-      lint: FolderLintResult;
+      lint: FileLintResult;
       lsp: LspCheckResult | null;
-      artifact: "written" | "pending";
-      manifestSynced?: boolean;
     }
   ): AgentScorecard;
-  recordScorecard(root: string, scorecard: AgentScorecard): AgentScorecard | undefined;
-  collectRootTokens(root: string): string[];
-  buildGotchasBanner(root: string): string;
+  recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined;
+  collectFileTokens(filePath: string): string[];
+  buildGotchasBanner(filePath: string): string;
   verifyProcedureLimits(
-    folder: string,
+    filePath: string,
     ctx?: ExtensionContext
   ): Promise<{
     ok: boolean;
     message?: string;
     splitInstructions?: string;
     warnings: string[];
-    lint: FolderLintResult;
+    lint: FileLintResult;
   }>;
-  renderStatusline(state: "idle" | "compiling" | "clean" | "error"): void;
+  renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
   /** Count a hook invocation and refresh the telemetry panel. */
   countHook(name: HookName): void;
   /** Re-apply the telemetry widget (config toggles, manual refresh). */
@@ -112,9 +108,8 @@ export function createPluginState(): PluginState {
   let activeCwd = process.cwd();
   let latestUiContext: ExtensionContext | null = null;
   let latestScorecard: AgentScorecard | undefined = undefined;
+  let lastCheckedFile: string | null = null;
 
-  const readModularDirs = new Set<string>();
-  const modifiedModularDirs = new Set<string>();
   const approvedLineExceptions = new Set<string>();
   const rejectedLineSignatures = new Map<string, string>();
   const scoreHistory = new Map<string, AgentScorecard[]>();
@@ -138,27 +133,10 @@ export function createPluginState(): PluginState {
     }
   }
 
-  /** True when manifest.json compilationOrder covers exactly the procedure files on disk. */
-  function isManifestSynced(root: string): boolean {
-    try {
-      const manifestPath = path.join(root, "manifest.json");
-      if (!fs.existsSync(manifestPath)) return false;
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8")) as { compilationOrder?: string[] };
-      const order = manifest.compilationOrder ?? [];
-      const onDisk = fs
-        .readdirSync(root)
-        .filter((f) => f.endsWith(".lss") && f !== "main.lss" && !/_compiled\.lss$/i.test(f));
-      return onDisk.length === order.length && onDisk.every((f) => order.includes(f));
-    } catch {
-      return false;
-    }
-  }
-
   // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
   const insights = createStateInsights({
     getConfig: () => config,
     getKbSearchCount: () => kbQueriesThisRun.length,
-    isManifestSynced,
     renderStatusline,
     setLatestScorecard: (sc) => {
       latestScorecard = sc;
@@ -174,16 +152,16 @@ export function createPluginState(): PluginState {
     getLatestUiContext: () => latestUiContext,
   });
 
-  function renderStatusline(state: "idle" | "compiling" | "clean" | "error" = "idle"): void {
+  function renderStatusline(state: "idle" | "checking" | "clean" | "error" = "idle"): void {
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
     const sl = stringsFor(config.lang).statusline;
     const scoreBadge = latestScorecard ? ` [${latestScorecard.score}/${latestScorecard.max}]` : "";
 
-    if (state === "compiling") {
+    if (state === "checking") {
       latestUiContext.ui.setStatus(
         "lotusscript",
-        theme.fg("warning", sl.compiling(scoreBadge))
+        theme.fg("warning", sl.checking(scoreBadge))
       );
       return;
     }
@@ -206,10 +184,7 @@ export function createPluginState(): PluginState {
 
     // Default / idle state
     const icon = theme.fg("accent", `🪷 LS${scoreBadge}`);
-    const flags = theme.fg(
-      "dim",
-      ` (LSP:${config.enableLsp ? "on" : "off"} · OW:${config.overwriteSourceLss ? "on" : "off"})`
-    );
+    const flags = theme.fg("dim", ` (LSP:${config.enableLsp ? "on" : "off"})`);
     latestUiContext.ui.setStatus("lotusscript", icon + flags);
   }
 
@@ -263,8 +238,12 @@ export function createPluginState(): PluginState {
     set latestScorecard(sc: AgentScorecard | undefined) {
       latestScorecard = sc;
     },
-    readModularDirs,
-    modifiedModularDirs,
+    get lastCheckedFile() {
+      return lastCheckedFile;
+    },
+    set lastCheckedFile(filePath: string | null) {
+      lastCheckedFile = filePath;
+    },
     approvedLineExceptions,
     rejectedLineSignatures,
     scoreHistory,
@@ -298,13 +277,13 @@ export function createPluginState(): PluginState {
       kbQueriesThisRun.length = 0;
       notesMutatedThisRun = false;
       settleKbNudgeSent = false;
+      lastCheckedFile = null;
     },
     telemetry,
     procedureSignature,
-    isManifestSynced,
     buildScorecard: insights.buildScorecard,
     recordScorecard: insights.recordScorecard,
-    collectRootTokens: insights.collectRootTokens,
+    collectFileTokens: insights.collectFileTokens,
     buildGotchasBanner: insights.buildGotchasBanner,
     verifyProcedureLimits: limitGate.verifyProcedureLimits,
     renderStatusline,
