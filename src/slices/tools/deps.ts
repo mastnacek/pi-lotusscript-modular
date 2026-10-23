@@ -14,6 +14,12 @@ import type {
   LspCheckResult,
 } from "../../shared/types.js";
 import type { Strings } from "../../shared/i18n.js";
+export interface AuditResultFull {
+  markdown: string;
+  duplicates: number;
+  files: number;
+}
+
 export interface ScaffoldOptionsFull {
   type: string;
   name: string;
@@ -54,6 +60,8 @@ export interface ToolsDeps {
   ): Promise<GotchaReviewResult>;
   // scaffold slice
   scaffoldLotusScriptArtifact(options: ScaffoldOptionsFull): ScaffoldResultFull;
+  /** Duplicate-procedure audit for one folder; `plan` appends the migration plan. */
+  auditLibraries(dir: string, lang: string, plan: boolean): AuditResultFull;
   /** Localized user-facing copy for notify() sinks (i18n via the seam). */
   strings(lang?: string): Strings;
 }

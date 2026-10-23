@@ -65,7 +65,7 @@ import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/index.js";
 import { checkDrift } from "./src/slices/drift/index.js";
 import { emitTrace, type TraceEvent } from "./src/slices/trace/index.js";
-import { auditForCommand } from "./src/slices/audit/index.js";
+import { auditForCommand, auditForTool } from "./src/slices/audit/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -138,6 +138,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     addGotcha,
     promptGotchaReview,
     scaffoldLotusScriptArtifact,
+    auditLibraries: (dir, lang, plan) => auditForTool(dir, lang, plan),
     strings: stringsFor,
   };
 

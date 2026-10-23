@@ -15,7 +15,7 @@
  * Run: npx tsx test/test_audit.ts
  */
 
-import { auditProject, extractProcedures, findDuplicates, renderAudit } from "../src/slices/audit/index.js";
+import { auditProject, extractProcedures, findDuplicates, renderAudit, renderPlan, suggestLibraryName } from "../src/slices/audit/index.js";
 
 let failures = 0;
 function check(label: string, ok: boolean): void {
@@ -90,6 +90,14 @@ const csWithGroups = renderAudit({ ...empty, groups: dup, savedLines: dup[0].sav
 check("5b. cs report names the next step", csWithGroups.includes("/ls scaffold library"));
 check("5d. empty report says there is nothing to promote", renderAudit(empty, "cs").includes("není co povýšit"));
 check("5c. en report renders with groups", renderAudit({ ...empty, groups: dup, savedLines: dup[0].saved }, "en").includes("Library audit"));
+
+// 6. promotion plan
+const withGroups = { ...empty, groups: dup, savedLines: dup[0].saved };
+const lib = suggestLibraryName(withGroups);
+check("6. library name is deterministic", lib === suggestLibraryName(withGroups) && lib.startsWith("lib_"));
+check("6b. plan names the scaffold command", renderPlan(withGroups, "cs").includes(`/ls scaffold library ${lib}`));
+check("6c. plan lists affected files", renderPlan(withGroups, "cs").includes("ag_a.lss, ag_b.lss"));
+check("6d. empty plan says nothing to promote", renderPlan(empty, "en").includes("Nothing to promote"));
 
 if (failures > 0) {
   console.log(`\n${failures} audit test(s) FAILED`);

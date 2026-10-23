@@ -12,9 +12,11 @@ import type { ToolsDeps } from "./deps.js";
 import { registerCompileTools } from "./compile-tool.js";
 import { registerGotchasTool } from "./gotchas-tool.js";
 import { registerScaffoldTool } from "./scaffold-tool.js";
+import { registerAuditTool } from "./audit-tool.js";
 
 export function registerModelTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
   registerCompileTools(pi, state, deps);
   registerGotchasTool(pi, state, deps);
   registerScaffoldTool(pi, state, deps);
+  registerAuditTool(pi, state, deps);
 }

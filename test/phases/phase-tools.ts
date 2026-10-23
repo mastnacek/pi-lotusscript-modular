@@ -27,6 +27,7 @@ function makeToolsDeps(diagnostics = ""): ToolsDeps {
     getGotchasSummary,
     addGotcha: (title: string, body: string) => ({ id: "new", title, body }),
     promptGotchaReview: async () => ({ action: "cancel" }),
+    auditLibraries: () => ({ markdown: "AUDIT", duplicates: 0, files: 0 }),
     scaffoldLotusScriptArtifact,
     strings: stringsFor,
   };

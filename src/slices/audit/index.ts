@@ -210,3 +210,49 @@ export function auditForCommand(dir: string, lang: string): AuditResultLite {
     files: report.filesScanned,
   };
 }
+
+/** Suggested library element name for a plan (kept deterministic). */
+export function suggestLibraryName(report: AuditReport): string {
+  const hint = report.groups[0]?.name.toLowerCase() ?? "shared";
+  const slug = hint.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 20) || "shared";
+  return `lib_${slug}`;
+}
+
+/** Migration plan for the top candidates — what to scaffold and what to touch. */
+export function renderPlan(report: AuditReport, lang = "cs"): string {
+  const cs = lang !== "en";
+  if (report.groups.length === 0) {
+    return cs ? "📋 Není co povyšovat — žádná procedura se neopakuje." : "📋 Nothing to promote — no procedure repeats.";
+  }
+
+  const lib = suggestLibraryName(report);
+  const out: string[] = [
+    cs ? `📋 Plán povýšení do \`${lib}\`` : `📋 Promotion plan for \`${lib}\``,
+    cs
+      ? `   \`/ls scaffold library ${lib}\`  (nebo lotusscript_scaffold type=library)`
+      : `   \`/ls scaffold library ${lib}\`  (or lotusscript_scaffold type=library)`,
+    "",
+  ];
+
+  const top = report.groups.slice(0, 3);
+  top.forEach((g, i) => {
+    const files = g.files.slice(0, 6).join(", ") + (g.files.length > 6 ? ", …" : "");
+    out.push(`${i + 1}. \`${g.name}\` — ${g.lines} ${cs ? "řádků" : "lines"}, ${g.files.length} ${cs ? "souborů" : "files"} (${cs ? "ušetří" : "saves"} ${g.saved})`);
+    out.push(`   ${cs ? "dotčené soubory" : "affected files"}: ${files}`);
+  });
+
+  out.push(
+    "",
+    cs
+      ? "Po přesunu: v každém elementu přepsat `Use` na novou knihovnu, zkontrolovat tělo proti odstraněným procedurám a spustit Tools → Recompile All LotusScript."
+      : "After the move: switch each element's `Use` to the new library, check the body for removed procedures, then Tools → Recompile All LotusScript."
+  );
+  return out.join("\n");
+}
+
+/** Markdown for the model tool: the audit, optionally followed by the plan. */
+export function auditForTool(dir: string, lang: string, plan: boolean): AuditResultLite {
+  const report = auditProject(dir);
+  const markdown = plan ? `${renderAudit(report, lang)}\n\n${renderPlan(report, lang)}` : renderAudit(report, lang);
+  return { markdown, duplicates: report.groups.length, files: report.filesScanned };
+}
