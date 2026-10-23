@@ -149,7 +149,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 |---|---:|---|---|
 | `index.ts` | 17 | `registerModelTools` | Registers all four tools. |
 | `scaffold-tool.ts` | 78 | `registerScaffoldTool` | `lotusscript_scaffold`. TypeBox schema with `StringEnum` for `type`; `date` pins the header date for a reproducible scaffold. |
-| `compile-tool.ts` | 78 | `registerCompileTools` | `lotusscript_compile`. |
+| `compile-tool.ts` | 70 | `registerCompileTools` | `lotusscript_check` — whole-file IBM 9.0.1 compiler-oracle check (replaces the retired `lotusscript_compile`). |
 | `gotchas-tool.ts` | 136 | `registerGotchasTool` | `lotusscript_gotchas`. |
 
 ### settings — slash-command completion

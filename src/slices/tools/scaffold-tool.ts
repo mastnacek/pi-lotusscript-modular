@@ -37,7 +37,7 @@ export function registerScaffoldTool(pi: ExtensionAPI, _state: PluginState, deps
   pi.registerTool<typeof ScaffoldParams, ScaffoldDetails>({
     name: "lotusscript_scaffold",
     label: "Scaffold LotusScript Code",
-    description: "Generate compliant whole-file LotusScript code skeletons (standalone agent or script library .lss) adhering to Domino 9.0.1 coding standards.",},{
+    description: "Generate compliant whole-file LotusScript code skeletons (standalone agent or script library .lss) adhering to Domino 9.0.1 coding standards.",
     parameters: ScaffoldParams,
     async execute(_toolCallId: string, params: {
       type: "agent" | "library";
