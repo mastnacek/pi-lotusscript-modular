@@ -78,7 +78,11 @@ export async function checkLotusScriptDiagnostics(
         cleanup();
         resolve({
           ok: false,
-          diagnostics: `LSP check timed out after ${timeoutMs}ms`,
+          diagnostics:
+            `LSP check timed out after ${timeoutMs}ms. ` +
+            "If a Notes client or Domino Designer is running, its shared-memory session can block " +
+            "the compiler oracle (a Notes dialog 'Shared Memory from a previous Notes/Domino run " +
+            "has been detected' appears on the desktop); dismiss it and retry, or close Notes.",
           errorCount: 1,
           warningCount: 0,
         });
