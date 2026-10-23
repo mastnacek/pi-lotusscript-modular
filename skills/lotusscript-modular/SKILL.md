@@ -1,12 +1,25 @@
 ---
 name: lotusscript-modular
-description: Working with LotusScript agents and script libraries as whole .lss/.dxl files — reading, editing, scaffolding, and checking them with the IBM Notes/Domino 9.0.1 compiler oracle (domino LSP). Use when editing, navigating, scaffolding, or verifying LotusScript for Notes/Domino 9.0.1.
+description: LotusScript and IBM Notes/Domino 9.0.1 development as whole .lss/.dxl files — writing, editing, scaffolding, checking with the 9.0.1 compiler oracle, designing script libraries, verifying the Notes object model, and finding the existing Domino element before building a new one. Use for any LotusScript, @formula, agent, view/form action, script library, or Notes application question.
 ---
 
 # LotusScript Whole-File Workflow
 
 This skill guides the AI assistant when working with LotusScript agents and
 script libraries. Plugin: `pi-lotusscript-modular`.
+
+## Which reference? (context detection)
+
+| You are looking at / asked for | Read first |
+|---|---|
+| "how do I get X done in this application?" — before any code | `reuse-ladder.md`, then `domino-search-and-access.md` |
+| a `.lss` **agent** or button | `workflow.md` → `coding-conventions.md` |
+| a `.lss` **script library** | `libraries-and-versioning.md` |
+| a class or member you are about to call | `object-model.md` → `lotus-class-index.md` (signatures: the JSON dataset) |
+| a compile or run-time error | `gotchas-index.md`, then the `lotus-notes` KB by the exact error text |
+| a `.dxl` form / view / subform / folder | `dxl-and-odp.md` |
+| an `@formula` | `formula-language.md` |
+| creating a new element | `scaffolding.md` |
 
 ## One source shape: the whole file
 
@@ -54,6 +67,9 @@ open/save/change, so diagnostics in the IDE and from the tool always agree.
 | Before writing code in ANY area — quick trigger scan; on any compile/runtime error search here first | `references/gotchas-index.md` (64 entries) |
 | Creating a new agent or script library | `references/scaffolding.md` |
 | Creating/changing a **script library**, versioning (`VERZE`/`CHANGELOG`), `Use` rules, deployment order + `Recompile All`, error 151, promoting shared code out of agents | `references/libraries-and-versioning.md` |
+| "How do I get this done in this app?" — before writing anything, choosing doclink vs. button vs. agent, what to refuse | `references/reuse-ladder.md` |
+| Searching an ODP/DXL export (AppProperties CSVs, greps), checking ACL/visibility/client/deploy reachability, real-database pitfalls | `references/domino-search-and-access.md` |
+| Verifying a Notes class or member name, back-end vs. UI classes, dataset queries | `references/object-model.md` + `references/lotus-class-index.md` |
 | Editing `.form` / `.view` / `.subform` / `.folder` DXL design elements | `references/dxl-and-odp.md` |
 | Writing or reviewing `@formulas` (view selection/columns, form fields, agents, DXL, `Evaluate`) | `references/formula-language.md` |
 

@@ -10,7 +10,8 @@ other elements `Use`, and before bumping a `VERZE`.
 
 ## 1. When code belongs in a library
 
-Promote to a library when **any** of these is true:
+Promote to a library when **any** of these is true (the same signals an audit
+looks for — see the `lotusscript_library_audit` tool):
 
 - two or more elements need the same non-trivial logic (transport, token
   handling, JSON, error reporting, HTML shell, date formatting);
