@@ -1,11 +1,11 @@
 /**
  * Lotus consent modal — "this looks like a Domino project, load the skill?"
  *
- * The animation is the plugin's only piece of theatre: a lotus that blooms in
- * six stages, then keeps a slow shimmer so the window reads as "alive" while
- * the operator decides. 8 fps, one `setInterval`, cleared in `dispose()` —
- * the same pattern the engine's overlay example uses, because the TUI only
- * repaints on `tui.requestRender()`.
+ * Static on purpose: one lotus glyph, no timers. The overlay host derives the
+ * box geometry from the lines `render()` returns and centres it, so any frame
+ * that changes its row count (or width) makes the whole window jump, grow and
+ * shrink while the operator is still reading it. A fixed geometry is the point
+ * of this file — do not reintroduce a per-frame animation here.
  *
  * Width safety: every line goes through the shared `padRow`, which clamps with
  * `truncateToWidth`, so a narrow terminal can never crash the renderer.
@@ -24,61 +24,18 @@ import type { Strings } from "../../shared/i18n.js";
 
 /** Inner width of the box (clamped to the terminal at render time). */
 const BOX_WIDTH = 62;
-const FRAME_MS = 125;
 
 /**
- * Bloom stages, narrow characters only (no emoji: they are double-width and
- * would fight `truncateToWidth`). Each frame is centred inside the box.
+ * The only decoration left: a single lotus glyph, measured by pi-tui as two
+ * columns, so `padRow` keeps the right border aligned. Rendered once per
+ * paint and never moved or recoloured between frames.
  */
-const BLOOM: string[][] = [
-  [
-    "        ╱╲",
-    "        ╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-  [
-    "       ╱╲╱╲",
-    "      ╱  ╲",
-    "      ╲  ╱",
-    "       ╲╱╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-  [
-    "     ╱╲ ╱╲ ╱╲",
-    "    ╱  ╲╱  ╲",
-    "    ╲  ✦  ╱",
-    "     ╲╱ ╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-  [
-    "   ╱╲ ╱╲╱╲ ╱╲",
-    "  ╱  ╲  ✦  ╱  ╲",
-    "  ╲  ╱  ✦  ╲  ╱",
-    "   ╲╱ ╲╱╲╱ ╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-  [
-    "  ╱╲ ╱╲╱╲ ╱╲ ╱╲",
-    " ╱  ╲  ✷  ╱  ╲",
-    " ╲  ╱  ✦  ╲  ╱",
-    "  ╲╱ ╲╱╲╱ ╲╱ ╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-  [
-    "  ╱╲ ╱╲╱╲ ╱╲ ╱╲",
-    " ╱  ╲  ✦  ╱  ╲",
-    " ╲  ╱  ✷  ╲  ╱",
-    "  ╲╱ ╲╱╲╱ ╲╱ ╲╱",
-    "   ~~~~~~~~~~~~~",
-  ],
-];
+const LOTUS = "🪷";
 
 const ACTIONS: SkillPromptChoice[] = ["load", "skip", "never"];
 
 export class LotusSkillPromptComponent implements Component {
   private selected = 0;
-  private tick = 0;
-  private interval: ReturnType<typeof setInterval> | null = null;
   private disposed = false;
 
   constructor(
@@ -87,15 +44,10 @@ export class LotusSkillPromptComponent implements Component {
     private readonly strings: Strings,
     private readonly fingerprint: ProjectFingerprint,
     private readonly done: (choice: SkillPromptChoice) => void
-  ) {
-    this.interval = setInterval(() => {
-      if (this.disposed) return;
-      this.tick++;
-      this.tui.requestRender();
-    }, FRAME_MS);
-  }
+  ) {}
 
   private choose(choice: SkillPromptChoice): void {
+    if (this.disposed) return;
     this.dispose();
     this.done(choice);
   }
@@ -139,25 +91,10 @@ export class LotusSkillPromptComponent implements Component {
     return this.theme.fg("border", "│") + clamped + padding + this.theme.fg("border", "│");
   }
 
-  /** One animated frame, coloured by tick parity so the bloom shimmers. */
+  /** Exactly one row, always: the glyph centred in the box. */
   private renderLotus(innerW: number): string[] {
-    const frame = BLOOM[this.tick % BLOOM.length]!;
-    const sparkle = this.tick % 2 === 0;
-    const th = this.theme;
-    const widest = Math.max(...frame.map((line) => visibleWidth(line)));
-    const blockPad = Math.max(0, Math.floor((innerW - widest) / 2));
-
-    return frame.map((line) => {
-      // Centre every row inside the frame: the art is symmetric, so unequal
-      // row widths must not left-align or the flower skews.
-      const rowPad = Math.max(0, Math.floor((widest - visibleWidth(line)) / 2));
-      const isWater = line.includes("~");
-      const colour = isWater ? "dim" : sparkle ? "accent" : "muted";
-      return this.padRow(
-        " ".repeat(blockPad + rowPad) + th.fg(colour, line.trimEnd()),
-        innerW
-      );
-    });
+    const pad = Math.max(0, Math.floor((innerW - visibleWidth(LOTUS)) / 2));
+    return [this.padRow(`${` `.repeat(pad)}${this.theme.fg("accent", LOTUS)}`, innerW)];
   }
 
   private renderActions(innerW: number): string[] {
@@ -210,12 +147,9 @@ export class LotusSkillPromptComponent implements Component {
 
   invalidate(): void {}
 
+  /** No timer to clear any more; the flag only stops a double resolution. */
   dispose(): void {
     this.disposed = true;
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
   }
 }
 

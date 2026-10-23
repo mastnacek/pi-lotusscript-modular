@@ -237,6 +237,25 @@ export async function phaseProject(): Promise<void> {
       rendered.includes(strings.skillModal.actionNever),
     rendered.slice(0, 200)
   );
+  // 17b. Geometry is invariant. The overlay host sizes and centres the box
+  // from `render()` — a per-frame height or width change made the window
+  // jump, grow and shrink, so the modal is deliberately static (one glyph).
+  const paintA = modal.render(60);
+  const paintB = modal.render(60);
+  const paintNarrow = modal.render(32);
+  const geometryStable =
+    paintB.length === paintA.length &&
+    paintA.every((line, index) => line === paintB[index]) &&
+    paintNarrow.length === paintA.length &&
+    paintA.every((line) => visibleWidth(line) === 60) &&
+    paintNarrow.every((line) => visibleWidth(line) === 32) &&
+    paintA.join("\n").includes("\u{1FAB7}");
+  assert(
+    "17b. modal geometry never changes between paints (static lotus glyph)",
+    geometryStable,
+    JSON.stringify({ heights: [paintA.length, paintB.length, paintNarrow.length] })
+  );
+
   modal.handleInput("y");
   const second = new LotusSkillPromptComponent(tui, theme, strings, fingerprint, (choice) => answers.push(choice));
   second.handleInput("\x1b");
