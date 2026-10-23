@@ -207,8 +207,14 @@ async function checkOnce(
           if (!isClean) {
             const lines = rawText.split("\n");
             for (const l of lines) {
-              if (/\bERROR\b/i.test(l)) errorCount++;
-              else if (/\bWARN(?:ING)?\b/i.test(l)) warningCount++;
+              // Severity comes from the line's leading marker only:
+              //   "  ERROR <path>:<line>:<col> [CODE] message"
+              // Scanning the whole line misfires when a message merely mentions
+              // an error ("Maximum number of errors reached", "its error cap").
+              const marker = /^\s*(ERROR|WARN(?:ING)?)\b/i.exec(l);
+              if (!marker) continue;
+              if (marker[1]?.toUpperCase() === "ERROR") errorCount++;
+              else warningCount++;
             }
             if (errorCount === 0 && warningCount === 0 && rawText.length > 0) {
               errorCount = 1;
