@@ -53,7 +53,8 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
       label: measured
         ? `LSP diagnostics (${errs} error${errs === 1 ? "" : "s"})`
         : "LSP diagnostics (not checked)",
-      ok: measured && !!lsp?.ok,
+      // Warnings do not fail the "0 errors" requirement.
+      ok: measured && errs === 0,
       pending: !measured,
       weight: 2,
       detail: lsp && !lsp.ok ? condense(lsp.diagnostics) : undefined,

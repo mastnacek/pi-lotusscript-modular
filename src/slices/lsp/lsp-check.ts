@@ -190,7 +190,9 @@ export async function checkLotusScriptDiagnostics(
             finished = true;
             cleanup();
             resolve({
-              ok: isClean && !harnessFailed,
+              // A warning is not a failure: the check exists to report compiler
+              // ERRORS. Warnings stay visible in `diagnostics` and in the count.
+              ok: !harnessFailed && errorCount === 0,
               diagnostics: rawText || "No diagnostics.",
               errorCount: harnessFailed ? 0 : errorCount,
               warningCount: harnessFailed ? 0 : warningCount,
