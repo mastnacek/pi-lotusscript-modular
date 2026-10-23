@@ -65,7 +65,7 @@ The tool never overwrites existing code.
    above each declaration is the house style (not linted).
 2. Declare globals/types in the file's declarations section, never inside
    procedure bodies (gotcha #38 for Option placement).
-3. Check the whole file: `lotusscript_check(path)` or `/ls compile <file.lss>`.
+3. Check the whole file: `lotusscript_check(path)` or `/ls check <file.lss>`.
 4. Verify the scorecard reaches the DoD (LSP clean, comments present, KB
    consulted).
 5. On any compile error: search `lotusscript_gotchas` with the error text

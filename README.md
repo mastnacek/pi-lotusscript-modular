@@ -33,9 +33,8 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls config set <klíč> <hodnota>` — Uložit novou hodnotu nastavení (u přepínačů `on` / `off`, v pickeru označená `✓` jako aktivní)
 - `/ls scaffold <agent|library> [název]` — Vytvořit kostru LotusScript kódu (celý .lss soubor)
 - `/ls lsp [on|off]` — Přepnout kontrolu syntaxe přes LotusScript LSP
-- `/ls overwrite [on|off]` — Přepnout přepisování původního .lss souboru
 - `/ls check <soubor.lss>` — Zkontrolovat celý .lss překladačem 9.0.1
-- `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
+- `/ls score [soubor.lss]` — Zobrazit scorecard a trend hodnocení souboru
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
 
 ---
@@ -48,7 +47,6 @@ Stored in `.pi/lotusscript-modular.json`:
 {
   "enableLsp": false,
   "autoCheckOnEdit": true,
-  "overwriteSourceLss": true,
   "enforceKbPrompt": true,
   "enforceKbGate": true,
   "injectGotchasSummary": true

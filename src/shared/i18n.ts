@@ -187,8 +187,8 @@ export interface Strings {
     markOn: string;
     markOff: string;
     now: (value: string) => string;
-    lines: (n: number) => string;
-    linesDefault: (n: number) => string;
+    kbQueries: (n: number) => string;
+    kbQueriesDefault: (n: number) => string;
   };
 
   /** Copy for every catalogue setting, keyed by ModularConfig key. */

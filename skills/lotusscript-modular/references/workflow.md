@@ -44,7 +44,7 @@ file — the module exactly as Designer stores it: `Option …`/`Use …` header
 2. **Check** the whole file:
    - tool: `lotusscript_check(path)` — runs the 9.0.1 compiler oracle on the
      file exactly as it is;
-   - command: `/ls compile <soubor.lss>` — same whole-file check from the TUI;
+   - command: `/ls check <soubor.lss>` — same whole-file check from the TUI;
    - editor: pi-lens runs the same whole-script compile on open/save/change.
 3. **On any diagnostic:** search `lotusscript_gotchas` with the error text
    before changing code; recurring identical diagnostics make the harness draft

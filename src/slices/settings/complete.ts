@@ -159,14 +159,18 @@ function completeValues(
     return toggleItems(base, spec.key, current, s, prefix);
   }
 
+  // The only numeric setting left is the per-run KB query minimum; the old
+  // 100/200/300/500 "procedure lines" picker belonged to the deleted
+  // maxProcedureLines rule and has no meaning here.
   if (spec.kind === "number") {
-    const numbers: readonly Suggestion[] = [
-      { value: "100", description: s.completions.lines(100) },
-      { value: "200", description: s.completions.lines(200) },
-      { value: "300", description: s.completions.linesDefault(300) },
-      { value: "500", description: s.completions.lines(500) },
+    if (spec.key !== "minKbSearchesPerRun") return null;
+    const counts: readonly Suggestion[] = [
+      { value: "1", description: s.completions.kbQueries(1) },
+      { value: "2", description: s.completions.kbQueries(2) },
+      { value: "3", description: s.completions.kbQueriesDefault(3) },
+      { value: "5", description: s.completions.kbQueries(5) },
     ];
-    return filter(base, numbers, prefix);
+    return filter(base, counts, prefix);
   }
 
   return null;

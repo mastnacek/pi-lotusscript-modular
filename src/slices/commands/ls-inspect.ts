@@ -41,7 +41,7 @@ export async function lsScaffold(state: PluginState, parts: LsParts, ctx: Extens
   }
 }
 
-/** Resolves the `.lss` file a `/ls lint|score` call targets. */
+/** Resolves the `.lss` file a `/ls score` call targets. */
 function resolveTarget(parts: LsParts, ctx: ExtensionCommandContext): string | null {
   const target = parts[1] ? path.resolve(ctx.cwd, parts[1]) : "";
   if (!target || !fs.existsSync(target)) return null;
