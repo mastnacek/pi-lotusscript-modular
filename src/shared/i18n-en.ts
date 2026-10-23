@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "On — every edit triggers a whole-file check (procedure limits, LSP, scorecard)",
       off: "Off — check manually with /ls check or lotusscript_check",
     },
+    versioningCheck: {
+      description: "After editing a .lss, check that the VERZE/CHANGELOG header exists and was bumped",
+      on: "On — an edit without a header (or without a bump) gets a notice with the template and the reference link",
+      off: "Off — no versioning oversight",
+    },
     autoFormatOnSave: {
       description: "Auto-format the edited .lss via the LSP formatter before the check (ASCII-only files)",
       on: "On — LSP formatting runs on save before the check",

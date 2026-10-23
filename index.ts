@@ -62,6 +62,7 @@ import {
 } from "./src/slices/lsp/index.js";
 import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
+import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -101,6 +102,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const pipelineDeps: PipelineDeps = {
     guardKbBeforeEdit,
     mutatingToolNames: MUTATING_TOOL_NAMES,
+    observeVersionHeader: (filePath) => observeVersionHeader(state, filePath),
+    checkVersioning: (filePath) => checkVersioning(state, filePath),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
     formatLotusScriptFile,

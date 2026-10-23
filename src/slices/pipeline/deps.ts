@@ -36,6 +36,11 @@ export interface PipelineDeps {
   // invocation of MCP-only features runs through these event-driven helpers
   explainLotusScriptCodes(diagnosticsText: string): Promise<string>;
   formatLotusScriptFile(filePath: string): Promise<string | null>;
+  // versioning slice — source-shape concern, independent of compilation
+  /** Cache the VERZE/CHANGELOG header observed on read (baseline for edits). */
+  observeVersionHeader(filePath: string): void;
+  /** Notice to append when an edited file has no header or an unchanged one. */
+  checkVersioning(filePath: string): string | null;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   buildGradingRubric(config: ModularConfig): string;

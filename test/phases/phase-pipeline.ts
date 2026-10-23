@@ -26,6 +26,8 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
   const deps: PipelineDeps = {
     mutatingToolNames: MUTATING_TOOL_NAMES,
     guardKbBeforeEdit,
+    observeVersionHeader: () => {},
+    checkVersioning: () => null,
     checkLotusScriptDiagnostics: async (file: string) => {
       checks.push(file);
       return { ok: true, diagnostics: "", errorCount: 0, warningCount: 0 };

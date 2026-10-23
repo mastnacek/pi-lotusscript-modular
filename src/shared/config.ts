@@ -9,6 +9,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   enableLsp: false,
   autoCheckOnEdit: true,
   autoFormatOnSave: true,
+  versioningCheck: true,
   autoExplainLspCodes: true,
   enforceKbPrompt: true,
   enforceKbGate: true,

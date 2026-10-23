@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "Zapnuto — po úpravě proběhne kontrola celého souboru (limit procedur, LSP, scorecard)",
       off: "Vypnuto — kontrolovat jen ručně přes /ls check nebo lotusscript_check",
     },
+    versioningCheck: {
+      description: "Po úpravě .lss ověřit, že soubor má hlavičku VERZE/CHANGELOG a že se změnila",
+      on: "Zapnuto — úprava bez hlavičky (nebo bez bumpu) dostane hlášku se šablonou a odkazem na referenci",
+      off: "Vypnuto — žádný dohled nad verzováním",
+    },
     autoFormatOnSave: {
       description: "Před kontrolou automaticky naformátovat editovaný .lss přes LSP (jen ASCII soubory)",
       on: "Zapnuto — LSP formátování proběhne při uložení před kontrolou",

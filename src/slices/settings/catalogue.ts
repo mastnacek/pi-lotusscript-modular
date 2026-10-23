@@ -17,6 +17,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "enableLsp", kind: "boolean" },
   { key: "autoCheckOnEdit", kind: "boolean" },
   { key: "autoFormatOnSave", kind: "boolean" },
+  { key: "versioningCheck", kind: "boolean" },
   { key: "autoExplainLspCodes", kind: "boolean" },
   { key: "enforceKbPrompt", kind: "boolean" },
   { key: "enforceKbGate", kind: "boolean" },

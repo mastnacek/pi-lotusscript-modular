@@ -46,6 +46,10 @@ export interface PluginState {
   readonly pendingDebriefs: string[];
   readonly diagnosticHistory: Map<string, string[][]>;
   readonly recurringGotchaReported: Set<string>;
+  /** Canonical VERZE/CHANGELOG block last seen per file (versioning baseline). */
+  readonly versionHeaders: Map<string, string>;
+  /** Files already nudged about versioning in the current run. */
+  readonly versioningNudged: Set<string>;
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
   /** Queries sent to the knowledge base in the current run (plural KB verification). */
@@ -98,6 +102,8 @@ export function createPluginState(): PluginState {
   const pendingDebriefs: string[] = [];
   const diagnosticHistory = new Map<string, string[][]>();
   const recurringGotchaReported = new Set<string>();
+  const versionHeaders = new Map<string, string>();
+  const versioningNudged = new Set<string>();
   let kbConsulted = false;
   const kbQueriesThisRun: string[] = [];
   let notesMutatedThisRun = false;
@@ -213,6 +219,8 @@ export function createPluginState(): PluginState {
     pendingDebriefs,
     diagnosticHistory,
     recurringGotchaReported,
+    versionHeaders,
+    versioningNudged,
     get kbConsulted() {
       return kbConsulted;
     },
@@ -240,6 +248,8 @@ export function createPluginState(): PluginState {
       notesMutatedThisRun = false;
       settleKbNudgeSent = false;
       lastCheckedFile = null;
+      // The header baseline survives across runs; only the once-per-run nudge resets.
+      versioningNudged.clear();
     },
     telemetry,
     buildScorecard: insights.buildScorecard,

@@ -12,6 +12,8 @@ export interface ModularConfig {
   enableLsp: boolean;
   /** Auto-format the edited .lss via the LSP formatter (ASCII-only files) */
   autoFormatOnSave: boolean;
+  /** Nudge when a .lss is edited without adding or bumping its VERZE/CHANGELOG header */
+  versioningCheck: boolean;
   /** Auto-attach lsp_explain help pages for new LSP error codes after a failed check */
   autoExplainLspCodes: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */

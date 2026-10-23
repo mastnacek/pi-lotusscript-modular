@@ -106,6 +106,9 @@ feedback signal.
 1. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
 2. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
 3. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
+4. The file carries a `VERZE`/`CHANGELOG` header and this change is recorded in it — the
+   `versioningCheck` slice nudges once per file per run with a paste-ready template;
+   bump policy and wording: `references/libraries-and-versioning.md` §3.
 
 Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error. There is no
 line-length rule and no comment lint: the plugin grades what the 9.0.1 compiler

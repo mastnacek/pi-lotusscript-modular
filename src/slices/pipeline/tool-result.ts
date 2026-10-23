@@ -41,6 +41,8 @@ export async function handleToolResult(
     if (readPath) {
       const resolved = path.resolve(readPath);
       if (paths.isLotusScriptSource(resolved) && fs.existsSync(resolved)) {
+        // Baseline for the versioning slice: we now know the header as it was.
+        deps.observeVersionHeader(resolved);
         return readBanner(state, event, resolved);
       }
     }
@@ -71,20 +73,43 @@ async function handleEditToolResult(
   // Settle-time KB verification tracks every .lss/.dxl mutation.
   state.notesMutatedThisRun = true;
 
-  if (!config.autoCheckOnEdit) return undefined;
   // Only a real LotusScript source can be compiled; DXL is a design export.
   if (!paths.isLotusScriptSource(resolved)) return undefined;
   if (!fs.existsSync(resolved)) return undefined;
 
+  // Version header oversight is a source-shape concern, not a compilation one:
+  // it must fire even when the whole-file check is switched off.
+  const versionNotice = deps.checkVersioning(resolved);
+
+  if (!config.autoCheckOnEdit) return withNotice(undefined, versionNotice, event);
+
   try {
-    return await checkAndReport(state, event, ctx, deps, resolved);
+    return withNotice(await checkAndReport(state, event, ctx, deps, resolved), versionNotice, event);
   } catch (err: unknown) {
     state.renderStatusline("error");
     const msg = err instanceof Error ? err.message : String(err);
-    return {
-      content: [...event.content, { type: "text", text: `\n\n⚠️ [LotusScript: Check Failed]: ${msg}` }],
-    };
+    return withNotice(
+      {
+        content: [...event.content, { type: "text", text: `\n\n⚠️ [LotusScript: Check Failed]: ${msg}` }],
+      },
+      versionNotice,
+      event
+    );
   }
+}
+
+/** Append an extra notice block to a tool-result payload (or create one). */
+function withNotice(
+  result: ToolResultEventResultShape | undefined,
+  notice: string | null,
+  event: ToolResultEvent
+): ToolResultEventResultShape | undefined {
+  if (!notice) return result;
+  const block = { type: "text" as const, text: notice };
+  if (!result) return { content: [...event.content, block] };
+  // `content` is optional on the result shape — never spread a possibly-undefined array.
+  const existing = result.content ?? [];
+  return { ...result, content: [...existing, block] };
 }
 
 /**
