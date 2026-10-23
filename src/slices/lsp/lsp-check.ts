@@ -2,9 +2,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { LspCheckResult } from "../../shared/types.js";
-import { DEFAULT_SERVER_JS } from "./mcp-client.js";
+import { DEFAULT_MCP_SERVER, mcpServerCommand } from "./mcp-client.js";
 
-export { DEFAULT_SERVER_JS };
+export { DEFAULT_MCP_SERVER };
 
 interface RpcResponse {
   id?: number;
@@ -34,7 +34,7 @@ type RpcParams = InitializeParams | ToolCallParams;
  */
 export async function checkLotusScriptDiagnostics(
   filePath: string,
-  serverScriptPath: string = process.env.LOTUSSCRIPT_MCP_SERVER || DEFAULT_SERVER_JS,
+  serverScriptPath: string = DEFAULT_MCP_SERVER,
   timeoutMs = 10000
 ): Promise<LspCheckResult> {
   const resolvedPath = path.resolve(filePath);
@@ -86,7 +86,8 @@ export async function checkLotusScriptDiagnostics(
     }, timeoutMs);
 
     try {
-      proc = spawn("node", [serverScriptPath], {
+      const { command, args } = mcpServerCommand(serverScriptPath);
+      proc = spawn(command, args, {
         stdio: ["pipe", "pipe", "pipe"],
       });
 
@@ -157,10 +158,19 @@ export async function checkLotusScriptDiagnostics(
           });
 
           const rawText: string = (res.result?.content?.[0]?.text ?? "").trim();
+          const lower = rawText.toLowerCase();
+          // Rust domino-mcp: "✔ Clean: no compiler diagnostics".
+          // Legacy JS server: "no diagnostics". Both mean the compile was clean.
           const isClean =
-            !rawText ||
-            rawText.toLowerCase().includes("no diagnostics") ||
-            rawText === "";
+            !rawText || lower.includes("no compiler diagnostics") || lower.includes("no diagnostics");
+
+          // The oracle could not run at all (worker missing, spawn/compile
+          // failure). That is a harness problem, never a code verdict.
+          const harnessFailed =
+            !isClean &&
+            /^(oracle worker process is not running|error compiling file|lsp query error|lsp execution error|failed to spawn)/i.test(
+              rawText
+            );
 
           let errorCount = 0;
           let warningCount = 0;
@@ -180,10 +190,10 @@ export async function checkLotusScriptDiagnostics(
             finished = true;
             cleanup();
             resolve({
-              ok: isClean || errorCount === 0,
+              ok: isClean && !harnessFailed,
               diagnostics: rawText || "No diagnostics.",
-              errorCount,
-              warningCount,
+              errorCount: harnessFailed ? 0 : errorCount,
+              warningCount: harnessFailed ? 0 : warningCount,
             });
           }
         } catch (err: unknown) {

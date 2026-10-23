@@ -11,7 +11,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FileLintResult,
   GotchaItem,
   GotchaReviewResult,
   LspCheckResult,
@@ -68,8 +67,6 @@ export interface CommandsDeps {
   ): Promise<GotchaReviewResult>;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
-  // linter slice
-  lintLotusScriptFile(filePath: string, checkComments?: boolean): FileLintResult;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   // scaffold slice

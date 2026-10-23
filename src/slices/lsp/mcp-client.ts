@@ -21,11 +21,28 @@ interface RpcResponse {
 }
 
 /**
- * MCP server the automation lane talks to. Same default as the diagnostics
- * check (lsp-check.ts) so a custom `LOTUSSCRIPT_MCP_SERVER` override applies
- * to both lanes consistently.
+ * MCP server the check/automation lane talks to: the Rust `domino-mcp.exe`
+ * shipped by notes-sys, which fronts the same 9.0.1 compiler oracle that the
+ * editor lane (pi-lens) uses through `domino-lsp.exe`.
+ *
+ * One engine, one set of diagnostics. The legacy JS stack
+ * (`RESOURCES-NOTES/agent-lsp-mcp/server.js` → `LN_REA/domino-lsp/src/lsp-server.js`)
+ * is no longer used by default; point `LOTUSSCRIPT_MCP_SERVER` at a `.js` file
+ * to fall back to it.
  */
-export const DEFAULT_SERVER_JS = "D:/01_programovani/RESOURCES-NOTES/agent-lsp-mcp/server.js";
+export const DEFAULT_MCP_SERVER =
+  process.env.LOTUSSCRIPT_MCP_SERVER ||
+  "D:/01_programovani/LN_REA/notes-sys/target/i686-pc-windows-msvc/release/domino-mcp.exe";
+
+/**
+ * Command line for an MCP server path: a `.js/.mjs/.cjs` file runs under the
+ * current Node binary, anything else is executed directly (the Rust exe).
+ */
+export function mcpServerCommand(serverPath: string): { command: string; args: string[] } {
+  return /\.(?:js|mjs|cjs)$/i.test(serverPath)
+    ? { command: process.execPath, args: [serverPath] }
+    : { command: serverPath, args: [] };
+}
 async function withMcpClient<T>(
   serverScriptPath: string,
   timeoutMs: number,
@@ -59,7 +76,8 @@ async function withMcpClient<T>(
     }, timeoutMs);
 
     try {
-      proc = spawn("node", [serverScriptPath], { stdio: ["pipe", "pipe", "pipe"] });
+      const { command, args } = mcpServerCommand(serverScriptPath);
+      proc = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
 
       let buf = "";
       const pending = new Map<number, (val: RpcResponse) => void>();
@@ -151,7 +169,7 @@ export function extractLspErrorCodes(diagnosticsText: string, cap = 3): string[]
  */
 export async function explainLotusScriptCodes(
   diagnosticsText: string,
-  serverScriptPath: string = process.env.LOTUSSCRIPT_MCP_SERVER || DEFAULT_SERVER_JS,
+  serverScriptPath: string = DEFAULT_MCP_SERVER,
   timeoutMs = 15000
 ): Promise<string> {
   const codes = extractLspErrorCodes(diagnosticsText);
@@ -183,7 +201,7 @@ export async function explainLotusScriptCodes(
  */
 export async function formatLotusScriptFile(
   filePath: string,
-  serverScriptPath: string = process.env.LOTUSSCRIPT_MCP_SERVER || DEFAULT_SERVER_JS,
+  serverScriptPath: string = DEFAULT_MCP_SERVER,
   timeoutMs = 10000
 ): Promise<string | null> {
   try {

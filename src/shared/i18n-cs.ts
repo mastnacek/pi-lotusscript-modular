@@ -15,7 +15,6 @@ export const STRINGS_CS: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Stav konfigurace]:",
     lspCheck: "LSP kontrola",
-    czechComments: "Vynucovat české komentáře",
     scorecard: "Scorecard (hodnocení)",
     rubric: "Rubrika Definition of Done",
     preflight: "Předletová kontrola gotchas",
@@ -76,14 +75,6 @@ ${diagnostics}`,
     error: (msg) => `Chyba při vytváření kostry: ${msg}`,
   },
 
-  lint: {
-    title: (name) => `🔍 [LotusScript Linter — ${name}]:`,
-    total: (n) => `- Celkem procedur: ${n}`,
-    missingComment: (n) => `- Chybějící český komentář: ${n}`,
-    missingDesc: "⚠️ chybí popis",
-    linesCount: (n) => `${n} řádků`,
-  },
-
   score: {
     history: (n) => `Historie (${n}): `,
   },
@@ -139,9 +130,7 @@ ${diagnostics}`,
     reads: (kb) => `   KB dotazy ${kb}`,
     gates: (kb, checks, kbNudges) =>
       `   brány: KB ${kb} · kontroly ${checks} · settle-nudges ${kbNudges}`,
-    codeNone: "kód: zatím žádná kontrola",
-    code: (procs) => `kód: ${procs} procedur`,
-    suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
+    suffix: (lsp) => `📏 LSP ${lsp}`,
   },
 
   statusline: {
@@ -156,7 +145,6 @@ ${diagnostics}`,
     subScaffold: "Vytvořit kostru LotusScript kódu (agent, library)",
     subLsp: "Přepnout LotusScript LSP kontrolu: on | off",
     subCheck: "Zkontrolovat celý .lss soubor překladačem 9.0.1",
-    subLint: "Zkontrolovat délku procedur (max 300 řádků) a komentáře",
     subScore: "Zobrazit scorecard a trend hodnocení souboru",
     subGotchas: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)",
     subConfig: "Zobrazit nebo změnit nastavení (get/set, legacy)",
@@ -232,11 +220,6 @@ ${diagnostics}`,
     enforceGotchaCapture: {
       description: "Vynucovat zaznamenávání nově objevených chyb a gotchas",
       on: "Zapnuto — připomínat povinnost uložit nový gotcha po vyřešení problému",
-      off: "Vypnuto — nepovinné",
-    },
-    enforceCzechComments: {
-      description: "Vynucovat stručné české komentáře s popisem účelu u každé procedury",
-      on: "Zapnuto — vyžadovat český popis u procedur",
       off: "Vypnuto — nepovinné",
     },
     enableScorecard: {

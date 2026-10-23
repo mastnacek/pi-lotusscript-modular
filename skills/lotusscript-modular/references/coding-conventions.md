@@ -1,8 +1,10 @@
 # LotusScript Coding Conventions (Domino 9.0.1)
 
-Coding standards the plugin linter enforces (`enforceCzechComments`) plus the
-conventions the compiler and Designer reward. There is **no line-length rule** —
-that convention died with the per-procedure file layout.
+Coding standards for LotusScript on Notes/Domino 9.0.1. **None of this is
+linted** — the plugin only reports what the 9.0.1 compiler says plus whether the
+knowledge base was consulted. Treat these as the house style that keeps code
+reviewable and Designer-friendly: no line-length rule and no comment rule exist
+any more (both belonged to the deleted per-procedure file layout).
 
 ---
 
@@ -43,7 +45,7 @@ End Sub
 - **Explain WHY, not WHAT**
 - **Sections:** `'===== NÁZEV SEKCE =====`
 - Every procedure carries a purpose line right above the declaration:
-  `' Účel: <1 sentence in Czech>`. The linter matches this literal marker.
+  `' Účel: <1 sentence in Czech>`. House style (not linted).
 
 ### Function header block
 ```lotusscript
@@ -179,19 +181,15 @@ Catch:
 
 ---
 
-## 6. Procedure Comments (Linter Contract)
+## 6. Procedure Comments (House Style)
 
 1. Every `Sub`/`Function` carries a Czech purpose comment `' Účel: ...`.
-2. The comment sits **directly above the declaration**. The linter walks upward
-   from the `Sub`/`Function` line, skipping blank lines and stopping at the first
-   non-comment line — a comment inside the body, or up at `Option`/`Declare`
-   level, does not describe that procedure and is reported as missing.
-3. Size is not linted. The 300-line guideline belonged to the days when every
-   procedure was its own file; the 9.0.1 compiler enforces the real ceiling
+2. It sits **directly above the declaration** — that is where a reader looks,
+   and where the old linter used to look before the rule was retired.
+3. Size is not policed by tooling. The 9.0.1 compiler enforces the real ceiling
    (`'Script structure too large'`, 32 KB of bytecode/data per procedure) and
-   reports it as a diagnostic.
+   `lotusscript_check` reports it as a diagnostic. Split for readability.
 
----
 
 ## 7. Date/Time & Locale Hard Rules (short list)
 

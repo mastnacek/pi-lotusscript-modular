@@ -18,15 +18,15 @@ export async function phaseCommands(): Promise<void> {
   // 1. Subcommand menu carries the whole-file commands.
   const subs = completeLsArguments("", cfg) ?? [];
   const labels = subs.map((s) => s.label);
-  const okSubs = ["status", "check", "lint", "score", "scaffold", "gotchas", "config", "help"].every((s) =>
+  const okSubs = ["status", "check", "score", "scaffold", "gotchas", "config", "help"].every((s) =>
     labels.includes(s)
   );
-  console.log("1. /ls offers status/check/lint/score/scaffold/gotchas/config/help:", okSubs ? "PASS" : "FAIL");
+  console.log("1. /ls offers status/check/score/scaffold/gotchas/config/help:", okSubs ? "PASS" : "FAIL");
   if (!okSubs) throw new Error(`Menu: ${JSON.stringify(labels)}`);
 
   // 2. The modular subcommands are gone.
-  const gone = ["overwrite", "compile", "pack", "clean"].filter((s) => labels.includes(s));
-  console.log(`2. modular subcommands removed (found: ${gone.join(",") || "none"}):`, gone.length === 0 ? "PASS" : "FAIL");
+  const gone = ["overwrite", "compile", "pack", "clean", "lint"].filter((s) => labels.includes(s));
+  console.log(`2. modular + lint subcommands removed (found: ${gone.join(",") || "none"}):`, gone.length === 0 ? "PASS" : "FAIL");
   if (gone.length > 0) throw new Error(`Still offered: ${JSON.stringify(gone)}`);
 
   // 3. Scaffold offers exactly the two whole-file types, with trailing space.
@@ -48,6 +48,7 @@ export async function phaseCommands(): Promise<void> {
     "autoRecompileOnSave",
     "checkProcedureLimits",
     "maxProcedureLines",
+    "enforceCzechComments",
   ];
   const settingValues = subs.map((s) => s.value);
   const leaked = retired.filter((k) => settingValues.includes(k));

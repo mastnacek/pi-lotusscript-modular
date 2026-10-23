@@ -12,7 +12,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FileLintResult,
   GotchaItem,
   GotchaReviewResult,
   LspCheckResult,
@@ -52,8 +51,6 @@ export interface PipelineDeps {
     signatures: readonly string[],
     editedFiles: readonly string[]
   ): { title: string; body: string };
-  // linter slice
-  lintFile(filePath: string, checkComments: boolean): FileLintResult;
   // gotchas slice
   addGotcha(title: string, body: string): GotchaItem;
   promptGotchaReview(

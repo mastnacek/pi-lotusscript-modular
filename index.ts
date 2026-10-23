@@ -60,7 +60,6 @@ import {
   explainLotusScriptCodes,
   formatLotusScriptFile,
 } from "./src/slices/lsp/index.js";
-import { lintLotusScriptFile } from "./src/slices/linter/index.js";
 import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 
@@ -88,14 +87,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     addGotcha,
     promptGotchaReview,
     checkLotusScriptDiagnostics,
-    lintLotusScriptFile,
     formatScorecard,
     scaffoldLotusScriptArtifact,
   };
 
   const settledDeps: SettledDeps = {
     checkLotusScriptDiagnostics,
-    lintFile: lintLotusScriptFile,
     trendLabel,
   };
 
@@ -104,7 +101,6 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const pipelineDeps: PipelineDeps = {
     guardKbBeforeEdit,
     mutatingToolNames: MUTATING_TOOL_NAMES,
-    lintFile: (filePath, checkComments) => lintLotusScriptFile(filePath, checkComments),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
     formatLotusScriptFile,

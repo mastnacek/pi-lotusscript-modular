@@ -42,8 +42,7 @@ export async function lsCheck(state: PluginState, parts: LsParts, ctx: Extension
   }
 
   if (config.enableScorecard) {
-    const lintRes = deps.lintLotusScriptFile(target, config.enforceCzechComments);
-    const sc = state.buildScorecard(target, { lint: lintRes, lsp: lspRes });
+    const sc = state.buildScorecard(target, { lsp: lspRes });
     const previous = state.recordScorecard(target, sc);
     out.push("", deps.formatScorecard(sc, previous));
   }

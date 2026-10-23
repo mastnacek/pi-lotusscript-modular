@@ -12,7 +12,6 @@ import { handleToolResult } from "../../src/slices/pipeline/tool-result.js";
 import { handleAgentBeforeSettle } from "../../src/slices/pipeline/before-settle.js";
 import { MUTATING_TOOL_NAMES } from "../../src/slices/pipeline/mutating-tools.js";
 import type { PipelineDeps } from "../../src/slices/pipeline/deps.js";
-import { lintLotusScriptFile } from "../../src/slices/linter/index.js";
 import { ensureTestDir, mockCtx, SAMPLE_LSS, writeLss } from "../helpers.js";
 
 const LONG_PROC = `Option Declare
@@ -27,7 +26,6 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
   const deps: PipelineDeps = {
     mutatingToolNames: MUTATING_TOOL_NAMES,
     guardKbBeforeEdit,
-    lintFile: (filePath: string, checkComments: boolean) => lintLotusScriptFile(filePath, checkComments),
     checkLotusScriptDiagnostics: async (file: string) => {
       checks.push(file);
       return { ok: true, diagnostics: "", errorCount: 0, warningCount: 0 };
@@ -104,7 +102,7 @@ export async function phasePipeline(): Promise<void> {
   // 7. An oversized procedure is NOT blocked any more (no length rule); a
   //    missing purpose comment is reported as a warning instead.
   const state4 = createPluginState();
-  state4.config = { ...DEFAULT_CONFIG, enableLsp: true, enforceCzechComments: true };
+  state4.config = { ...DEFAULT_CONFIG, enableLsp: true };
   const huge = writeLss("Huge.lss", LONG_PROC.replace("Sub Huge", "Sub Huge"));
   const { deps: deps4, checks: checks4 } = makeDeps();
   const gate = await handleToolResult(state4, editEvent(huge), mockCtx(), deps4);
@@ -112,9 +110,9 @@ export async function phasePipeline(): Promise<void> {
   const okNoBlock = gate?.isError !== true && checks4.length === 1 && !/length limit/i.test(gateText);
   console.log("7. oversized procedure is checked, never blocked by a length rule:", okNoBlock ? "PASS" : "FAIL");
   if (!okNoBlock) throw new Error(`Unexpected gate: ${gateText}`);
-  const okCommentWarn = gateText.includes("Missing purpose comments") && gateText.includes("Huge");
-  console.log("8. missing purpose comment is reported as a warning:", okCommentWarn ? "PASS" : "FAIL");
-  if (!okCommentWarn) throw new Error(`Comment warning missing: ${gateText}`);
+  const okNoCommentLint = !/purpose comment/i.test(gateText);
+  console.log("8. no purpose-comment lint appears any more:", okNoCommentLint ? "PASS" : "FAIL");
+  if (!okNoCommentLint) throw new Error(`Comment lint still reported: ${gateText}`);
 
   // 8. Reading a .lss injects the whole-file banner; other files do not.
   const state5 = createPluginState();

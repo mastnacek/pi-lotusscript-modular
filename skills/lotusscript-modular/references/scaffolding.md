@@ -1,7 +1,7 @@
 # Scaffolding Reference (Compliant Code Generation)
 
 How to generate new LotusScript artifacts with the plugin so they pass the
-linter and the Definition of Done from the first check.
+Definition of Done from the first check.
 
 ---
 
@@ -17,7 +17,7 @@ modular workflow (2026-11): a new procedure is an anchored edit inside the
 existing whole `.lss`, and a modular folder must never be created.
 
 Never hand-write these skeletons when the scaffold tool exists — hand-written
-headers drift from the linter contract (missing `%Include "lsconst.lss"`,
+headers drift from the conventions (missing `%Include "lsconst.lss"`,
 missing `' Účel:`, wrong header order).
 
 ---
@@ -61,9 +61,8 @@ The tool never overwrites existing code.
 
 ## 5. After Scaffolding (Definition of Done chain)
 
-1. Fill the implementation inside the marked sections — every procedure needs
-   a `' Účel: ...` comment above its declaration (there is no line-length rule:
-   the compiler reports a genuinely oversized procedure itself).
+1. Fill the implementation inside the marked sections — a `' Účel: ...` comment
+   above each declaration is the house style (not linted).
 2. Declare globals/types in the file's declarations section, never inside
    procedure bodies (gotcha #38 for Option placement).
 3. Check the whole file: `lotusscript_check(path)` or `/ls compile <file.lss>`.

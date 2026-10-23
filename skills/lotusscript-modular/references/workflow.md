@@ -27,8 +27,8 @@ file — the module exactly as Designer stores it: `Option …`/`Use …` header
    `(Declarations)` section (globals, `Type`, `Class`, `Const`) — it lives at
    the top of the same `.lss` file.
 2. **Adding a procedure:** insert it into the same file with an anchored edit,
-   with a `' Účel: ...` Czech purpose comment. There is no header contract
-   beyond the coding conventions (`coding-conventions.md`).
+   following the coding conventions (`coding-conventions.md`). A `' Účel: ...`
+   comment above the declaration is the house style, not a lint rule.
 3. **Deleting a procedure:** remove it from the same file; nothing else needs
    syncing.
 4. **Changing global state or types:** edit the declarations section and check
@@ -74,7 +74,6 @@ file — the module exactly as Designer stores it: `Option …`/`Use …` header
 | `/ls config get\|set <key>` | Read/write a setting |
 | `/ls scaffold <agent\|library> [name]` | Create a compliant whole-file skeleton (see `scaffolding.md`) |
 | `/ls check <soubor.lss>` | Whole-file 9.0.1 compiler check |
-| `/ls lint <soubor.lss>` | Per-procedure line counts + Czech comment check |
 | `/ls score <soubor.lss>` | Scorecard + trend |
 | `/ls gotchas [query]` | Search the gotcha base |
 | `lotusscript_check` | Tool: whole-file 9.0.1 compiler diagnostics (+ error-code help) |

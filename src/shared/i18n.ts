@@ -39,7 +39,6 @@ export interface Strings {
   status: {
     title: string;
     lspCheck: string;
-    czechComments: string;
     scorecard: string;
     rubric: string;
     preflight: string;
@@ -93,14 +92,6 @@ export interface Strings {
   scaffoldCmd: {
     usage: string;
     error: (msg: string) => string;
-  };
-
-  lint: {
-    title: (name: string) => string;
-    total: (n: number) => string;
-    missingComment: (n: number) => string;
-    missingDesc: string;
-    linesCount: (n: number) => string;
   };
 
   score: {
@@ -157,9 +148,7 @@ export interface Strings {
     hooks: (total: number, calls: number, results: number, settled: number) => string;
     reads: (kb: number) => string;
     gates: (kb: number, checks: number, kbNudges: number) => string;
-    codeNone: string;
-    code: (procs: number) => string;
-    suffix: (code: string, lsp: string) => string;
+    suffix: (lsp: string) => string;
   };
 
   statusline: {
@@ -174,7 +163,6 @@ export interface Strings {
     subScaffold: string;
     subLsp: string;
     subCheck: string;
-    subLint: string;
     subScore: string;
     subGotchas: string;
     subConfig: string;

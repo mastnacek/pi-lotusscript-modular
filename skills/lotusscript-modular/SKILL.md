@@ -102,25 +102,19 @@ feedback signal.
 
 **Definition of Done (per `.lss` file you touch):**
 
-1. Every sub/function has a concise Czech purpose comment (`' Účel: ...`).
-2. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
-3. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
-4. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
+1. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
+2. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
+3. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
 
-Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-3` per
-procedure missing its Czech purpose comment.
-
-There is **no procedure-length rule**: the 300-line convention belonged to the
-per-procedure file layout and is gone with it. The 9.0.1 compiler reports a
-genuinely oversized procedure itself (`'Script structure too large'`), and
-`lotusscript_check` surfaces that as a diagnostic.
+Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error. There is no
+line-length rule and no comment lint: the plugin grades what the 9.0.1 compiler
+says plus whether you actually consulted the knowledge base.
 
 Instant failure condition: creating a modular folder (`manifest.json`,
 `main.lss`, `sub_*.lss`, `*_compiled.lss`) — the modular workflow is gone and
 every `.lss` is a whole script.
 
-Manual inspection: `/ls score <soubor.lss>` (scorecard + trend),
-`/ls lint <soubor.lss>` (per-procedure line counts and comment status).
+Manual inspection: `/ls score <soubor.lss>` (scorecard + trend).
 
 ## Self-Improvement Loop (pre-flight, debrief, recurring failures)
 
@@ -162,14 +156,13 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | --- | --- |
 | Composition root (pure wiring) | `index.ts` |
 | Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
-| Instant-failure guards (protected files, KB edit gate) | `src/slices/guards/` |
-| `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
+| Instant-failure guard (KB edit gate) | `src/slices/guards/` |
+| `/ls` command switch (ls-config, ls-inspect, ls-check, ls-gotchas) | `src/slices/commands/` |
 | Model tools (check/gotchas/scaffold) | `src/slices/tools/` |
 | Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
 | Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
-| LSP diagnostics (whole-file check + explain/format lane) | `src/slices/lsp/` |
+| LSP diagnostics — MCP lane to notes-sys `domino-mcp.exe` (whole-file check + explain/format) | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
-| Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
 | Tests (one file per phase under the per-file line limit) | `test/test_workflow.ts` + `test/phases/` |
@@ -190,7 +183,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 Two things stay Czech **inside** English agent text, because they are data
 rather than instructions:
 
-1. The required code marker `' Účel: ...` — it is the literal string the linter matches.
+1. The house-style code marker `' Účel: ...` — it is data, not an instruction.
 2. Czech sample words used for classification (e.g. `zpracování`, `pomocná
    funkce`), and the Czech text of a comment being judged.
 

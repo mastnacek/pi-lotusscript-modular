@@ -9,10 +9,10 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 ## Features
 
 - **Whole-File 9.0.1 Compiler Check:** `lotusscript_check` (and `/ls check <file.lss>`) compiles a `.lss` exactly as it is through the domino LSP oracle — no assembly, no strict probe — and attaches help pages for the LS-* error codes. The editor lane (pi-lens) runs the same whole-script compile on open/save/change, so IDE and tool diagnostics always agree.
-- **Auto-Check on Edit:** every `.lss` edit re-runs the whole-file check (compiler, purpose comments, scorecard) and injects the result into the conversation (`autoCheckOnEdit`). Nothing is compiled, assembled or generated behind the agent's back.
+- **Auto-Check on Edit:** every `.lss` edit re-runs the whole-file check (compiler + scorecard) and injects the result into the conversation (`autoCheckOnEdit`). Nothing is compiled, assembled or generated behind the agent's back.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
 - **Central Gotchas Registry (64 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
-- **Deterministic Scorecard & Definition of Done:** Every check emits a computed scorecard (Czech purpose comments, LSP errors, KB consultation) with trend history — the model never self-reports.
+- **Deterministic Scorecard & Definition of Done:** Every check emits a computed scorecard (LSP errors, KB consultation) with trend history — the model never self-reports.
 - **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant whole-file skeletons (standalone agent, script library) rendered from the shipped versioned `template.lss` with `On Error GoTo ErrorHandler` handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
 - **Bundled Skill (auto-loaded):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) IS registered — pi auto-discovers the conventional `skills/` directory even without a `pi` manifest entry, so the skill loads in every session and routes to on-demand reference docs (`references/`: workflow, coding conventions, naming, 64-gotcha index, scaffolding, DXL/ODP, formula language). The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
@@ -35,7 +35,6 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls lsp [on|off]` — Přepnout kontrolu syntaxe přes LotusScript LSP
 - `/ls overwrite [on|off]` — Přepnout přepisování původního .lss souboru
 - `/ls check <soubor.lss>` — Zkontrolovat celý .lss překladačem 9.0.1
-- `/ls lint [složka]` — Zkontrolovat délku procedur (max 300 řádků) a komentáře
 - `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
 

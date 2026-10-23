@@ -16,7 +16,6 @@ export const DEFAULT_CONFIG: ModularConfig = {
   minKbSearchesPerRun: 3,
   injectGotchasSummary: true,
   enforceGotchaCapture: true,
-  enforceCzechComments: true,
   enableScorecard: true,
   enforceGradingRubric: true,
   injectPreflightGotchas: true,
@@ -47,6 +46,7 @@ const RETIRED_KEYS = [
   "overwriteSourceLss",
   "checkProcedureLimits",
   "maxProcedureLines",
+  "enforceCzechComments",
 ] as const;
 
 function withoutRetiredKeys(parsed: Record<string, unknown>): Partial<ModularConfig> {

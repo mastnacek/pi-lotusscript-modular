@@ -128,12 +128,6 @@ async function checkAndReport(
   state.renderStatusline("checking");
 
   // SPAI-008 automation: format the edited file BEFORE the check.
-  // Whole-file lint: purpose comments only (no size rule any more).
-  const lint = deps.lintFile(resolved, config.enforceCzechComments);
-  const commentWarnings = lint.missingCommentProcedures.map(
-    (p) => `Procedure '${p.procedureName}' (line ${p.startLine}) lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
-  );
-
   let formatNotice = "";
   if (config.autoFormatOnSave) {
     try {
@@ -172,7 +166,6 @@ async function checkAndReport(
 
   // Telemetry: check count + code-length snapshot for the TUI panel.
   state.telemetry.checks++;
-  state.telemetry.lastProcCount = lint.allItems.length;
   state.telemetry.lastLspOk = config.enableLsp ? (lspResult ? lspResult.ok : null) : null;
 
   const gotchaNudge = config.enforceGotchaCapture
@@ -180,10 +173,7 @@ async function checkAndReport(
     : "";
   let scorecardBlock = "";
   if (config.enableScorecard) {
-    const scorecard = state.buildScorecard(resolved, {
-      lint,
-      lsp: lspResult,
-    });
+    const scorecard = state.buildScorecard(resolved, { lsp: lspResult });
     const previous = state.recordScorecard(resolved, scorecard);
     scorecardBlock = deps.formatScorecard(scorecard, previous);
   }
@@ -205,9 +195,6 @@ async function checkAndReport(
     ...(lspNotice ? [lspNotice.trimStart()] : []),
     ...(explainNotice ? ["", explainNotice] : []),
     ...(gotchaNudge ? [gotchaNudge.trimStart()] : []),
-    ...(commentWarnings.length > 0
-      ? [`\nℹ️ [Missing purpose comments]:\n${commentWarnings.map((w) => `  - ${w}`).join("\n")}`]
-      : []),
     "---",
   ].join("\n");
 

@@ -11,14 +11,13 @@
 import path from "node:path";
 import fs from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
-import type { AgentScorecard, FileLintResult, LspCheckResult } from "../../shared/types.js";
+import type { AgentScorecard, LspCheckResult } from "../../shared/types.js";
 import { stringsFor } from "../../shared/i18n.js";
 import type { PluginState } from "../../shared/state.js";
 
 /** Cross-slice capabilities injected by the composition root. */
 export interface SettledDeps {
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
-  lintFile(filePath: string, checkComments: boolean): FileLintResult;
   trendLabel(current: AgentScorecard, previous?: AgentScorecard): string;
 }
 
@@ -29,8 +28,6 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
   const filePath = state.lastCheckedFile;
   if (!filePath || !fs.existsSync(filePath)) return;
   if (!config.enableScorecard) return;
-
-  const lint = deps.lintFile(filePath, config.enforceCzechComments);
 
   // Measure the LSP on the file as it now stands. Skipping the check
   // (lsp: null) made the debrief grade "not measured" as "failed" — see
@@ -44,7 +41,7 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
     }
   }
 
-  const scorecard = state.buildScorecard(filePath, { lint, lsp: lspRes });
+  const scorecard = state.buildScorecard(filePath, { lsp: lspRes });
   const previous = state.recordScorecard(filePath, scorecard);
   const unmet = scorecard.items.filter((i) => !i.ok && !i.pending);
 

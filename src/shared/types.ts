@@ -26,8 +26,6 @@ export interface ModularConfig {
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */
   enforceGotchaCapture: boolean;
-  /** Enforce concise Czech documentation comments on procedures */
-  enforceCzechComments: boolean;
   /** Compute and inject a deterministic per-file scorecard after every check */
   enableScorecard: boolean;
   /** Inject the LotusScript Definition of Done + grading rubric into the system prompt */
@@ -66,24 +64,8 @@ export interface HookTelemetry {
   kbSettleNudges: number;
   /** Whole-file checks performed (auto-check on edit, check tool, /ls check). */
   checks: number;
-  /** Procedure count in the last checked file (null before the first check). */
-  lastProcCount: number | null;
   /** Last LSP outcome (null = LSP disabled or not run yet). */
   lastLspOk: boolean | null;
-}
-
-export type CommentStyle = "new" | "old" | "mixed" | "none";
-
-export interface CommentAnalysis {
-  style: CommentStyle;
-  hasCzechPurpose: boolean;
-  purposeText?: string;
-  hasSyntheticHeader: boolean;
-  hasLegacyBlock: boolean;
-  legacyMarkers: string[];
-  totalLines: number;
-  commentLines: number;
-  comments: string[];
 }
 
 export interface ScorecardItem {
@@ -106,37 +88,14 @@ export interface AgentScorecard {
 
 export interface ScorecardInput {
   agent: string;
-  lint: FileLintResult;
   lsp: LspCheckResult | null;
   lspEnabled: boolean;
-  enforceCzechComments: boolean;
   /** KB verification is part of the DoD only when at least one KB enforcement toggle is on. */
   kbExpected: boolean;
   /** kb_search calls on the lotus-notes collection observed in the current run. */
   kbSearchCount: number;
   /** Required kb_search calls per run (config.minKbSearchesPerRun). */
   minKbSearches: number;
-}
-
-/** One procedure located inside a whole `.lss` file. */
-export interface ProcedureLintItem {
-  /** Absolute path of the `.lss` file the procedure lives in. */
-  filePath: string;
-  procedureName: string;
-  /** First line of the procedure block (1-based), for coordinates. */
-  startLine: number;
-  lineCount: number;
-  hasDocComment: boolean;
-  commentNotice?: string;
-  commentStyle?: CommentStyle;
-}
-
-/** Lint result for one whole LotusScript file. */
-export interface FileLintResult {
-  /** True when every procedure carries its purpose comment. */
-  ok: boolean;
-  missingCommentProcedures: ProcedureLintItem[];
-  allItems: ProcedureLintItem[];
 }
 
 export interface LspCheckResult {

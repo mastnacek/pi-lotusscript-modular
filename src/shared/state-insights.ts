@@ -8,7 +8,6 @@ import fs from "node:fs";
 import path from "node:path";
 import type {
   AgentScorecard,
-  FileLintResult,
   GotchaItem,
   LspCheckResult,
   ModularConfig,
@@ -29,7 +28,6 @@ export interface StateInsights {
   buildScorecard(
     filePath: string,
     opts: {
-      lint: FileLintResult;
       lsp: LspCheckResult | null;
     }
   ): AgentScorecard;
@@ -45,17 +43,14 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
   function buildScorecard(
     filePath: string,
     opts: {
-      lint: FileLintResult;
       lsp: LspCheckResult | null;
     }
   ): AgentScorecard {
     const cfg = config();
     return computeScorecard({
       agent: path.basename(filePath),
-      lint: opts.lint,
       lsp: opts.lsp,
       lspEnabled: cfg.enableLsp,
-      enforceCzechComments: cfg.enforceCzechComments,
       kbExpected: cfg.enforceKbPrompt || cfg.enforceKbGate || cfg.verifyKbBeforeSettle,
       kbSearchCount: deps.getKbSearchCount(),
       minKbSearches: cfg.minKbSearchesPerRun,

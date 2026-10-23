@@ -56,12 +56,12 @@ Imported by slices. No slice may import another slice.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `types.ts` | 175 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FileLintResult`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (17 settings); `ProcedureLintItem` carries `filePath` + `startLine` for a procedure inside a whole file. |
-| `config.ts` | 115 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`, `checkProcedureLimits`, `maxProcedureLines`) so a stale file cannot revive removed behaviour. |
+| `types.ts` | 175 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FileLintResult`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (16 settings); `ProcedureLintItem` carries `filePath` + `startLine` for a procedure inside a whole file. |
+| `config.ts` | 115 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`, `checkProcedureLimits`, `maxProcedureLines`, `enforceCzechComments`) so a stale file cannot revive removed behaviour. |
 | `paths.ts` | 29 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `sanitizeFileName` | Path protocol only — the modular-root/monolith detection helpers were deleted with the pipeline. |
 | `state.ts` | 295 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry`, `countHook`, `lastCheckedFile` (the file the settle debrief grades) and `beginRun()` per-run resets. |
 | `state-insights.ts` | 157 | `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Derived session insights: scorecard build/history, `collectFileTokens(filePath)` (declarations of ONE file), pre-flight gotcha banner. |
-| `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, KB-gate blocks, whole-file checks and procedure count. |
+| `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, KB-gate blocks, whole-file checks and the last LSP outcome. |
 | `i18n.ts` / `i18n-cs.ts` / `i18n-en.ts` | 263 / 327 / 327 | `Strings`, `stringsFor`, `normalizeLocale`, `LOCALES`, `STRINGS_CS`, `STRINGS_EN` | The complete user-facing string table. Every key exists in both locales (compile-time via `Record<Locale, Strings>`, test-time via `test/test_i18n.ts`). |
 
 ---
@@ -84,14 +84,6 @@ Generates new whole-file LotusScript sources.
 
 ## 5. `src/slices/` — the other features
 
-### linter — purpose comments inside one file
-| File | Lines | Exports | Purpose |
-|---|---:|---|---|
-| `checker.ts` | 134 | `findProcedures`, `lintLotusScriptFile` | Locates the `Sub`/`Function`/`Property` blocks of ONE `.lss` **only** to check each one's Czech `' Účel:` comment above the declaration. No size rule (the over-limit modal and its prompt/input helpers were deleted with it). |
-| `index.ts` | 13 | re-export | Barrel. |
-
-> **Review note:** the linter has **no performance or correctness rules** — nothing from `best_practices.md` is enforced.
-
 ### guards — instant-failure prevention
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
@@ -105,7 +97,7 @@ Generates new whole-file LotusScript sources.
 | `ls-inspect.ts` | 115 | `lsScaffold`, `lsLint`, `lsScore` | Scaffold + per-file lint/score inspection. |
 | `ls-config.ts` | 154 | `LsParts`, `lsStatus`, `lsLsp`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu with current-value annotation. |
 | `ls-gotchas.ts` | 48 | `lsGotchas` | Gotcha query. |
-| `deps.ts` | 91 | `CommandsDeps` + structural option/result types | Slice-isolation seam (no `compileAgent`, no `lintModularFolder`). |
+| `deps.ts` | 85 | `CommandsDeps` + structural option/result types | Slice-isolation seam (no compile/lint capabilities at all — the command slice only asks the LSP and the scorecard). |
 
 ### tools — model tools
 | File | Lines | Exports | Purpose |
@@ -143,8 +135,8 @@ Generates new whole-file LotusScript sources.
 |---|---:|---|---|
 | `scorecard/compute.ts` | 273 | `computeScorecard`, `trendLabel`, `formatScorecard`, `buildGradingRubric`, `normalizeDiagnostics`, `findRecurringSignatures`, `buildRecurringGotchaDraft` | Deterministic per-file DoD scorecard (comments, LSP, KB — no size item) + rubric. `normalizeDiagnostics` masks line **and column** numbers. |
 | `scorecard/index.ts` | 8 | re-export | Barrel. |
-| `lsp/lsp-check.ts` | 217 | `checkLotusScriptDiagnostics` | Whole-file LSP diagnostics via the MCP lane; distinguishes measured / unmeasured / pending. |
-| `lsp/mcp-client.ts` | 202 | `DEFAULT_SERVER_JS`, MCP-over-stdio helpers | Automation lane (SPAI-008): `lsp_explain`, `lsp_format`. |
+| `lsp/lsp-check.ts` | 225 | `checkLotusScriptDiagnostics` | Whole-file diagnostics through the notes-sys `domino-mcp.exe` MCP lane; parses the Rust output (`Checked … as a whole script`, `✔ Clean: no compiler diagnostics`) and classifies oracle failures as harness problems, never as code verdicts. |
+| `lsp/mcp-client.ts` | 225 | `DEFAULT_MCP_SERVER`, `mcpServerCommand`, MCP-over-stdio helpers | Automation lane (SPAI-008): `lsp_explain`, `lsp_format`. `mcpServerCommand` runs a `.js` path under Node and any other path (the Rust exe) directly. |
 | `lsp/index.ts` | 1 | re-export | Barrel. |
 
 ### gotchas — trap catalogue
@@ -167,7 +159,6 @@ workflow phases. Every check throws on failure (no log-only assertions).
 | `test/helpers.ts` | 105 | Temp workspace, `SAMPLE_LSS` whole-file fixture, `writeLss`, `mockCtx`, `mockPi`. |
 | `test/test_i18n.ts` | 134 | Deep locale parity, catalogue copy, telemetry/completion rendering in both locales, `normalizeLocale`, help parity. |
 | `test/test_workflow.ts` | 39 | Phase runner + cleanup. |
-| `test/phases/phase-linter.ts` | 72 | `findProcedures` spans, missing `' Účel:` detection, comment-check toggle, missing-file degradation, **no** length verdict, comment-placement rule. |
 | `test/phases/phase-scorecard.ts` | 135 | Full-marks clean file, absence of manifest/artifact items, failure rendering, check-based trend, pending LSP semantics, whole-file rubric, diagnostic normalisation, recurring draft. |
 | `test/phases/phase-pipeline.ts` | 170 | KB gate, auto-check on edit + telemetry, auto-check off, `.dxl` tracking, oversized procedure not blocked, comment warning, read banner, settle nudge + latch. |
 | `test/phases/phase-commands.ts` | 108 | `/ls` menu, removal of modular subcommands, scaffold completions, catalogue ↔ config parity, parse/format, retired-key dropping on load. |
@@ -188,6 +179,6 @@ workflow phases. Every check throws on failure (no log-only assertions).
 ## 8. Known gaps
 
 - `naming.ts` **diverges from the project's own naming convention**: no domain segment, 6-char per-segment truncation, and an explicit allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell.
-- The linter enforces size and comment presence only; performance rules from `best_practices.md` are unenforced.
+- No code-quality lint remains: the plugin reports compiler diagnostics + KB usage only. Performance rules from `best_practices.md` are unenforced by design.
 - Plugin/package/skill names still say "modular" while the feature set no longer is — deliberate deferral, not an oversight.
 - `compile-tool.ts` keeps the historical file name although the tool is `lotusscript_check` (renaming it is cosmetic churn).

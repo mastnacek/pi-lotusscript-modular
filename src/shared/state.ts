@@ -14,7 +14,6 @@
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
-  FileLintResult,
   HookName,
   HookTelemetry,
   LspCheckResult,
@@ -66,7 +65,6 @@ export interface PluginState {
   buildScorecard(
     filePath: string,
     opts: {
-      lint: FileLintResult;
       lsp: LspCheckResult | null;
     }
   ): AgentScorecard;

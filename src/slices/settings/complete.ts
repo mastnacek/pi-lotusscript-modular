@@ -31,7 +31,6 @@ function lsSubcommands(s: Strings): readonly Suggestion[] {
     { value: "lang", description: s.lang.description, space: true },
     { value: "lsp", description: c.subLsp, space: true },
     { value: "check", description: c.subCheck, space: true },
-    { value: "lint", description: c.subLint, space: true },
     { value: "score", description: c.subScore, space: true },
     { value: "gotchas", description: c.subGotchas, space: true },
     ...directSettingSubcommands(s).filter(
@@ -240,7 +239,7 @@ function completeLsArgumentsClean(
     return filter(`${sub} `, gotchasTopics(s), afterSub);
   }
 
-  // Direct setting completions (e.g. /ls enforceCzechComments <true|false>)
+  // Direct setting completions (e.g. /ls enforceKbGate <true|false>)
   const directSpec = findSetting(sub);
   if (directSpec) {
     return completeValues(`${sub} `, sub, current, s, afterSub);

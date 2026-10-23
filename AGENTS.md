@@ -17,7 +17,7 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
 - `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts` (no slice imports)
-- `src/slices/lsp/`       LotusScript LSP diagnostics client
+- `src/slices/lsp/`       MCP client for notes-sys `domino-mcp.exe` (whole-file diagnostics, explain, format)
 - `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search & append
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
 - `src/slices/commands/`  `/ls` dispatch — sibling-slice capabilities arrive via `deps.ts` (`CommandsDeps`), wired in the composition root

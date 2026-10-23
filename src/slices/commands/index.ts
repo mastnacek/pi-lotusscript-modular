@@ -21,7 +21,7 @@ import {
   lsStatus,
   type LsParts,
 } from "./ls-config.js";
-import { lsLint, lsScaffold, lsScore } from "./ls-inspect.js";
+import { lsScaffold, lsScore } from "./ls-inspect.js";
 import { lsCheck } from "./ls-check.js";
 import { lsGotchas } from "./ls-gotchas.js";
 
@@ -37,7 +37,6 @@ const SUBCOMMANDS: Record<string, LsSubHandler> = {
   status: lsStatus,
   config: lsConfig,
   scaffold: lsScaffold,
-  lint: lsLint,
   score: lsScore,
   check: lsCheck,
   gotchas: lsGotchas,

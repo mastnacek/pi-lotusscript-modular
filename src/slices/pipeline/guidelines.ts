@@ -41,12 +41,6 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
     );
   }
 
-  if (config.enforceCzechComments) {
-    guidelines.push(
-      "LOTUSSCRIPT PROCEDURE COMMENTS: every Sub/Function carries a concise Czech comment stating its purpose (' Účel: ...) directly above the declaration — the linter reads upward from the declaration and reports any procedure without one."
-    );
-  }
-
   if (config.enforceGradingRubric) {
     guidelines.push(deps.buildGradingRubric(config));
   }

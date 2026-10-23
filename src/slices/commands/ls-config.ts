@@ -30,7 +30,6 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
   const lines = [
     t.title,
     `- ${t.lspCheck}: ${flag(config.enableLsp)}`,
-    `- ${t.czechComments}: ${flag(config.enforceCzechComments)}`,
     `- ${t.scorecard}: ${flag(config.enableScorecard)}`,
     `- ${t.rubric}: ${flag(config.enforceGradingRubric)}`,
     `- ${t.preflight}: ${flag(config.injectPreflightGotchas)}`,

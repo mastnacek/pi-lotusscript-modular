@@ -48,33 +48,6 @@ function resolveTarget(parts: LsParts, ctx: ExtensionCommandContext): string | n
   return target;
 }
 
-export async function lsLint(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps): Promise<void> {
-  const config = state.config;
-  const s = stringsFor(config.lang);
-  const target = resolveTarget(parts, ctx);
-  if (!target) {
-    ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
-    return;
-  }
-  const res = deps.lintLotusScriptFile(target, config.enforceCzechComments);
-  const lines = [
-    s.lint.title(path.basename(target)),
-    s.lint.total(res.allItems.length),
-    s.lint.missingComment(res.missingCommentProcedures.length),
-  ];
-  for (const item of res.allItems) {
-    const docIcon = item.hasDocComment ? "📝" : s.lint.missingDesc;
-    lines.push(
-      `  ${docIcon} ${item.procedureName} (line ${item.startLine}) — ${s.lint.linesCount(item.lineCount)}`
-    );
-  }
-  if (config.enableScorecard) {
-    const sc = state.buildScorecard(target, { lint: res, lsp: null });
-    lines.push("", deps.formatScorecard(sc, state.scoreHistory.get(target)?.at(-1)));
-  }
-  ctx.ui.notify(lines.join("\n"), res.ok ? "info" : "warning");
-}
-
 export async function lsScore(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps): Promise<void> {
   const config = state.config;
   const s = stringsFor(config.lang);
@@ -83,12 +56,11 @@ export async function lsScore(state: PluginState, parts: LsParts, ctx: Extension
     ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
     return;
   }
-  const lintRes = deps.lintLotusScriptFile(target, config.enforceCzechComments);
   let lspRes: LspCheckResult | null = null;
   if (config.enableLsp) {
     lspRes = await deps.checkLotusScriptDiagnostics(target);
   }
-  const sc = state.buildScorecard(target, { lint: lintRes, lsp: lspRes });
+  const sc = state.buildScorecard(target, { lsp: lspRes });
   const history = state.scoreHistory.get(target) ?? [];
   const out = [deps.formatScorecard(sc, history.at(-1))];
   if (history.length > 0) {

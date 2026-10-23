@@ -92,12 +92,12 @@ for (const spec of SETTING_SPECS) {
 // 3a. Telemetry render: cs (default) keeps the historical Czech markers.
 const csLines = telemetryLines(createTelemetry(), { ...DEFAULT_CONFIG, lang: "cs" });
 check("telemetry cs renders hooks line", csLines[0]!.includes("haky"));
-check("telemetry cs renders no-check marker", csLines[3]!.includes("žádná kontrola"));
+check("telemetry cs renders the LSP marker", csLines[3]!.includes("LSP ?"));
 
 // 3b. Telemetry render: en (non-default locale — regression must be visible).
 const enLines = telemetryLines(createTelemetry(), { ...DEFAULT_CONFIG, lang: "en" });
 check("telemetry en renders hooks line", enLines[0]!.includes("hooks"));
-check("telemetry en renders no-check marker", enLines[3]!.includes("no check yet"));
+check("telemetry en renders the LSP marker", enLines[3]!.includes("LSP ?"));
 
 // 3c. Completion descriptions follow the locale.
 const csComp = completeLsArguments("", { ...DEFAULT_CONFIG, lang: "cs" });

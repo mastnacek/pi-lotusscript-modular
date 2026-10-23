@@ -33,7 +33,6 @@ export function createTelemetry(): HookTelemetry {
     kbGateBlocks: 0,
     kbSettleNudges: 0,
     checks: 0,
-    lastProcCount: null,
     lastLspOk: null,
   };
 }
@@ -57,16 +56,12 @@ function fitLineToWidth(line: string, maxWidth: number): string {
  */
 export function telemetryLines(t: HookTelemetry, config: ModularConfig): string[] {
   const s = stringsFor(config.lang).telemetry;
-  const code =
-    t.lastProcCount === null
-      ? s.codeNone
-      : s.code(t.lastProcCount);
   const lsp = t.lastLspOk === null ? "?" : t.lastLspOk ? "✓" : "⚠";
   return [
     s.hooks(totalHookCalls(t), t.hookCalls.tool_call, t.hookCalls.tool_result, t.hookCalls.agent_settled),
     s.reads(t.kbSearches),
     s.gates(t.kbGateBlocks, t.checks, t.kbSettleNudges),
-    s.suffix(code, lsp),
+    s.suffix(lsp),
   ];
 }
 

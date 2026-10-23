@@ -5,7 +5,7 @@
  */
 
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
-import type { FileLintResult, LspCheckResult, ProcedureLintItem } from "../../src/shared/types.js";
+import type { LspCheckResult } from "../../src/shared/types.js";
 import {
   buildGradingRubric,
   computeScorecard,
@@ -16,35 +16,14 @@ import {
   trendLabel,
 } from "../../src/slices/scorecard/index.js";
 
-function proc(name: string, commented = true): ProcedureLintItem {
-  return {
-    filePath: "C:/tmp/Agent.lss",
-    procedureName: name,
-    startLine: 10,
-    lineCount: 20,
-    hasDocComment: commented,
-  };
-}
-
-function lint(items: ProcedureLintItem[]): FileLintResult {
-  const missing = items.filter((i) => !i.hasDocComment);
-  return {
-    ok: missing.length === 0,
-    missingCommentProcedures: missing,
-    allItems: items,
-  };
-}
-
 export async function phaseScorecard(): Promise<void> {
   const cfg = DEFAULT_CONFIG;
 
   // 1. A clean whole file scores full marks.
   const clean = computeScorecard({
     agent: "Agent.lss",
-    lint: lint([proc("Initialize"), proc("Process")]),
     lsp: { ok: true, diagnostics: "", errorCount: 0, warningCount: 0 } as LspCheckResult,
     lspEnabled: true,
-    enforceCzechComments: true,
     kbExpected: false,
     kbSearchCount: 0,
     minKbSearches: 3,
@@ -58,23 +37,25 @@ export async function phaseScorecard(): Promise<void> {
   const banned = ["manifest-sync", "artifact", "proc-limit"];
   const present = banned.filter((id) => ids.includes(id));
   const okItems =
-    present.length === 0 && ids.includes("proc-comments") && ids.includes("lsp-clean");
+    present.length === 0 && ids.every((id) => id === "lsp-clean" || id === "kb-consulted");
   console.log(`2. no modular/length items (found: ${present.join(",") || "none"}):`, okItems ? "PASS" : "FAIL");
   if (!okItems) throw new Error(`Unexpected items: ${JSON.stringify(ids)}`);
 
   // 3. Failures cost points and appear in the rendered block.
   const failed = computeScorecard({
     agent: "Agent.lss",
-    lint: lint([proc("Uncommented", false)]),
     lsp: { ok: false, diagnostics: "LS-0xd028 line 12", errorCount: 1, warningCount: 0 },
     lspEnabled: true,
-    enforceCzechComments: true,
     kbExpected: true,
     kbSearchCount: 1,
     minKbSearches: 3,
   });
   const text = formatScorecard(failed);
-  const okFail = failed.score < failed.max && text.includes("Remaining:") && text.includes("Uncommented");
+  const okFail =
+    failed.score < failed.max &&
+    text.includes("Remaining:") &&
+    text.includes("LS-0xd028") &&
+    text.includes("KB consulted (1/3)");
   console.log("3. failures are graded and rendered with detail:", okFail ? "PASS" : "FAIL");
   if (!okFail) throw new Error(`Unexpected failure rendering:\n${text}`);
 
@@ -87,10 +68,8 @@ export async function phaseScorecard(): Promise<void> {
   // 5. A not-run LSP check is pending, never a failure.
   const pending = computeScorecard({
     agent: "Agent.lss",
-    lint: lint([proc("Initialize")]),
     lsp: null,
     lspEnabled: true,
-    enforceCzechComments: true,
     kbExpected: false,
     kbSearchCount: 0,
     minKbSearches: 3,
@@ -109,8 +88,9 @@ export async function phaseScorecard(): Promise<void> {
     rubric.includes("INSTANT FAILURE") &&
     rubric.includes("modular folder") &&
     !/\d+ lines/.test(rubric) &&
+    !/purpose comment/i.test(rubric) &&
     !/manifest\.json compilationOrder matches/.test(rubric);
-  console.log("6. rubric has no line-limit rule and forbids modular folders:", okRubric ? "PASS" : "FAIL");
+  console.log("6. rubric has no length and no comment rule:", okRubric ? "PASS" : "FAIL");
   if (!okRubric) throw new Error(`Unexpected rubric:\n${rubric}`);
 
   // 7. Recurring-signature normalisation ignores coordinates (incl. columns).

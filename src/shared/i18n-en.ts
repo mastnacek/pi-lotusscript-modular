@@ -15,7 +15,6 @@ export const STRINGS_EN: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Configuration status]:",
     lspCheck: "LSP check",
-    czechComments: "Enforce Czech comments",
     scorecard: "Scorecard (grading)",
     rubric: "Definition of Done rubric",
     preflight: "Pre-flight gotchas check",
@@ -76,14 +75,6 @@ ${diagnostics}`,
     error: (msg) => `Scaffold error: ${msg}`,
   },
 
-  lint: {
-    title: (name) => `🔍 [LotusScript Linter — ${name}]:`,
-    total: (n) => `- Total procedures: ${n}`,
-    missingComment: (n) => `- Missing Czech comment: ${n}`,
-    missingDesc: "⚠️ missing description",
-    linesCount: (n) => `${n} lines`,
-  },
-
   score: {
     history: (n) => `History (${n}): `,
   },
@@ -139,9 +130,7 @@ ${diagnostics}`,
     reads: (kb) => `   KB queries ${kb}`,
     gates: (kb, checks, kbNudges) =>
       `   gates: KB ${kb} · checks ${checks} · settle-nudges ${kbNudges}`,
-    codeNone: "code: no check yet",
-    code: (procs) => `code: ${procs} procedures`,
-    suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
+    suffix: (lsp) => `📏 LSP ${lsp}`,
   },
 
   statusline: {
@@ -156,7 +145,6 @@ ${diagnostics}`,
     subScaffold: "Create a LotusScript code skeleton (agent, library)",
     subLsp: "Toggle LotusScript LSP check: on | off",
     subCheck: "Check a whole .lss file with the 9.0.1 compiler",
-    subLint: "Check procedure length (max 300 lines) and comments",
     subScore: "Show the agent scorecard and grading trend",
     subGotchas: "Search the LotusScript Gotchas database (40+ rules)",
     subConfig: "Show or change settings (get/set, legacy)",
@@ -232,11 +220,6 @@ ${diagnostics}`,
     enforceGotchaCapture: {
       description: "Enforce recording newly discovered pitfalls and gotchas",
       on: "On — remind to save a new gotcha after solving a problem",
-      off: "Off — optional",
-    },
-    enforceCzechComments: {
-      description: "Enforce concise Czech purpose comments on every procedure",
-      on: "On — require a Czech description on procedures",
       off: "Off — optional",
     },
     enableScorecard: {
