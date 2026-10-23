@@ -50,6 +50,8 @@ export interface PluginState {
   readonly versionHeaders: Map<string, string>;
   /** Files already nudged about versioning in the current run. */
   readonly versioningNudged: Set<string>;
+  /** Files already nudged about library drift in the current run. */
+  readonly driftNudged: Set<string>;
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
   /** Queries sent to the knowledge base in the current run (plural KB verification). */
@@ -104,6 +106,7 @@ export function createPluginState(): PluginState {
   const recurringGotchaReported = new Set<string>();
   const versionHeaders = new Map<string, string>();
   const versioningNudged = new Set<string>();
+  const driftNudged = new Set<string>();
   let kbConsulted = false;
   const kbQueriesThisRun: string[] = [];
   let notesMutatedThisRun = false;
@@ -221,6 +224,7 @@ export function createPluginState(): PluginState {
     recurringGotchaReported,
     versionHeaders,
     versioningNudged,
+    driftNudged,
     get kbConsulted() {
       return kbConsulted;
     },
@@ -250,6 +254,7 @@ export function createPluginState(): PluginState {
       lastCheckedFile = null;
       // The header baseline survives across runs; only the once-per-run nudge resets.
       versioningNudged.clear();
+      driftNudged.clear();
     },
     telemetry,
     buildScorecard: insights.buildScorecard,

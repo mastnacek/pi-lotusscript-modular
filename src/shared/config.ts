@@ -10,6 +10,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   autoCheckOnEdit: true,
   autoFormatOnSave: true,
   versioningCheck: true,
+  driftCheck: true,
   autoExplainLspCodes: true,
   enforceKbPrompt: true,
   enforceKbGate: true,

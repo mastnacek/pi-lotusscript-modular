@@ -77,14 +77,15 @@ async function handleEditToolResult(
   if (!paths.isLotusScriptSource(resolved)) return undefined;
   if (!fs.existsSync(resolved)) return undefined;
 
-  // Version header oversight is a source-shape concern, not a compilation one:
-  // it must fire even when the whole-file check is switched off.
-  const versionNotice = deps.checkVersioning(resolved);
+  // Source-shape concerns (version header, library drift) are not compilation
+  // concerns: they must fire even when the whole-file check is switched off.
+  const shapeNotice =
+    [deps.checkVersioning(resolved), deps.checkDrift(resolved)].filter(Boolean).join("") || null;
 
-  if (!config.autoCheckOnEdit) return withNotice(undefined, versionNotice, event);
+  if (!config.autoCheckOnEdit) return withNotice(undefined, shapeNotice, event);
 
   try {
-    return withNotice(await checkAndReport(state, event, ctx, deps, resolved), versionNotice, event);
+    return withNotice(await checkAndReport(state, event, ctx, deps, resolved), shapeNotice, event);
   } catch (err: unknown) {
     state.renderStatusline("error");
     const msg = err instanceof Error ? err.message : String(err);
@@ -92,7 +93,7 @@ async function handleEditToolResult(
       {
         content: [...event.content, { type: "text", text: `\n\n⚠️ [LotusScript: Check Failed]: ${msg}` }],
       },
-      versionNotice,
+      shapeNotice,
       event
     );
   }

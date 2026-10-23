@@ -28,6 +28,7 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
     guardKbBeforeEdit,
     observeVersionHeader: () => {},
     checkVersioning: () => null,
+    checkDrift: () => null,
     checkLotusScriptDiagnostics: async (file: string) => {
       checks.push(file);
       return { ok: true, diagnostics: "", errorCount: 0, warningCount: 0 };

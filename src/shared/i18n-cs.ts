@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "Zapnuto — po úpravě proběhne kontrola celého souboru (limit procedur, LSP, scorecard)",
       off: "Vypnuto — kontrolovat jen ručně přes /ls check nebo lotusscript_check",
     },
+    driftCheck: {
+      description: "Upozornit, když agent znovu implementuje to, co už v projektu dělá skriptová knihovna",
+      on: "Zapnuto — HTTP objekt, literál cesty API, vlastní chybový report nebo notes:// URL v agentovi vyvolá hlášku s odkazem na pravidla",
+      off: "Vypnuto — žádná kontrola driftu",
+    },
     versioningCheck: {
       description: "Po úpravě .lss ověřit, že soubor má hlavičku VERZE/CHANGELOG a že se změnila",
       on: "Zapnuto — úprava bez hlavičky (nebo bez bumpu) dostane hlášku se šablonou a odkazem na referenci",

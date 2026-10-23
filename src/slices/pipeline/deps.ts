@@ -41,6 +41,9 @@ export interface PipelineDeps {
   observeVersionHeader(filePath: string): void;
   /** Notice to append when an edited file has no header or an unchanged one. */
   checkVersioning(filePath: string): string | null;
+  // drift slice — "this belongs in the library"
+  /** Notice to append when an agent re-implements library-owned logic. */
+  checkDrift(filePath: string): string | null;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   buildGradingRubric(config: ModularConfig): string;

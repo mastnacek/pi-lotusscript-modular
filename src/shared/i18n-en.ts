@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "On — every edit triggers a whole-file check (procedure limits, LSP, scorecard)",
       off: "Off — check manually with /ls check or lotusscript_check",
     },
+    driftCheck: {
+      description: "Warn when an agent re-implements what the project's script library already does",
+      on: "On — an HTTP COM object, API path literal, local error report or notes:// URL in an agent raises a notice with the rule link",
+      off: "Off — no drift oversight",
+    },
     versioningCheck: {
       description: "After editing a .lss, check that the VERZE/CHANGELOG header exists and was bumped",
       on: "On — an edit without a header (or without a bump) gets a notice with the template and the reference link",

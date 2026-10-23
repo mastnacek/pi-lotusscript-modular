@@ -14,6 +14,8 @@ export interface ModularConfig {
   autoFormatOnSave: boolean;
   /** Nudge when a .lss is edited without adding or bumping its VERZE/CHANGELOG header */
   versioningCheck: boolean;
+  /** Nudge when an agent re-implements logic the project's script library already owns */
+  driftCheck: boolean;
   /** Auto-attach lsp_explain help pages for new LSP error codes after a failed check */
   autoExplainLspCodes: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */
