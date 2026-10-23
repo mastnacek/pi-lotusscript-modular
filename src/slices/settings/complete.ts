@@ -57,8 +57,6 @@ function scaffoldTypes(s: Strings): readonly Suggestion[] {
   return [
     { value: "agent", description: c.scaffoldAgent, space: true },
     { value: "library", description: c.scaffoldLibrary, space: true },
-    { value: "procedure", description: c.scaffoldProcedure, space: true },
-    { value: "modular", description: c.scaffoldModular, space: true },
   ];
 }
 

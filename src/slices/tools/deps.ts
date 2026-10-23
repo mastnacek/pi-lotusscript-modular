@@ -14,14 +14,6 @@ import type {
   LspCheckResult,
 } from "../../shared/types.js";
 import type { Strings } from "../../shared/i18n.js";
-/** Structural compile options (no cross-slice type imports). */
-export interface ToolsCompileOptions {
-  keepTimestamp?: boolean;
-  overwriteSourceLss?: boolean;
-  createLssForDxl?: boolean;
-  deleteModularDir?: boolean;
-}
-
 export interface ScaffoldOptionsFull {
   type: string;
   name: string;
@@ -46,8 +38,6 @@ export interface ScaffoldResultFull {
 }
 
 export interface ToolsDeps {
-  // parser slice
-  compileAgent(targetDirOrFile: string, options?: ToolsCompileOptions): string;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
   // lsp slice — automation lane (SPAI-008)

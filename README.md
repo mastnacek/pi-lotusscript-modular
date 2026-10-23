@@ -1,6 +1,6 @@
 # pi-lotusscript-modular
 
-> Pi coding agent extension for modular compilation, manifest synchronization, optional LSP verification, and a central Gotchas knowledge registry for IBM Notes/Domino 9.0.1 LotusScript.
+> Pi coding agent extension for whole-file LotusScript work: every `.lss` is checked exactly as it is by the IBM Notes/Domino 9.0.1 compiler oracle (domino LSP), plus compliant scaffolding and a central Gotchas knowledge registry. The modular-folder workflow was removed (LSP-side 2026-11).
 
 Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus**.
 
@@ -8,10 +8,8 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 
 ## Features
 
-- **Modular Compilation:** Reassembles a modular folder (`00_options.lss`, `01_declarations.lss`, `sub_*.lss`, `func_*.lss`, `99_initialize.lss`, `main.lss`, `manifest.json`) into a single `.lss` artifact. Modular folders are created by `lotusscript_scaffold` (`type: "modular"`) — the decompiler that split monoliths was removed on 2026-10-23 and its source is archived in `_archiv/lotusscript-dekompilace`.
-- **Auto-Manifest Sync & Recompile on Save:** Inside an existing modular folder, editing or adding a procedure updates `manifest.json` and regenerates the compiled artifact automatically.
-- **Overwrite `.lss` Source:** Keeps the original `.lss` source file in sync on recompile by default (safe for git). DXL files are never overwritten with plain text.
-- **Idempotent Assembly:** The generated provenance header (`%REM … Assembled from modular source files …`) and the `' === SECTION: <file> ===` markers are stripped from every modular file before assembly, so repeated compiles never nest scaffolding and the artifact stays byte-stable.
+- **Whole-File 9.0.1 Compiler Check:** `lotusscript_check` (and `/ls compile <file.lss>`) compiles a `.lss` exactly as it is through the domino LSP oracle — no assembly, no strict probe — and attaches help pages for the LS-* error codes. The editor lane (pi-lens) runs the same whole-script compile on open/save/change, so IDE and tool diagnostics always agree.
+- **No Modular Folders:** the decompiler was removed on 2026-10-23 and the LSP dropped module-aware checking on 2026-11. Legacy pre-2026-11 modular folders on disk still compile via `/ls compile [složka]` / `/ls pack [složka]`, but new ones are never created.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
 - **Central Gotchas Registry (64 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
@@ -33,11 +31,12 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls config get <klíč>` — Vypsat hodnotu nastavení
 - `/ls <nastavení> [on|off]` — Přímé zobrazení nebo nastavení libovolného přepínače z katalogu (totéž co `/ls config set`, kratší zápis)
 - `/ls config set <klíč> <hodnota>` — Uložit novou hodnotu nastavení (u přepínačů `on` / `off`, v pickeru označená `✓` jako aktivní)
-- `/ls scaffold <agent|library|procedure|modular> [název]` — Vytvořit kostru LotusScript kódu
+- `/ls scaffold <agent|library> [název]` — Vytvořit kostru LotusScript kódu (celý .lss soubor)
 - `/ls lsp [on|off]` — Přepnout kontrolu syntaxe přes LotusScript LSP
 - `/ls overwrite [on|off]` — Přepnout přepisování původního .lss souboru
-- `/ls compile [složka]` — Sestavit modulární složku do `_compiled.lss`
-- `/ls pack [složka]` — Sestavit do .lss a smazat modulární složku
+- `/ls compile <soubor.lss>` — Zkontrolovat celý .lss překladačem 9.0.1
+- `/ls compile [složka]` — Legacy: sestavit modulární složku (před 2026-11) do `_compiled.lss`
+- `/ls pack [složka]` — Legacy: sestavit do .lss a smazat modulární složku
 - `/ls lint [složka]` — Zkontrolovat délku procedur (max 300 řádků) a komentáře
 - `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
@@ -64,8 +63,8 @@ Stored in `.pi/lotusscript-modular.json`:
 
 ## Tools for LLM
 
-- `lotusscript_compile`: Recompiles modular folder to `<AgentName>_compiled.lss` (and original `.lss` if enabled).
-- `lotusscript_scaffold`: Generates compliant code skeletons (agent, library, procedure, modular folder) with StringEnum-typed parameters.
+- `lotusscript_check`: Whole-file 9.0.1 compiler diagnostics for a `.lss`/`.lsa` (checked exactly as it is) + error-code help pages.
+- `lotusscript_scaffold`: Generates compliant whole-file code skeletons (agent, library) with StringEnum-typed parameters.
 - `lotusscript_lsp_toggle`: Programmatically toggle LSP check on/off.
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
 
@@ -75,7 +74,7 @@ Stored in `.pi/lotusscript-modular.json`:
 
 `skills/lotusscript-modular/` — the session skill (`SKILL.md` router, auto-loaded by pi from the conventional `skills/` directory) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
 
-- `workflow.md` — modular folder lifecycle, CLI/tool reference, language policy detail
+- `workflow.md` — whole-file lifecycle (edit → check → Designer paste), CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
 - `gotchas-index.md` — 64-entry one-liner index + recording protocol
 - `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation

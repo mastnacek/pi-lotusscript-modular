@@ -119,14 +119,16 @@ export async function phase13a(): Promise<string> {
   console.log("68. Scaffold rejects overwriting existing artifact:", overwriteRejected ? "PASS" : "FAIL");
   if (!overwriteRejected) throw new Error("Scaffold allowed overwrite");
 
-  // Completions expose scaffold subcommand with 4 types
+  // Completions expose scaffold subcommand with the 2 whole-file types
+  // (procedure/modular were retired with the modular workflow, 2026-11)
   const scaffoldCompletions = completeLsArguments("scaffold ", DEFAULT_CONFIG);
   const scaffoldCompOk =
     !!scaffoldCompletions &&
-    ["agent", "library", "procedure", "modular"].every((t) =>
+    ["agent", "library"].every((t) =>
       scaffoldCompletions.some((c) => c.label === t && c.value === `scaffold ${t} `)
-    );
-  console.log("69. /ls scaffold completions expose 4 types with trailing space:", scaffoldCompOk ? "PASS" : "FAIL");
+    ) &&
+    !["procedure", "modular"].some((t) => scaffoldCompletions.some((c) => c.label === t));
+  console.log("69. /ls scaffold completions expose 2 whole-file types with trailing space:", scaffoldCompOk ? "PASS" : "FAIL");
   if (!scaffoldCompOk) throw new Error(`Bad scaffold completions: ${JSON.stringify(scaffoldCompletions)}`);
 
   // lotusscript_scaffold tool is registered

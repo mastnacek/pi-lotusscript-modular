@@ -8,5 +8,4 @@
 export const MUTATING_TOOL_NAMES: ReadonlySet<string> = new Set([
   "edit",
   "write",
-  "lotusscript_compile",
 ]);

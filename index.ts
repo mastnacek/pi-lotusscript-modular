@@ -122,9 +122,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     promptGotchaReview,
   };
 
-  // Model-tools slice wiring (parser / lsp / gotchas / scaffold + i18n copy).
+  // Model-tools slice wiring (lsp / gotchas / scaffold + i18n copy).
   const toolsDeps: ToolsDeps = {
-    compileAgent: (target, options) => AgentParser.compileAgent(target, options),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
     searchGotchas,

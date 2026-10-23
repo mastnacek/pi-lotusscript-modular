@@ -20,6 +20,19 @@ export async function lsCompile(state: PluginState, parts: LsParts, ctx: Extensi
   const config = state.config;
   const s = stringsFor(config.lang);
   const target = parts[1] || ctx.cwd;
+
+  // Whole-file workflow: a .lss/.lsa target is checked exactly as it is by the
+  // 9.0.1 compiler oracle — no modular folder, no assembly.
+  if (/\.(lss|lsa)$/i.test(target)) {
+    const lspRes = await deps.checkLotusScriptDiagnostics(target);
+    const lspLine = lspRes.ok
+      ? s.compile.compiledClean(path.basename(target))
+      : s.compile.compiledLspErrors(lspRes.diagnostics);
+    ctx.ui.notify(lspLine, lspRes.ok ? "info" : "warning");
+    return;
+  }
+
+  // Legacy: a modular folder on disk (pre-2026-11 layout) still compiles.
   const root = findModularRoot(target);
   if (!root) {
     ctx.ui.notify(s.compile.notModular(target), "error");

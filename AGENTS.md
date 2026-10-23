@@ -1,15 +1,17 @@
 # pi-lotusscript-modular — build guide
 
-Pi extension for **opt-in** virtual modularization of LotusScript, modular compilation, LSP
-verification, and a central Gotchas registry for IBM Notes/Domino 9.0.1.
+Pi extension for **whole-file** LotusScript work: every `.lss` is checked exactly as it is
+by the domino LSP (IBM Notes/Domino 9.0.1 compiler oracle), plus compliant scaffolding and
+a central Gotchas registry.
 
-**Decompilation was removed on 2026-10-23.** A monolithic `.lss`/`.dxl` is the
-source shape this plugin works with; nothing is split on read and no hook rewrites
-`input.path`. The removed pipeline (decompile-lss/-dxl, the `lotusscript_decompile`
-tool, `/ls decompile`, the read-time interception and the shell content-dump guard)
-is archived with its documentation in
-`D:\01_programovani\pi\plugins\_archiv\lotusscript-dekompilace` — restore from
-there if it is ever wanted again, do not re-grow a second copy in `src/`.
+**The modular workflow is gone.** Decompilation was removed on 2026-10-23 and the domino
+LSP dropped all module-aware checking (sibling assembly, strict-mode probe) on 2026-11:
+every `.lss` compiles as a whole script. The model tools are `lotusscript_check` (whole-file
+compiler diagnostics), `lotusscript_scaffold` (agent/library skeletons only) and
+`lotusscript_gotchas`. The parser slice (`src/slices/parser/`) stays only so legacy
+pre-2026-11 modular folders on disk can still be compiled by `/ls compile [složka]` —
+never create new ones. The removed decompile pipeline is archived in
+`D:\01_programovani\pi\plugins\_archiv\lotusscript-dekompilace`.
 
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
@@ -28,9 +30,10 @@ there if it is ever wanted again, do not re-grow a second copy in `src/`.
 - Node built-ins only, plus `typebox` for tool schemas.
 - `src/**` imports use explicit `.js` extensions (NodeNext).
 - Pure functions in slices.
-- No modularization of monoliths: `tool_call` must not rewrite `input.path`, no hook may block
-  shell inspection of a source file, and `guidelines.ts` must not offer decompilation as an
-  option. `test/fixtures/` keeps the archived decompiler for compile-side fixtures only.
+- No modularization, ever: `tool_call` must not rewrite `input.path`, no hook may block
+  shell inspection of a source file, `guidelines.ts` must not offer decompilation or
+  modular folders as an option, and scaffolding emits whole `.lss` files only.
+  `test/fixtures/` keeps the archived decompiler for compile-side fixtures only.
 - Single source of truth for gotchas: all newly discovered gotchas must be recorded in `src/slices/gotchas/gotchas.md` (via `/ls gotchas add` or tool `lotusscript_gotchas`).
 
 ## UX: Lazy Menus & i18n

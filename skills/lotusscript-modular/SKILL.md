@@ -1,54 +1,58 @@
 ---
 name: lotusscript-modular
-description: Working with LotusScript agents and scripts — monolithic .lss/.dxl sources as well as modular folders (options, declarations, sub_*.lss, func_*.lss, main.lss, manifest.json). Use when editing, navigating, scaffolding, or recompiling for IBM Notes/Domino 9.0.1.
+description: Working with LotusScript agents and script libraries as whole .lss/.dxl files — reading, editing, scaffolding, and checking them with the IBM Notes/Domino 9.0.1 compiler oracle (domino LSP). Use when editing, navigating, scaffolding, or verifying LotusScript for Notes/Domino 9.0.1.
 ---
 
-# LotusScript Modular Agent Workflow (Virtual Modularization)
+# LotusScript Whole-File Workflow
 
 This skill guides the AI assistant when working with LotusScript agents and
-scripts — either as a monolithic `.lss`/`.dxl` or as a modular folder.
-Plugin: `pi-lotusscript-modular`.
+script libraries. Plugin: `pi-lotusscript-modular`.
 
-## Two source shapes
+## One source shape: the whole file
 
-**A monolithic script is the normal shape.** Read it with `read` offset/limit,
-inspect it with `grep`, edit it with anchored edits. Nothing is created, nothing
-is rewritten. The plugin no longer decompiles monoliths (removed 2026-10-23):
-never split an existing `.lss`/`.dxl` into a modular folder, and never propose
-that as an option to the user.
+**Every `.lss` file is a whole script — the only supported shape.** Read it
+with `read` offset/limit, inspect it with `grep`/`bash`, edit it with anchored
+edits. Nothing is created, nothing is split, nothing is rewritten behind your
+back.
 
-**A modular folder exists only when it was created deliberately** — by
-`lotusscript_scaffold` (`type: "modular"`) or before 2026-10-23 by the retired
-decompiler. There the rules below apply, and `lotusscript_compile` reassembles
-the artifact.
+The modular-folder workflow (manifest.json, main.lss, `sub_*.lss`/`func_*.lss`
+fragments assembled before compiling) **was removed**: the decompiler went away
+on 2026-10-23, and on 2026-11 the domino LSP dropped all module-aware handling.
+The LSP compiles every `.lss` exactly as it is — no sibling assembly, no
+strict-mode probe, and every diagnostic position refers to the file itself.
 
-## Core Contract (inside a modular folder)
+- **Never** split an existing `.lss`/`.dxl` into a modular folder, and never
+  propose that as an option to the user.
+- **Never** create `manifest.json`, `main.lss`, `00_options.lss`,
+  `01_declarations.lss`, `sub_*.lss` or `func_*.lss` for a new script — a new
+  agent or library is a single `.lss` from `lotusscript_scaffold`.
+- A legacy modular folder found on disk (pre-2026-11) is still guarded: never
+  edit its `main.lss`, `manifest.json` or `*_compiled.lss`. Treat such a folder
+  as read-only archaeology; the artifact to edit is the compiled whole `.lss`.
 
-A modular folder contains `manifest.json`, `main.lss` (index),
-`00_options.lss`, `01_declarations.lss`, `sub_<name>.lss` / `func_<name>.lss`,
-`99_initialize.lss`.
+## Checking a file
 
-1. **`main.lss` is an index, not the script.** ~30 lines naming the parts. The
-   monolithic source is still on disk and remains readable when the whole-file
-   view is more useful.
-2. **Never edit** `main.lss`, `manifest.json`, or `*_compiled.lss` — all three
-   are extension-maintained; hand edits are discarded on the next compile.
-3. **Always consult `01_declarations.lss`** before touching a procedure —
-   LotusScript module scope is flat.
-4. **English for everything the agent reads. Czech for everything the user
-   reads** (notifications, modals). The literal marker `' Účel: ...` and Czech
-   sample words in code stay Czech inside agent text.
-5. **Full language policy & regression tests:** `references/workflow.md` §6.
+To verify a file, call the tool:
+
+```
+lotusscript_check(path: "<file>.lss")
+```
+
+It runs the IBM Notes 9.0.1 compiler oracle (via the domino LSP / MCP lane) on
+the **whole file exactly as it is** and returns compiler diagnostics. On errors,
+help pages for the LS-* error codes are attached when `autoExplainLspCodes` is
+on. The editor lane (pi-lens) runs the same whole-script compile on
+open/save/change, so diagnostics in the IDE and from the tool always agree.
 
 ## Progressive Disclosure (read on demand — do not preload everything)
 
 | Situation | Read |
 | --- | --- |
-| First contact with a modular folder, or anything about the lifecycle / compile / cleanup | `references/workflow.md` |
+| Lifecycle of a whole-file change: edit → check → Designer paste; CLI & tool table | `references/workflow.md` |
 | Before writing any LotusScript code (headers, naming, error handling) | `references/coding-conventions.md` |
 | Before naming any agent/view/form/library, or when creating an element | `references/naming-conventions.md` (aliases: `ag_`, `lu_`, `frm_`, …) |
 | Before writing code in ANY area — quick trigger scan; on any compile/runtime error search here first | `references/gotchas-index.md` (64 entries) |
-| Creating a new agent, library, procedure or modular folder | `references/scaffolding.md` |
+| Creating a new agent or script library | `references/scaffolding.md` |
 | Editing `.form` / `.view` / `.subform` / `.folder` DXL design elements | `references/dxl-and-odp.md` |
 | Writing or reviewing `@formulas` (view selection/columns, form fields, agents, DXL, `Evaluate`) | `references/formula-language.md` |
 
@@ -67,22 +71,22 @@ knowledge_base kb_search(collection: "lotus-notes", query: "<topic>")
 New code starts from a scaffold, never hand-written headers:
 
 ```
-/ls scaffold agent|library|procedure|modular <Název>
-lotusscript_scaffold(type, name, targetDir?, purpose?, author?, isFunction?, params?, date?, ...)
+/ls scaffold agent|library <Název>
+lotusscript_scaffold(type, name, targetDir?, purpose?, author?, date?)
 ```
 
-`agent` and `library` render the shipped `src/slices/scaffold/template.lss`:
-header block (NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI), `VERZE` + `CHANGELOG`,
-`Option Public` + `Option Declare`, an `On Error GoTo ErrorHandler` block and a
-`SendErrorEmail` helper whose recipient comes from `ERROR_NOTIFY_EMAIL$` in the
-file header. `procedure` and `modular` emit synthetic `@script-member-of` headers
-instead. Every scaffold also **derives the convention alias** (`ag_…`/`lib_…`
-from the name, diacritics stripped) and emits a **Designer registration
-notice** — element name, alias, suggested description, paste steps and
-`Ctrl+Shift+F9` — in Czech for `/ls` notifications and in English for tool
-results. Pass `date` to pin `YYYY-MM-DD` and get a byte-reproducible scaffold.
-Details + parameter table: `references/scaffolding.md`. Alias grammar and prefix
-table: `references/naming-conventions.md`.
+Both render the shipped `src/slices/scaffold/template.lss` as a **single whole
+`.lss`**: header block (NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI), `VERZE` +
+`CHANGELOG`, `Option Public` + `Option Declare`, an `On Error GoTo ErrorHandler`
+block and a `SendErrorEmail` helper whose recipient comes from
+`ERROR_NOTIFY_EMAIL$` in the file header. Every scaffold also **derives the
+convention alias** (`ag_…`/`lib_…` from the name, diacritics stripped) and emits
+a **Designer registration notice** — element name, alias, suggested description,
+paste steps and `Ctrl+Shift+F9` — in Czech for `/ls` notifications and in
+English for tool results. Pass `date` to pin `YYYY-MM-DD` and get a
+byte-reproducible scaffold. Details + parameter table:
+`references/scaffolding.md`. Alias grammar and prefix table:
+`references/naming-conventions.md`.
 
 Do not add `%Include "lsconst.lss"` to a scaffolded agent: the template already
 declares `LSI_THREAD_*` itself, and the include would collide (gotcha #39). The
@@ -91,77 +95,55 @@ Library or any Designer element, because `LSPRVAL.LSS` is auto-included there.
 
 ## Definition of Done, Scorecard & Evaluation
 
-The extension grades every compile deterministically. **The model never
-self-reports a score** — the same facts (procedure length, comments, LSP
-diagnostics, manifest sync, final artifact) are computed by the plugin and
-injected as a feedback signal.
+The extension grades every check deterministically. **The model never
+self-reports a score** — the facts (procedure length, comments, LSP
+diagnostics, KB consultation) are computed by the plugin and injected as a
+feedback signal.
 
-**Definition of Done (per agent you touch):**
+**Definition of Done (per `.lss` file you touch):**
 
 1. No procedure exceeds `maxProcedureLines` (default 300), unless the user approved an exception.
 2. Every sub/function has a concise Czech purpose comment (`' Účel: ...`).
-3. The compiled artifact reports 0 LSP errors.
-4. `manifest.json` compilationOrder matches the files on disk.
-5. The final artifact is written: original `.lss` overwritten, or `<Agent>.lss` created for `.dxl`.
-6. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
-7. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
-
-Scorecard is attached to every recompile result:
-
-```text
-📊 SCORECARD  tlacitko_v2  8/10  ▲ +3 since last compile
-  ✅ procedures ≤ 300 lines
-  ✅ Czech purpose comments (11/11)
-  ❌ LSP diagnostics (2 errors)
-  ✅ manifest.json in sync
-  ⬜ final artifact written
-  ✅ lotus-notes KB consulted (3/3)
-  Remaining:
-    - LSP diagnostics (2 errors): <first lines of the diagnostic output>
-```
+3. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
+4. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
+5. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
 
 Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-5` per
 over-limit procedure without an approved exception, `-3` per procedure missing
 its Czech purpose comment.
 
-Instant failure conditions: editing `main.lss` or `*_compiled.lss` directly;
-writing outside the modular root; deleting a procedure file without updating
-`manifest.json`.
+Instant failure conditions: creating a modular folder (`manifest.json`,
+`main.lss`, `sub_*.lss`) — the modular workflow was removed; and, inside a
+legacy pre-2026-11 modular root only, editing `main.lss`, `manifest.json` or
+`*_compiled.lss` directly.
 
-Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka]`
-(per-procedure line counts and comment status).
+Manual inspection: `/ls score [složka]` (scorecard + trend, modular folders),
+`/ls lint [složka]` (per-procedure line counts and comment status).
 
 ## Self-Improvement Loop (pre-flight, debrief, recurring failures)
 
-1. **Pre-flight gotchas (the Plan step):** on the first read of a modular
-   agent's `main.lss`, the extension extracts identifiers from
-   `01_declarations.lss` plus the procedure file names, then surfaces up to 3
-   registered gotchas matching **this agent's own** declarations. Falls back to
-   the generic top-8 summary when nothing matches. Toggle: `injectPreflightGotchas`.
-2. **Instant-failure guards:** `edit`/`write` to `main.lss`, `manifest.json`,
-   or `*_compiled.lss` is blocked — all three files are maintained by the
-   extension, so hand edits are always lost.
-2b. **Proactive KB verification:** the `before_agent_start` guideline is a
+1. **Instant-failure guards (legacy folders):** `edit`/`write` to `main.lss`,
+   `manifest.json`, or `*_compiled.lss` is blocked — those files only exist in
+   pre-2026-11 modular roots, where they are extension-maintained.
+2. **Proactive KB verification:** the `before_agent_start` guideline is a
    task→layer query protocol (API member → IBM reference; performance →
    Guirard chapters; error → exact text) plus a quality bar (On Error
    coverage, object state, NoCache discipline). KB calls are plural by rule:
    at least `minKbSearchesPerRun` (default 3) per run, one per layer. The
-   main.lss read banner derives concrete `kb_search` suggestions from the
-   agent's own `Notes*` declarations, and the scorecard grades the per-run
-   query count as DoD item 7 (`(1/3)` progress label).
-2b. **No forced modularization:** reading a monolith returns the file as it is.
-   `bash` / `grep` inspection is allowed; there is no read redirect and no dump
-   guard any more — prefer `read` with offset/limit only to keep the context
-   window small.
-3. **Debrief (note-to-self):** when `agent_settled` finalises an agent folder,
+   scorecard grades the per-run query count as DoD item 5 (`(1/3)` progress
+   label).
+3. **No forced restructuring:** reading a script returns the file as it is.
+   `bash` / `grep` inspection is allowed; prefer `read` with offset/limit only
+   to keep the context window small.
+4. **Debrief (note-to-self):** when `agent_settled` finalises work on an agent,
    if any Definition of Done item is unmet the harness records a debrief. It is
    injected as a message at the start of the next turn and consumed exactly once.
-4. **Recurring failures → gotcha draft:** every LSP diagnostic is normalised to
+5. **Recurring failures → gotcha draft:** every LSP diagnostic is normalised to
    a location-free signature (line, column and file paths stripped). If the same
-   signature appears in two compile cycles, the harness drafts a gotcha and asks
+   signature appears in two check cycles, the harness drafts a gotcha and asks
    the user to approve it — the model is not trusted to notice its own repeats.
    Toggle: `autoDraftRecurringGotchas`.
-5. **Verify-before-done (`agent_before_settle`):** when a run mutated any
+6. **Verify-before-done (`agent_before_settle`):** when a run mutated any
    `.lss`/`.dxl` source with fewer than `minKbSearchesPerRun` `kb_search`
    calls on the `lotus-notes` collection, the harness injects exactly one
    verification turn (`continue: true` + a hidden `custom_message` reporting
@@ -178,19 +160,19 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Concern | Location |
 | --- | --- |
 | Composition root (pure wiring) | `index.ts` |
-| Compile/manifest (sync-manifest, compile-agent, emitters, scaffolding) | `src/slices/parser/` |
+| Legacy modular compile (dormant; pre-2026-11 folders only) | `src/slices/parser/` |
 | Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
 | Instant-failure guards (protected files, KB edit gate) | `src/slices/guards/` |
 | `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
-| Model tools (compile/gotchas/scaffold) | `src/slices/tools/` |
+| Model tools (check/gotchas/scaffold) | `src/slices/tools/` |
 | Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
 | Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
-| LSP diagnostics | `src/slices/lsp/` |
+| LSP diagnostics (whole-file check + explain/format lane) | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
 | Linter + procedure-limit modal (checker, modal, instructions-input, prompt-review) | `src/slices/linter/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
-| Tests (79 checks, one file per phase under the per-file line limit) | `test/test_modular_workflow.ts` + `test/phases/` |
+| Tests (96 checks, one file per phase under the per-file line limit) | `test/test_modular_workflow.ts` + `test/phases/` |
 
 ## Language Policy (hard rule)
 

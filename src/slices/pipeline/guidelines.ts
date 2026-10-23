@@ -54,9 +54,9 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
   guidelines.push(
     [
       "LOTUSSCRIPT SOURCE SHAPE:",
-      "A monolithic `.lss` or `.dxl` is the source shape this plugin handles. Read it with the `read` tool using offset/limit, inspect it with `grep`/`bash`, and edit it with anchored edits — nothing is created, split or rewritten behind your back.",
-      "Do not create a modular folder (manifest.json, main.lss, sub_*.lss, func_*.lss) for an existing monolith: the decompiler was removed from this plugin on 2026-10-23 and modularization of monoliths is no longer supported.",
-      "Modular folders still legitimately exist when `lotusscript_scaffold` created them (type 'modular') or when one is already on disk. There, edits go to the individual part files, never to main.lss, manifest.json or *_compiled.lss, and `lotusscript_compile` reassembles the artifact.",
+      "Every `.lss` file is a whole script — the only supported shape. Read it with the `read` tool using offset/limit, inspect it with `grep`/`bash`, and edit it with anchored edits — nothing is created, split or rewritten behind your back.",
+      "Never create a modular folder (manifest.json, main.lss, sub_*.lss, func_*.lss) and never split a script into parts: the modular workflow was removed (LSP-side 2026-11; the decompiler already on 2026-10-23). The domino LSP compiles every .lss exactly as it is — no sibling assembly, no strict-mode probe.",
+      "To verify a file, call `lotusscript_check(path)` — it runs the IBM Notes 9.0.1 compiler oracle on the whole file and returns its diagnostics.",
     ].join(" ")
   );
 

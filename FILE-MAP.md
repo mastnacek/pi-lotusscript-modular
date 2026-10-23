@@ -38,7 +38,7 @@ the code in §4–§6 is what actually executes.
 | File | Lines | Purpose |
 |---|---:|---|
 | `SKILL.md` | 195 | Frontmatter (`name: lotusscript-modular`) + the operating manual: Scaffold Fast Path, Definition of Done, file-map table of `src/slices/*`, KB-lookup block naming the collection's three layers. Loaded by pi's skill discovery. |
-| `references/workflow.md` | 129 | Modular workflow reference — the compile → edit → package lifecycle and when the plugin intervenes. |
+| `references/workflow.md` | ~90 | Whole-file workflow reference — the edit → check → Designer paste lifecycle and when the plugin intervenes. |
 | `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
 | `references/gotchas-index.md` | 101 | Index of the 64 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |

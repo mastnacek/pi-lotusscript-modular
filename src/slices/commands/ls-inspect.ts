@@ -21,11 +21,11 @@ export async function lsScaffold(state: PluginState, parts: LsParts, ctx: Extens
   const s = stringsFor(state.config.lang);
   const type = (parts[1] || "").toLowerCase();
   const name = parts[2];
-  if (!type || !["agent", "library", "procedure", "modular"].includes(type)) {
+  if (!type || !["agent", "library"].includes(type)) {
     ctx.ui.notify(s.scaffoldCmd.usage, "warning");
     return;
   }
-  const targetName = name || (type === "modular" ? "NewModularAgent" : "NewScript");
+  const targetName = name || "NewScript";
   const targetDir = parts[3] ? path.resolve(ctx.cwd, parts[3]) : ctx.cwd;
   try {
     const res = deps.scaffoldLotusScriptArtifact({

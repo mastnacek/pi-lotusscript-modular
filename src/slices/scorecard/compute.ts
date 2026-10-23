@@ -174,33 +174,29 @@ export function buildGradingRubric(config: ModularConfig): string {
 
   const kbExpected = config.enforceKbPrompt || config.enforceKbGate || config.verifyKbBeforeSettle;
   const kbRule = kbExpected
-    ? `7. The lotus-notes knowledge base was consulted at least ${config.minKbSearchesPerRun}× per run (kb_search) — once per layer: IBM API reference, Guirard book, community/error text.`
-    : "7. (KB verification is disabled by config.)";
+    ? `5. The lotus-notes knowledge base was consulted at least ${config.minKbSearchesPerRun}× per run (kb_search) — once per layer: IBM API reference, Guirard book, community/error text.`
+    : "5. (KB verification is disabled by config.)";
 
   const lspRule = config.enableLsp
-    ? "3. The compiled artifact reports 0 LSP errors."
+    ? "3. The whole .lss file reports 0 LSP errors (verified with lotusscript_check)."
     : "3. (LSP validation is disabled by config.)";
 
     return [
-    "LOTUSSCRIPT DEFINITION OF DONE (per agent you touch):",
+    "LOTUSSCRIPT DEFINITION OF DONE (per .lss file you touch):",
     `1. No procedure exceeds ${n} lines, unless the user approved an exception.`,
     commentRule,
     lspRule,
-    "4. manifest.json compilationOrder matches the files on disk.",
-    "5. The final artifact is written: original .lss overwritten, or <Agent>.lss created for .dxl.",
-    "6. Every newly discovered trap is proposed via lotusscript_gotchas(action: \"add\") and user-approved.",
+    "4. Every newly discovered trap is proposed via lotusscript_gotchas(action: \"add\") and user-approved.",
     kbRule,
     "",
     "HOW YOU'RE GRADED (the plugin computes this — never self-report a score):",
     "  +2 per satisfied DoD item",
-    "  -5 per LSP error remaining at final compile",
+    "  -5 per LSP error remaining at the final whole-file check",
     `  -5 per procedure over ${n} lines without an approved exception`,
     "  -3 per procedure missing its Czech purpose comment",
-    "  INSTANT FAILURE: editing 'main.lss' (synthetic index, regenerated on every compile)",
-    "  INSTANT FAILURE: editing '*_compiled.lss' (generated artifact)",
-    "  INSTANT FAILURE: hand-editing 'manifest.json' inside a modular root (auto-synced from disk)",
-    "  ADVISORY: writing a LotusScript file outside the active modular root",
-    "  A live scorecard is attached to every compile result — treat it as your feedback signal.",
+    "  INSTANT FAILURE: creating a modular folder (manifest.json / main.lss / sub_*.lss) — the modular workflow was removed; every .lss is a whole script",
+    "  INSTANT FAILURE (legacy folders only): editing 'main.lss', 'manifest.json' or '*_compiled.lss' inside a pre-2026-11 modular root",
+    "  A live scorecard is attached to every check result — treat it as your feedback signal.",
   ].join("\n");
 }
 

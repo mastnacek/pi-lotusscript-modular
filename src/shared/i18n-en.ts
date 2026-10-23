@@ -84,7 +84,7 @@ export const STRINGS_EN: Strings = {
   },
 
   scaffoldCmd: {
-    usage: "Usage: /ls scaffold <agent|library|procedure|modular> [name] [target folder]",
+    usage: "Usage: /ls scaffold <agent|library> [name] [target folder]",
     error: (msg) => `Scaffold error: ${msg}`,
   },
 
@@ -201,7 +201,7 @@ export const STRINGS_EN: Strings = {
   completions: {
     subStatus: "Show current plugin configuration",
     subGlobal: "Save the following setting globally (~/.pi/agent/)",
-    subScaffold: "Create a LotusScript code skeleton (agent, library, procedure, modular)",
+    subScaffold: "Create a LotusScript code skeleton (agent, library)",
     subLsp: "Toggle LotusScript LSP check: on | off",
     subOverwrite: "Toggle .lss file overwriting: on | off",
     subCompile: "Build the modular folder into _compiled.lss",
@@ -351,7 +351,7 @@ export const STRINGS_EN: Strings = {
       "  /ls lang [cs|en]                — Switch UI language",
       "  /ls <setting> [value]           — Show or set an option directly",
       "  /ls --global <setting> <value>  — Save the setting globally (~/.pi/agent/)",
-      "  /ls scaffold <type> [name]      — Create a skeleton (agent, library, procedure, modular)",
+      "  /ls scaffold <type> [name]      — Create a skeleton (agent, library)",
       "  /ls lsp [on|off]                — Turn the LSP check on/off",
       "  /ls overwrite [on|off]          — Turn .lss file overwriting on/off",
       "  /ls compile [folder]            — Build the modular agent manually",

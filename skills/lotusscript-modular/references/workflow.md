@@ -1,100 +1,74 @@
-# Modular Workflow Reference
+# Whole-File Workflow Reference
 
-Deep detail for the modular-folder lifecycle (compile, manifest sync, cleanup).
+Deep detail for the whole-file lifecycle (edit → check → Designer paste).
 The parent `SKILL.md` holds the router and the hard rules; this file holds the
 "how it works" detail.
 
 ---
 
-## 1. Recognizing Modular Scripts
+## 1. The Only Source Shape
 
-A modular agent folder contains:
-- `manifest.json` — Machine-readable compilation order and metadata.
-- `main.lss` — Root entry point with synthetic `' %pi-import "..."` directives.
-- `00_options.lss` — `Option Public`, `Option Declare`, `Option Compare`, `Use "..."`.
-- `01_declarations.lss` — Shared constants, global variables (`Dim g_...`), `Type`, `Class` definitions.
-- `sub_<name>.lss` / `func_<name>.lss` — Individual procedures with `@script-member-of`
-  and `@parent-declarations` headers.
-- `99_initialize.lss` — `Sub Initialize` runtime entrypoint.
-- `99_terminate.lss` — Optional `Sub Terminate`.
+A LotusScript agent or script library is a single `.lss` (or `.dxl` export)
+file — the module exactly as Designer stores it: `Option …`/`Use …` header,
+`(Declarations)`, then every `Sub`/`Function` in one file.
 
-### `main.lss` is an index, not the script
+- Read with `read` offset/limit; inspect with `grep`/`bash`; edit with anchored
+  edits. Nothing is split or generated alongside.
+- There is no `manifest.json`, no `main.lss` index, no `sub_*.lss` fragments.
+  The modular workflow was removed (decompiler 2026-10-23, LSP module-aware
+  checking 2026-11). Never recreate it.
 
-`main.lss` is ~30 lines of `' %pi-import "..."` directives. Reading it returns exactly that —
-the line count is the size of the index, **not** of the script. Read `01_declarations.lss` first,
-then only the specific `sub_*.lss` / `func_*.lss` file you need.
+### Legacy modular folders (archaeology)
 
-A monolithic `.lss`/`.dxl` is read as it is: the decompiler was removed on 2026-10-23, so
-nothing is split behind your back and `bash`/`grep` inspection of a monolith is allowed.
+A folder with `manifest.json` + `main.lss` + `sub_*.lss` predates 2026-11.
+Do not edit its generated files (`main.lss`, `manifest.json`, `*_compiled.lss`
+are guarded); do not extend it. The maintained artifact is the whole `.lss`
+that was compiled out of it — edit that file directly.
 
 ---
 
-## 2. Rules When Reading or Editing Procedures
+## 2. Rules When Reading or Editing
 
-1. **Always consult `01_declarations.lss`**:
-   - LotusScript has flat module scope. Subroutines and functions rely on global variables,
-     user-defined types, classes, and constants declared in `01_declarations.lss`.
-   - Before modifying a procedure in `sub_*.lss` or `func_*.lss`, inspect `01_declarations.lss`
-     to understand shared state and signatures.
-
-2. **Adding a New Subroutine or Function**:
-   - Create `sub_<Name>.lss` (for `Sub`) or `func_<Name>.lss` (for `Function`).
-   - Add header comments:
-     ```lotusscript
-     ' @script-member-of: <AgentName>
-     ' @procedure: <Name>
-     ' @parent-declarations: 01_declarations.lss
-     ```
-   - `manifest.json` (the `compilationOrder` array) and `main.lss` are **maintained automatically**
-     by the extension on every compile — do not edit them.
-     - `main.lss` is a synthetic index of `' %pi-import` directives regenerated from `manifest.json`.
-     - Hand edits to either file are discarded on the next recompile.
-   - Faster path: use `/ls scaffold procedure <Name>` or the `lotusscript_scaffold` tool —
-     it creates the file with the correct header and a compliant skeleton (see `scaffolding.md`).
-
-3. **Deleting a Subroutine or Function**:
-   - Delete the `.lss` file from disk. The next recompile drops it from `manifest.json`
-     and `main.lss` automatically.
-
-4. **Changing Global State or Types**:
-   - Edit `01_declarations.lss`.
-   - Check all procedures that reference the modified variable or type.
+1. **Module scope is flat.** Before modifying a procedure, scan the file's
+   `(Declarations)` section (globals, `Type`, `Class`, `Const`) — it lives at
+   the top of the same `.lss` file.
+2. **Adding a procedure:** insert it into the same file with an anchored edit,
+   with a `' Účel: ...` Czech purpose comment. There is no header contract
+   beyond the coding conventions (`coding-conventions.md`).
+3. **Deleting a procedure:** remove it from the same file; nothing else needs
+   syncing.
+4. **Changing global state or types:** edit the declarations section and check
+   every procedure in the file that references the modified symbol.
 
 ---
 
-## 3. Modular Folder Lifecycle
+## 3. Lifecycle of a Change
 
-A monolithic `.lss`/`.dxl` is edited in place — never split into a modular folder
-(that feature was removed on 2026-10-23). A modular folder exists only if
-`lotusscript_scaffold` created it or if it predates that removal.
-
-### 3.1 Once a folder exists
-
-1. **Manifest Sync & Incremental Recompile on Edit:** When editing `sub_*.lss` /
-   `func_*.lss` / `01_declarations.lss`, the extension automatically reconciles `manifest.json`
-   and syncs the code.
-3. **Automatic Cleanup on Completion (`cleanupOnSettled`):** Once the agent finishes modifications
-   (`agent_settled`):
-   - For `.lss` files: overwrites the source `.lss` file with the final compiled code.
-   - For `.dxl` files: creates `<AgentName>.lss` alongside the `.dxl` file.
-   - Completely deletes the temporary modular folder, leaving no clutter.
-4. **Manual Pack & Clean (on demand):**
-   - Command: `/ls pack [složka]`
-   - Tool: `lotusscript_compile(folder: "...", clean: true)`
-   - Assembles final `.lss` file, verifies LSP, and deletes modular folder.
-5. **Interactive Gotchas Approval:**
-   - Proposing gotchas via `lotusscript_gotchas(action: "add")` displays an interactive modal
-     window with Save, Cancel, and Rewrite options before writing anything to disk.
+1. **Edit** the `.lss` in place (KB gate: a `kb_search` on `lotus-notes` must
+   have run this session before the first `.lss`/`.dxl` edit —
+   `enforceKbGate`).
+2. **Check** the whole file:
+   - tool: `lotusscript_check(path)` — runs the 9.0.1 compiler oracle on the
+     file exactly as it is;
+   - command: `/ls compile <soubor.lss>` — same whole-file check from the TUI;
+   - editor: pi-lens runs the same whole-script compile on open/save/change.
+3. **On any diagnostic:** search `lotusscript_gotchas` with the error text
+   before changing code; recurring identical diagnostics make the harness draft
+   a gotcha for user approval.
+4. **Paste into Designer** (see §4) when the file is clean.
 
 ---
 
 ## 4. Pasting into Domino Designer 9.0.1
 
-- Tell the user to open the agent in Domino Designer.
-- Copy entire contents of the generated `<AgentName>_compiled.lss`
-  (or `<AgentName>_<timestamp>_compiled.lss`).
-- Paste into `(Declarations)` or `(Options)` in Programmer's Pane.
+- Tell the user to open the agent / script library in Domino Designer.
+- Copy the entire contents of the `.lss` file.
+- Paste into the Programmer's Pane (agent: into the script editor; library:
+  into the library body).
 - Save and recompile: **Ctrl+Shift+F9**.
+- When pasting into any Designer element, delete the scaffold's
+  `Const LSI_THREAD_*` block first — `LSPRVAL.LSS` is auto-included there and
+  the symbols would collide (see SKILL.md §Scaffold Fast Path).
 
 ---
 
@@ -104,12 +78,13 @@ A monolithic `.lss`/`.dxl` is edited in place — never split into a modular fol
 | --- | --- |
 | `/ls status` | Show live plugin configuration |
 | `/ls config get\|set <key>` | Read/write a setting |
-| `/ls scaffold <type> [name]` | Create compliant code skeleton (see `scaffolding.md`) |
-| `/ls compile [složka]` | Manually recompile modular folder to `_compiled.lss` |
-| `/ls pack [složka]` | Compile, write artifact, delete modular folder |
+| `/ls scaffold <agent\|library> [name]` | Create a compliant whole-file skeleton (see `scaffolding.md`) |
+| `/ls compile <soubor.lss>` | Whole-file 9.0.1 compiler check |
+| `/ls compile [složka]` | Legacy: recompile a pre-2026-11 modular folder |
+| `/ls pack [složka]` | Legacy: compile a modular folder, write artifact, delete the folder |
 | `/ls lint [složka]` | Per-procedure line counts + Czech comment check |
 | `/ls score [složka]` | Scorecard + trend |
-| `/ls gotchas [query]` | Search the 42-entry gotcha base |
-| `lotusscript_compile` | Tool: recompile modular folder (+LSP) |
-| `lotusscript_scaffold` | Tool: generate agent/library/procedure/modular skeletons |
+| `/ls gotchas [query]` | Search the gotcha base |
+| `lotusscript_check` | Tool: whole-file 9.0.1 compiler diagnostics (+ error-code help) |
+| `lotusscript_scaffold` | Tool: generate agent/library whole-file skeletons |
 | `lotusscript_gotchas` | Tool: search / summary / propose new gotcha |

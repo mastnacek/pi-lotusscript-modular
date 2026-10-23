@@ -84,7 +84,7 @@ export const STRINGS_CS: Strings = {
   },
 
   scaffoldCmd: {
-    usage: "Použití: /ls scaffold <agent|library|procedure|modular> [název] [cílová složka]",
+    usage: "Použití: /ls scaffold <agent|library> [název] [cílová složka]",
     error: (msg) => `Chyba při vytváření kostry: ${msg}`,
   },
 
@@ -201,7 +201,7 @@ export const STRINGS_CS: Strings = {
   completions: {
     subStatus: "Zobrazit aktuální konfiguraci pluginu",
     subGlobal: "Uložit následující nastavení globálně (~/.pi/agent/)",
-    subScaffold: "Vytvořit kostru LotusScript kódu (agent, library, procedure, modular)",
+    subScaffold: "Vytvořit kostru LotusScript kódu (agent, library)",
     subLsp: "Přepnout LotusScript LSP kontrolu: on | off",
     subOverwrite: "Přepnout přepisování .lss souboru: on | off",
     subCompile: "Sestavit modulární složku do _compiled.lss",
@@ -352,7 +352,7 @@ export const STRINGS_CS: Strings = {
       "  /ls lang [cs|en]                — Přepnout jazyk rozhraní",
       "  /ls <nastavení> [hodnota]       — Přímé zobrazení nebo nastavení volby",
       "  /ls --global <nastavení> <hodn> — Uložit nastavení globálně (~/.pi/agent/)",
-      "  /ls scaffold <typ> [název]      — Vytvořit kostru (agent, library, procedure, modular)",
+      "  /ls scaffold <typ> [název]      — Vytvořit kostru (agent, library)",
       "  /ls lsp [on|off]                — Zapnout/vypnout LSP kontrolu",
       "  /ls overwrite [on|off]          — Zapnout/vypnout přepis .lss souboru",
       "  /ls compile [složka]            — Ručně sestavit modulárního agenta",
