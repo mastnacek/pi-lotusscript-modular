@@ -34,6 +34,12 @@ export interface SettingCopyLite {
   off?: string;
 }
 
+export interface AuditResultLite {
+  markdown: string;
+  duplicates: number;
+  files: number;
+}
+
 export interface ScaffoldOptionsLite {
   type: string;
   name: string;
@@ -71,4 +77,6 @@ export interface CommandsDeps {
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   // scaffold slice
   scaffoldLotusScriptArtifact(options: ScaffoldOptionsLite): ScaffoldResultLite;
+  /** Duplicate-procedure report for one mirror folder (markdown pre-rendered). */
+  auditLibraries(dir: string, lang: string): AuditResultLite;
 }

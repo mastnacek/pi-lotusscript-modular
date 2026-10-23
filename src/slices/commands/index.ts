@@ -24,6 +24,7 @@ import {
 import { lsScaffold, lsScore } from "./ls-inspect.js";
 import { lsCheck } from "./ls-check.js";
 import { lsGotchas } from "./ls-gotchas.js";
+import { lsAudit } from "./ls-audit.js";
 
 export interface RegisteredLsCommand {
   description: string;
@@ -40,6 +41,7 @@ const SUBCOMMANDS: Record<string, LsSubHandler> = {
   score: lsScore,
   check: lsCheck,
   gotchas: lsGotchas,
+  audit: lsAudit,
 };
 
 export function createLsCommand(state: PluginState, deps: CommandsDeps): RegisteredLsCommand {

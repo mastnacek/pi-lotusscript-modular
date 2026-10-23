@@ -65,6 +65,7 @@ import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/index.js";
 import { checkDrift } from "./src/slices/drift/index.js";
 import { emitTrace, type TraceEvent } from "./src/slices/trace/index.js";
+import { auditForCommand } from "./src/slices/audit/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -92,6 +93,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     checkLotusScriptDiagnostics,
     formatScorecard,
     scaffoldLotusScriptArtifact,
+    auditLibraries: (dir, lang) => auditForCommand(dir, lang),
   };
 
   // Visible skill trace: user-facing only (ui.notify), never model context.
