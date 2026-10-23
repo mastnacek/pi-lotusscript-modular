@@ -16,6 +16,8 @@ export interface ModularConfig {
   versioningCheck: boolean;
   /** Nudge when an agent re-implements logic the project's script library already owns */
   driftCheck: boolean;
+  /** Show the skill trace in the chat (checkpoints, never in model context) */
+  showSkillTrace: boolean;
   /** Auto-attach lsp_explain help pages for new LSP error codes after a failed check */
   autoExplainLspCodes: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */

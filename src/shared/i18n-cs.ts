@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "Zapnuto — po úpravě proběhne kontrola celého souboru (limit procedur, LSP, scorecard)",
       off: "Vypnuto — kontrolovat jen ručně přes /ls check nebo lotusscript_check",
     },
+    showSkillTrace: {
+      description: "Zobrazovat v chatu stopu skillu (checkpointy s emoji, nikdy nejde do kontextu modelu)",
+      on: "Zapnuto — jednou za session se ukáže načtení skillu, otevřená reference, první zápis, kontrola, verzování a drift",
+      off: "Vypnuto — jen statusline",
+    },
     driftCheck: {
       description: "Upozornit, když agent znovu implementuje to, co už v projektu dělá skriptová knihovna",
       on: "Zapnuto — HTTP objekt, literál cesty API, vlastní chybový report nebo notes:// URL v agentovi vyvolá hlášku s odkazem na pravidla",

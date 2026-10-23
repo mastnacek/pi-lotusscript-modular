@@ -64,6 +64,7 @@ import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/index.js";
 import { checkDrift } from "./src/slices/drift/index.js";
+import { emitTrace, type TraceEvent } from "./src/slices/trace/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -93,6 +94,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     scaffoldLotusScriptArtifact,
   };
 
+  // Visible skill trace: user-facing only (ui.notify), never model context.
+  const traceSink = {
+    notify: (text: string) => state.latestUiContext?.ui?.notify?.(text, "info"),
+  };
+  const trace = (event: TraceEvent) => emitTrace(state, traceSink, event);
+
   const settledDeps: SettledDeps = {
     checkLotusScriptDiagnostics,
     trendLabel,
@@ -103,6 +110,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const pipelineDeps: PipelineDeps = {
     guardKbBeforeEdit,
     mutatingToolNames: MUTATING_TOOL_NAMES,
+    trace: (event) => trace(event as TraceEvent),
     observeVersionHeader: (filePath) => observeVersionHeader(state, filePath),
     checkVersioning: (filePath) => checkVersioning(state, filePath),
     checkDrift: (filePath) => checkDrift(state, filePath),
@@ -136,6 +144,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     state.syncConfig(ctx.cwd);
     state.countHook("session_start"); // also renders the telemetry panel
     state.renderStatusline("idle");
+    trace({ kind: "skill", detail: "lotusscript-modular" });
   }));
 
   track(pi.on("turn_end", () => {

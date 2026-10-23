@@ -40,6 +40,12 @@ export async function handleToolResult(
 
     if (readPath) {
       const resolved = path.resolve(readPath);
+      // Opening a skill reference is a checkpoint the operator can follow.
+      const asPosix = resolved.split(path.sep).join("/");
+      if (/\/skills\/.*\.md$/i.test(asPosix) && fs.existsSync(resolved)) {
+        deps.trace({ kind: "reference", detail: path.basename(resolved) });
+      }
+
       if (paths.isLotusScriptSource(resolved) && fs.existsSync(resolved)) {
         // Baseline for the versioning slice: we now know the header as it was.
         deps.observeVersionHeader(resolved);
@@ -73,14 +79,20 @@ async function handleEditToolResult(
   // Settle-time KB verification tracks every .lss/.dxl mutation.
   state.notesMutatedThisRun = true;
 
+  // First write of a session is worth one visible checkpoint.
+  deps.trace({ kind: "writing", detail: path.basename(resolved) });
+
   // Only a real LotusScript source can be compiled; DXL is a design export.
   if (!paths.isLotusScriptSource(resolved)) return undefined;
   if (!fs.existsSync(resolved)) return undefined;
 
   // Source-shape concerns (version header, library drift) are not compilation
   // concerns: they must fire even when the whole-file check is switched off.
-  const shapeNotice =
-    [deps.checkVersioning(resolved), deps.checkDrift(resolved)].filter(Boolean).join("") || null;
+  const versionNotice = deps.checkVersioning(resolved);
+  const driftNotice = deps.checkDrift(resolved);
+  if (versionNotice) deps.trace({ kind: "versioning", ok: false });
+  if (driftNotice) deps.trace({ kind: "drift", ok: false });
+  const shapeNotice = [versionNotice, driftNotice].filter(Boolean).join("") || null;
 
   if (!config.autoCheckOnEdit) return withNotice(undefined, shapeNotice, event);
 

@@ -26,6 +26,7 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
   const deps: PipelineDeps = {
     mutatingToolNames: MUTATING_TOOL_NAMES,
     guardKbBeforeEdit,
+    trace: () => {},
     observeVersionHeader: () => {},
     checkVersioning: () => null,
     checkDrift: () => null,

@@ -184,6 +184,11 @@ ${diagnostics}`,
       on: "On — every edit triggers a whole-file check (procedure limits, LSP, scorecard)",
       off: "Off — check manually with /ls check or lotusscript_check",
     },
+    showSkillTrace: {
+      description: "Show the skill trace in the chat (emoji checkpoints, never enters model context)",
+      on: "On — once per session: skill loaded, reference opened, first write, check, versioning, drift",
+      off: "Off — statusline only",
+    },
     driftCheck: {
       description: "Warn when an agent re-implements what the project's script library already does",
       on: "On — an HTTP COM object, API path literal, local error report or notes:// URL in an agent raises a notice with the rule link",

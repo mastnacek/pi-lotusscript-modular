@@ -11,6 +11,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   autoFormatOnSave: true,
   versioningCheck: true,
   driftCheck: true,
+  showSkillTrace: true,
   autoExplainLspCodes: true,
   enforceKbPrompt: true,
   enforceKbGate: true,

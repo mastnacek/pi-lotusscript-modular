@@ -52,6 +52,10 @@ export interface PluginState {
   readonly versioningNudged: Set<string>;
   /** Files already nudged about library drift in the current run. */
   readonly driftNudged: Set<string>;
+  /** Checkpoints already shown in the chat this session (trace dedupe). */
+  readonly traceEmitted: Set<string>;
+  /** Icons of shown checkpoints, rendered as a statusline suffix. */
+  readonly traceTags: string[];
   /** True once any knowledge-base search tool ran this session (KB edit gate). */
   kbConsulted: boolean;
   /** Queries sent to the knowledge base in the current run (plural KB verification). */
@@ -107,6 +111,8 @@ export function createPluginState(): PluginState {
   const versionHeaders = new Map<string, string>();
   const versioningNudged = new Set<string>();
   const driftNudged = new Set<string>();
+  const traceEmitted = new Set<string>();
+  const traceTags: string[] = [];
   let kbConsulted = false;
   const kbQueriesThisRun: string[] = [];
   let notesMutatedThisRun = false;
@@ -155,10 +161,17 @@ export function createPluginState(): PluginState {
       return;
     }
 
-    // Default / idle state
+    // Default / idle state — the trace tail shows which checkpoints have fired.
     const icon = theme.fg("accent", `🪷 LS${scoreBadge}`);
     const flags = theme.fg("dim", ` (LSP:${config.enableLsp ? "on" : "off"})`);
-    latestUiContext.ui.setStatus("lotusscript", icon + flags);
+    latestUiContext.ui.setStatus("lotusscript", icon + flags + traceTailText());
+  }
+
+  /** Stable icon sequence of the checkpoints already shown (no slice import). */
+  function traceTailText(): string {
+    const order = ["🧩", "📄", "📝", "🔍", "🔖", "🧱", "🚧", "🏁"];
+    const present = order.filter((i) => traceTags.includes(i));
+    return present.length > 0 ? " " + present.join("") : "";
   }
 
   function syncConfig(cwd: string): void {
@@ -225,6 +238,8 @@ export function createPluginState(): PluginState {
     versionHeaders,
     versioningNudged,
     driftNudged,
+    traceEmitted,
+    traceTags,
     get kbConsulted() {
       return kbConsulted;
     },

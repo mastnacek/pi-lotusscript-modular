@@ -41,6 +41,9 @@ export interface PipelineDeps {
   observeVersionHeader(filePath: string): void;
   /** Notice to append when an edited file has no header or an unchanged one. */
   checkVersioning(filePath: string): string | null;
+  // trace slice — visible checkpoints (user-facing, never model context)
+  /** Emit one skill-trace checkpoint; deduped and switchable inside the slice. */
+  trace(event: { kind: string; detail?: string; ok?: boolean }): void;
   // drift slice — "this belongs in the library"
   /** Notice to append when an agent re-implements library-owned logic. */
   checkDrift(filePath: string): string | null;
