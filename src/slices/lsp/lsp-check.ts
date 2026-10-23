@@ -31,11 +31,37 @@ type RpcParams = InitializeParams | ToolCallParams;
 
 /**
  * Run LotusScript LSP diagnostics check on a given file.
+ *
+ * Two lanes can compile at the same time (the editor LSP and this MCP server), and
+ * the oracle serialises them behind a sandbox lock, so a first call can lose the
+ * race and time out. One retry turns that transient collision into a slow check
+ * instead of a failure the agent has to report.
  */
 export async function checkLotusScriptDiagnostics(
   filePath: string,
   serverScriptPath: string = DEFAULT_MCP_SERVER,
-  timeoutMs = 10000
+  timeoutMs = 30000
+): Promise<LspCheckResult> {
+  const first = await checkOnce(filePath, serverScriptPath, timeoutMs);
+  if (!/timed out/i.test(first.diagnostics)) return first;
+
+  await new Promise((r) => setTimeout(r, 750));
+  const second = await checkOnce(filePath, serverScriptPath, timeoutMs);
+  if (!/timed out/i.test(second.diagnostics)) return second;
+
+  return {
+    ...second,
+    diagnostics:
+      `${second.diagnostics}
+(both attempts timed out — another checker may hold the sandbox lock, ` +
+      `or a Notes/Designer runtime is blocking the oracle)`,
+  };
+}
+
+async function checkOnce(
+  filePath: string,
+  serverScriptPath: string,
+  timeoutMs: number
 ): Promise<LspCheckResult> {
   const resolvedPath = path.resolve(filePath);
   if (!fs.existsSync(resolvedPath)) {
@@ -79,10 +105,9 @@ export async function checkLotusScriptDiagnostics(
         resolve({
           ok: false,
           diagnostics:
-            `LSP check timed out after ${timeoutMs}ms. ` +
-            "If a Notes client or Domino Designer is running, its shared-memory session can block " +
-            "the compiler oracle (a Notes dialog 'Shared Memory from a previous Notes/Domino run " +
-            "has been detected' appears on the desktop); dismiss it and retry, or close Notes.",
+            `LSP check timed out after ${timeoutMs}ms. The compiler oracle did not answer: ` +
+            "either another checker still holds the sandbox lock, or a Notes/Designer runtime is " +
+            "blocking its start (dismiss any Notes dialog and retry).",
           errorCount: 1,
           warningCount: 0,
         });
