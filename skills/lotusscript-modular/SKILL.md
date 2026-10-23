@@ -53,6 +53,7 @@ open/save/change, so diagnostics in the IDE and from the tool always agree.
 | Before naming any agent/view/form/library, or when creating an element | `references/naming-conventions.md` (aliases: `ag_`, `lu_`, `frm_`, …) |
 | Before writing code in ANY area — quick trigger scan; on any compile/runtime error search here first | `references/gotchas-index.md` (64 entries) |
 | Creating a new agent or script library | `references/scaffolding.md` |
+| Creating/changing a **script library**, versioning (`VERZE`/`CHANGELOG`), `Use` rules, deployment order + `Recompile All`, error 151, promoting shared code out of agents | `references/libraries-and-versioning.md` |
 | Editing `.form` / `.view` / `.subform` / `.folder` DXL design elements | `references/dxl-and-odp.md` |
 | Writing or reviewing `@formulas` (view selection/columns, form fields, agents, DXL, `Evaluate`) | `references/formula-language.md` |
 
