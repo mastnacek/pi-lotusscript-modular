@@ -17,6 +17,7 @@ import {
   skillChoiceOutcome,
   skillPromptDecision,
   wrapSkillMessage,
+  discoverSkillResources,
   LotusSkillPromptComponent,
 } from "../../src/slices/project/index.js";
 import { stringsFor } from "../../src/shared/i18n.js";
@@ -243,9 +244,20 @@ export async function phaseProject(): Promise<void> {
   third.handleInput("\x1b[B");
   third.handleInput("\x1b[B");
   third.handleInput("\r");
+  console.log("18. y loads, Esc skips, two downs + Enter answers never:", answers.join(",") === "load,skip,never" ? "PASS" : "FAIL");
+  if (!(answers.join(",") === "load,skip,never")) throw new Error(answers.join(","));
+
+  // 19. Resource discovery (SPAI-009): advertised only where it belongs.
+  const advertises = discoverSkillResources(fingerprint, skillPath, { skillPrompt: "ask" });
+  const silent = [
+    discoverSkillResources(noEvidence, skillPath, { skillPrompt: "ask" }),
+    discoverSkillResources(noEvidence, skillPath, { skillPrompt: "always" }),
+    discoverSkillResources(fingerprint, skillPath, { skillPrompt: "never" }),
+    discoverSkillResources(fingerprint, null, { skillPrompt: "always" }),
+  ];
   assert(
-    "18. y loads, Esc skips, two downs + Enter answers never",
-    answers.join(",") === "load,skip,never",
-    answers.join(",")
+    "19. resources_discover advertises only in a Domino project, never on opt-out",
+    advertises.skillPaths?.[0] === skillPath && silent.every((r) => r.skillPaths === undefined),
+    JSON.stringify({ advertises, silent })
   );
 }

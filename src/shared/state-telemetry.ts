@@ -22,6 +22,7 @@ export function createTelemetry(): HookTelemetry {
   return {
     hookCalls: {
       session_start: 0,
+      resources_discover: 0,
       turn_end: 0,
       agent_settled: 0,
       agent_before_settle: 0,

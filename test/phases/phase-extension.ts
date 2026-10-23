@@ -56,6 +56,7 @@ export async function phaseExtension(): Promise<void> {
   // 3. Every hook the pipeline needs is subscribed.
   const expected = [
     "session_start",
+    "resources_discover",
     "turn_end",
     "agent_settled",
     "agent_before_settle",
@@ -125,7 +126,18 @@ export async function phaseExtension(): Promise<void> {
   console.log("9. the skill is injected exactly once:", again === undefined ? "PASS" : "FAIL");
   if (again !== undefined) throw new Error("skill re-injected");
 
-  // 10. "Don't ask in this project" is persisted and silences later sessions.
+  // 10. Discovery advertises the skill here — this is the ONLY advertisement
+  //     (the package declares no unconditional `skills` entry any more).
+  const advertised = await handlers["resources_discover"]!(
+    { type: "resources_discover", cwd: TEST_DIR, reason: "startup" },
+    ctxAsk
+  );
+  const advertisedPath = advertised?.skillPaths?.[0] ?? "";
+  const okAdvertised = advertisedPath.replace(/\\/g, "/").endsWith("skills/lotusscript-modular/SKILL.md");
+  console.log("10. resources_discover advertises the entry skill in a Domino project:", okAdvertised ? "PASS" : "FAIL");
+  if (!okAdvertised) throw new Error(`Not advertised: ${JSON.stringify(advertised)}`);
+
+  // 11. "Don't ask in this project" is persisted and silences later sessions.
   await handlers["session_start"]!(
     { type: "session_start", reason: "startup" },
     mockCtx(true, "never")
@@ -133,11 +145,19 @@ export async function phaseExtension(): Promise<void> {
   const cfgFile = path.join(TEST_DIR, ".pi", "lotusscript-modular.json");
   const persisted = fs.existsSync(cfgFile) ? fs.readFileSync(cfgFile, "utf-8") : "";
   const okPersist = persisted.includes('"skillPrompt": "never"');
-  console.log("10. 'never ask' is stored in the project config:", okPersist ? "PASS" : "FAIL");
+  console.log("11. 'never ask' is stored in the project config:", okPersist ? "PASS" : "FAIL");
   if (!okPersist) throw new Error(`Not persisted: ${persisted.slice(0, 200)}`);
 
   const ctxSilent = mockCtx(true, "load");
   await handlers["session_start"]!({ type: "session_start", reason: "startup" }, ctxSilent);
-  console.log("11. the persisted answer silences the next session:", ctxSilent.modals.length === 0 ? "PASS" : "FAIL");
+  console.log("12. the persisted answer silences the next session:", ctxSilent.modals.length === 0 ? "PASS" : "FAIL");
   if (ctxSilent.modals.length !== 0) throw new Error("asked again after 'never'");
+
+  // 13. The opt-out gates the advertisement too, not just the dialog.
+  const afterOptOut = await handlers["resources_discover"]!(
+    { type: "resources_discover", cwd: TEST_DIR, reason: "startup" },
+    ctxSilent
+  );
+  console.log("13. the opt-out also stops resource advertising:", afterOptOut?.skillPaths === undefined ? "PASS" : "FAIL");
+  if (afterOptOut?.skillPaths !== undefined) throw new Error(`Still advertised: ${JSON.stringify(afterOptOut)}`);
 }

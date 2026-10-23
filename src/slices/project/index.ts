@@ -20,6 +20,7 @@ export {
 } from "./detect.js";
 export { getEntrySkillPath, hasEntrySkill, readEntrySkillBody } from "./skill-source.js";
 export { buildProjectSkillGuideline, buildReadSkillNotice } from "./hints.js";
+export { discoverSkillResources, type SkillResources } from "./resources.js";
 export {
   skillPromptDecision,
   skillChoiceOutcome,

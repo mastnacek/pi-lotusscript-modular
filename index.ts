@@ -70,6 +70,7 @@ import {
   buildProjectSkillGuideline,
   buildReadSkillNotice,
   createProjectDetector,
+  discoverSkillResources,
   getEntrySkillPath,
   hasEntrySkill,
   promptSkillConsent,
@@ -214,6 +215,20 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     } else if (!outcome.persist) {
       ctx.ui?.notify?.(strings.skillModal.skipped, "info");
     }
+  }));
+
+  // Resource discovery — the only place the entry skill is advertised. The
+  // package no longer declares it in settings.json packages[].skills, so an
+  // unrelated repository never offers a LotusScript manual in its skill list.
+  // Runs after session_start (and again on /reload), so the detector cache and
+  // a persisted "never" are already in effect.
+  track(pi.on("resources_discover", () => {
+    state.countHook("resources_discover");
+    return discoverSkillResources(
+      projectDetector.detect(state.activeCwd),
+      hasEntrySkill() ? getEntrySkillPath() : null,
+      state.config
+    );
   }));
 
   track(pi.on("turn_end", () => {

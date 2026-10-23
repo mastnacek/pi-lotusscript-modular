@@ -42,6 +42,10 @@ is ever wanted again, do not re-grow a second copy in `src/`.
   `src/slices/project/detect.ts`), never treat "no evidence" as proof of absence, and never load the
   entry skill without operator consent (`skillPrompt`). The consent modal is the only startup dialog
   and must degrade to silence outside the TUI (RPC / print / json).
+- Advertise the skill ONLY through `resources_discover` (`src/slices/project/resources.ts`). Never add
+  a `skills` entry for it to `settings.json` `packages[]` or to this package's `pi` manifest: a
+  package-level skill entry is unconditional, so it offers a LotusScript manual in every repository
+  and collides with the discovery answer (`name "lotusscript-modular" collision`).
 
 ## UX: Lazy Menus & i18n
 - **Lazy menus** = `/ls` argument completions via `completeLsArguments(prefix, config)`.

@@ -75,6 +75,7 @@ export interface ProjectFingerprint {
 /** Names of the pi event hooks this plugin subscribes to. */
 export type HookName =
   | "session_start"
+  | "resources_discover"
   | "turn_end"
   | "agent_settled"
   | "agent_before_settle"
