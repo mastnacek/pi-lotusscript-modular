@@ -15,15 +15,20 @@ import type { ToolResultEventResultShape } from "./shared.js";
 export function readBanner(
   state: PluginState,
   event: ToolResultEvent,
-  filePath: string
+  filePath: string,
+  skillNotice?: string | null
 ): ToolResultEventResultShape {
   const gotchasBanner = state.buildGotchasBanner(filePath);
+  // The entry-skill pointer arrives from the project slice via PipelineDeps and
+  // stays behind the same setting as the prompt guideline (injectProjectSkillHint).
+  const skill = state.config.injectProjectSkillHint ? (skillNotice ?? null) : null;
 
   const notice = [
     "",
     "---",
     "📄 [LotusScript Whole Script]",
     `- File: ${filePath}`,
+    ...(skill ? ["", skill] : []),
     "",
     "ℹ️ This single file is the whole module: options/declarations at the top, then",
     "  every Sub/Function. Module scope is flat — scan the declarations section",

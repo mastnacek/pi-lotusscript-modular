@@ -49,7 +49,7 @@ export async function handleToolResult(
       if (paths.isLotusScriptSource(resolved) && fs.existsSync(resolved)) {
         // Baseline for the versioning slice: we now know the header as it was.
         deps.observeVersionHeader(resolved);
-        return readBanner(state, event, resolved);
+        return readBanner(state, event, resolved, deps.readSkillNotice());
       }
     }
   }

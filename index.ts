@@ -66,6 +66,18 @@ import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/i
 import { checkDrift } from "./src/slices/drift/index.js";
 import { emitTrace, type TraceEvent } from "./src/slices/trace/index.js";
 import { auditForCommand, auditForTool } from "./src/slices/audit/index.js";
+import {
+  buildProjectSkillGuideline,
+  buildReadSkillNotice,
+  createProjectDetector,
+  getEntrySkillPath,
+  hasEntrySkill,
+  promptSkillConsent,
+  readEntrySkillBody,
+  skillChoiceOutcome,
+  skillPromptDecision,
+  wrapSkillMessage,
+} from "./src/slices/project/index.js";
 
 export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Subagent recursion guard (pi-plugin-dev §8): child sessions load all
@@ -76,6 +88,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   const state = createPluginState();
   const { track } = state;
+
+  // One bounded project scan per session root, memoized by the slice; the
+  // pipeline only ever sees the finished hint, never the scan itself.
+  const projectDetector = createProjectDetector();
 
   // Composition-root wiring: the commands slice never imports sibling slices —
   // every cross-slice capability arrives through this deps object (VSA §6).
@@ -116,6 +132,11 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     observeVersionHeader: (filePath) => observeVersionHeader(state, filePath),
     checkVersioning: (filePath) => checkVersioning(state, filePath),
     checkDrift: (filePath) => checkDrift(state, filePath),
+    projectSkillGuideline: () =>
+      state.skillLoadedThisSession
+        ? null // the body was already injected — a second pointer is noise
+        : buildProjectSkillGuideline(projectDetector.detect(state.activeCwd), getEntrySkillPath()),
+    readSkillNotice: () => (hasEntrySkill() ? buildReadSkillNotice(getEntrySkillPath()) : null),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
     formatLotusScriptFile,
@@ -142,12 +163,57 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     strings: stringsFor,
   };
 
-  track(pi.on("session_start", (_event, ctx: ExtensionContext) => {
+  /** Queue the entry skill for the next run and tell the operator what happened. */
+  const loadEntrySkill = (ctx: ExtensionContext): void => {
+    const strings = stringsFor(state.config.lang);
+    const skillPath = getEntrySkillPath();
+    const body = readEntrySkillBody();
+    if (!body) {
+      ctx.ui?.notify?.(strings.skillModal.missing, "warning");
+      return;
+    }
+    state.pendingSkillLoad = wrapSkillMessage(body, skillPath);
+    state.skillLoadedThisSession = true;
+    ctx.ui?.notify?.(strings.skillModal.loaded(skillPath), "info");
+  };
+
+  track(pi.on("session_start", async (event, ctx: ExtensionContext) => {
     state.latestUiContext = ctx;
-    state.syncConfig(ctx.cwd);
+    state.syncConfig(ctx.cwd); // sets activeCwd — the detector keys off it
+    projectDetector.reset(); // new session, new root: fingerprint is stale
     state.countHook("session_start"); // also renders the telemetry panel
     state.renderStatusline("idle");
     trace({ kind: "skill", detail: "lotusscript-modular" });
+
+    // Entry-skill consent: the operator decides per project (like the shell
+    // profile asking about a uv venv), and "never" is remembered in the
+    // project config instead of being re-asked every session.
+    const fingerprint = projectDetector.detect(state.activeCwd);
+    const decision = skillPromptDecision(fingerprint, state.config);
+    const strings = stringsFor(state.config.lang);
+
+    if (decision === "load") {
+      loadEntrySkill(ctx);
+      return;
+    }
+    if (decision !== "ask") return;
+    // Ask only when the operator actually starts something (startup / new);
+    // a reload, resume or fork must not re-open the dialog.
+    if (event.reason !== "startup" && event.reason !== "new") return;
+
+    const choice = await promptSkillConsent(ctx, strings, fingerprint);
+    if (!choice) return; // non-TUI or dismissed: no consent, nothing loaded
+
+    const outcome = skillChoiceOutcome(choice);
+    if (outcome.persist) {
+      state.updateConfig({ ...state.config, skillPrompt: outcome.persist }, false, ctx.cwd);
+      ctx.ui?.notify?.(strings.skillModal.remembered, "info");
+    }
+    if (outcome.load) {
+      loadEntrySkill(ctx);
+    } else if (!outcome.persist) {
+      ctx.ui?.notify?.(strings.skillModal.skipped, "info");
+    }
   }));
 
   track(pi.on("turn_end", () => {
@@ -176,21 +242,28 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     state.beginRun(); // per-run flags: KB consult / mutation / settle nudge
     const pendingDebrief = state.pendingDebriefs.length > 0 ? state.pendingDebriefs.join("\n\n") : "";
     if (pendingDebrief) state.pendingDebriefs.length = 0;
-    const debriefMessage = pendingDebrief
+    // Operator-consented entry skill: injected once, at the first run.
+    const pendingSkill = state.pendingSkillLoad;
+    state.pendingSkillLoad = null;
+
+    const parts: string[] = [];
+    if (pendingSkill) parts.push(pendingSkill);
+    if (pendingDebrief) parts.push(pendingDebrief);
+    const contextMessage = parts.length
       ? {
           message: {
-            customType: "lotusscript-debrief",
-            content: pendingDebrief,
+            customType: pendingSkill ? "lotusscript-skill" : "lotusscript-debrief",
+            content: parts.join("\n\n"),
             display: true,
           },
         }
       : undefined;
 
-    if (!event.systemPromptOptions?.promptGuidelines) return debriefMessage;
+    if (!event.systemPromptOptions?.promptGuidelines) return contextMessage;
 
     event.systemPromptOptions.promptGuidelines.push(...buildPromptGuidelines(state.config, pipelineDeps));
 
-    return debriefMessage;
+    return contextMessage;
   }));
 
   // 1. Tool Call Interception (protected-file guard + KB edit gate)

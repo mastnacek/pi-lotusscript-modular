@@ -24,6 +24,8 @@ export const DEFAULT_CONFIG: ModularConfig = {
   injectPreflightGotchas: true,
   autoDraftRecurringGotchas: true,
   showTelemetryPanel: true,
+  injectProjectSkillHint: true,
+  skillPrompt: "ask",
 };
 
 export const GLOBAL_CONFIG_FILE = path.join(

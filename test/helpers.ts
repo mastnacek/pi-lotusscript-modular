@@ -68,18 +68,24 @@ export const MOCK_THEME: any = {
 };
 
 /** Minimal UI context stub (non-TUI: modals degrade, notify is recorded). */
-export function mockCtx(hasUI = false): any {
+export function mockCtx(hasUI = false, customResult?: unknown): any {
   const notices: Array<{ text: string; level: string }> = [];
+  const modals: unknown[] = [];
   return {
     cwd: TEST_DIR,
     hasUI,
     mode: hasUI ? "tui" : "json",
     notices,
+    modals,
     ui: {
       notify: (text: string, level: string) => notices.push({ text, level }),
       setStatus: () => {},
       setWidget: () => {},
       theme: MOCK_THEME,
+      custom: async (factory: unknown) => {
+        modals.push(factory);
+        return customResult;
+      },
     },
   };
 }

@@ -13,6 +13,14 @@ import type { PipelineDeps } from "./deps.js";
 export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps): string[] {
   const guidelines: string[] = [];
 
+  // First: which manual applies here. Only the project slice knows whether this
+  // workspace has Domino evidence at all, so the line is conditional (and a
+  // bounded, cached scan — never a repository walk).
+  if (config.injectProjectSkillHint) {
+    const projectSkill = deps.projectSkillGuideline();
+    if (projectSkill) guidelines.push(projectSkill);
+  }
+
   if (config.enforceKbPrompt) {
     guidelines.push(
       [

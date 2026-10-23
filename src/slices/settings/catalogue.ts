@@ -32,6 +32,8 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "injectPreflightGotchas", kind: "boolean" },
   { key: "autoDraftRecurringGotchas", kind: "boolean" },
   { key: "showTelemetryPanel", kind: "boolean" },
+  { key: "injectProjectSkillHint", kind: "boolean" },
+  { key: "skillPrompt", kind: "string" },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {

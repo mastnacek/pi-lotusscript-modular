@@ -66,6 +66,10 @@ export interface PluginState {
   notesMutatedThisRun: boolean;
   /** One-shot latch: the settle verification turn was already injected for this run. */
   settleKbNudgeSent: boolean;
+  /** Entry-skill body waiting to be injected at the next `before_agent_start` (operator consented). */
+  pendingSkillLoad: string | null;
+  /** True once the entry skill was loaded in this session (suppresses the cheap pointer). */
+  skillLoadedThisSession: boolean;
   /** Reset per-run flags at before_agent_start. */
   beginRun(): void;
   /** Live session counters for the in-TUI telemetry panel. */
@@ -117,6 +121,8 @@ export function createPluginState(): PluginState {
   const kbQueriesThisRun: string[] = [];
   let notesMutatedThisRun = false;
   let settleKbNudgeSent = false;
+  let pendingSkillLoad: string | null = null;
+  let skillLoadedThisSession = false;
   const telemetry = createTelemetry();
 
   // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
@@ -261,6 +267,18 @@ export function createPluginState(): PluginState {
     },
     set settleKbNudgeSent(v: boolean) {
       settleKbNudgeSent = v;
+    },
+    get pendingSkillLoad() {
+      return pendingSkillLoad;
+    },
+    set pendingSkillLoad(v: string | null) {
+      pendingSkillLoad = v;
+    },
+    get skillLoadedThisSession() {
+      return skillLoadedThisSession;
+    },
+    set skillLoadedThisSession(v: boolean) {
+      skillLoadedThisSession = v;
     },
     beginRun() {
       kbQueriesThisRun.length = 0;

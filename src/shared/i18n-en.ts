@@ -108,6 +108,24 @@ ${diagnostics}`,
     rewritePlaceholder: "Describe what the AI should change, add or rewrite in the proposal...",
   },
 
+  skillModal: {
+    badge: "🪷 LotusScript project",
+    question: "detected — load the entry skill?",
+    detectedLabel: "📁 Evidence of a Domino project:",
+    actionLoad: "🌱 [Load skill]",
+    actionLoadHint: "— the agent receives SKILL.md as instructions right now",
+    actionSkip: "⏭️  [Skip]",
+    actionSkipHint: "— only the pointer stays in the prompt; the agent may read it itself",
+    actionNever: "🚫 [Don't ask in this project]",
+    actionNeverHint: "— stores skillPrompt=never in .pi/lotusscript-modular.json",
+    choose: "🎯 ↑↓ and Enter, or y / n / v:",
+    footer: "🪷 Esc = skip",
+    loaded: (path) => `🪷 Entry skill loaded: ${path}`,
+    skipped: "🪷 Entry skill skipped — the pointer stays in the prompt.",
+    remembered: "🪷 I won't ask again in this project (skillPrompt=never).",
+    missing: "🪷 SKILL.md not found — the skill cannot be loaded.",
+  },
+
   settled: {
     score: (s, m) => ` [score: ${s}/${m}]`,
     done: (file, tail) => `🪷 [LotusScript Modular] Done: ${file} ${tail}`,
@@ -252,6 +270,16 @@ ${diagnostics}`,
         "Inject targeted findings based on the agent's own identifiers instead of the generic gotchas summary",
       on: "On — pre-flight gotchas check based on the agent's own identifiers",
       off: "Off — inject the generic top-gotchas summary",
+    },
+    injectProjectSkillHint: {
+      description:
+        "Point the agent at the entry skill when the working directory holds Domino sources (.lss/.dxl/.fl/.ls)",
+      on: "On — SKILL.md path in the system prompt and in the .lss read banner",
+      off: "Off — nothing reminds the agent; it must find the skill on its own",
+    },
+    skillPrompt: {
+      description:
+        "How the entry skill is offered at session start in a Domino project: ask = prompt, always = load without asking, never = do not offer (the \"don't ask\" answer is stored here)",
     },
     autoDraftRecurringGotchas: {
       description:

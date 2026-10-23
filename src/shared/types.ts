@@ -42,6 +42,34 @@ export interface ModularConfig {
   autoDraftRecurringGotchas: boolean;
   /** Show the in-TUI telemetry panel (hook usage, reads, gate blocks, code length) above the editor */
   showTelemetryPanel: boolean;
+  /** Point the model at the bundled entry skill when the workspace holds Domino sources (.lss/.dxl/.fl/.ls) */
+  injectProjectSkillHint: boolean;
+  /** Offer the entry skill at session start: ask (modal), always (load silently), never (do not offer) */
+  skillPrompt: SkillPromptMode;
+}
+
+/** How the entry skill is offered when the workspace looks like a Domino project. */
+export type SkillPromptMode = "ask" | "always" | "never";
+
+/** One answer in the entry-skill consent modal. */
+export type SkillPromptChoice = "load" | "skip" | "never";
+
+/** Kind of evidence file the project scan found first. */
+export type ProjectEvidenceKind = "lss" | "dxl" | "formula" | "loose";
+
+/**
+ * Result of the bounded project scan (`src/slices/project`).
+ * `sampleFile` is relative to `root`; `truncated` records that depth/entry/time
+ * limits stopped the scan early, so "no evidence" is not proof of absence.
+ */
+export interface ProjectFingerprint {
+  root: string;
+  hasLotusScript: boolean;
+  kind?: ProjectEvidenceKind;
+  sampleFile?: string;
+  /** Directory entries inspected before the scan returned. */
+  scanned: number;
+  truncated: boolean;
 }
 
 /** Names of the pi event hooks this plugin subscribes to. */

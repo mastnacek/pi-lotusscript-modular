@@ -27,6 +27,8 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
     mutatingToolNames: MUTATING_TOOL_NAMES,
     guardKbBeforeEdit,
     trace: () => {},
+    projectSkillGuideline: () => null,
+    readSkillNotice: () => null,
     observeVersionHeader: () => {},
     checkVersioning: () => null,
     checkDrift: () => null,
@@ -170,4 +172,31 @@ export async function phasePipeline(): Promise<void> {
   const okQuiet = noMutation === undefined && metMinimum === undefined;
   console.log("12. no nudge without mutation or with the minimum met:", okQuiet ? "PASS" : "FAIL");
   if (!okQuiet) throw new Error("unexpected nudge");
+
+  // 13. The entry-skill pointer rides on the read banner and obeys its setting.
+  const state8 = createPluginState();
+  state8.config = { ...DEFAULT_CONFIG };
+  const { deps: deps8 } = makeDeps({ readSkillNotice: () => "ENTRY SKILL: /skills/lotusscript-modular/SKILL.md" });
+  const withSkill = await handleToolResult(
+    state8,
+    { toolName: "read", input: { path: file }, content: [] } as any,
+    mockCtx(),
+    deps8
+  );
+  const okSkillBanner = JSON.stringify(withSkill?.content ?? []).includes("ENTRY SKILL");
+  console.log("13. entry-skill pointer appears in the .lss read banner:", okSkillBanner ? "PASS" : "FAIL");
+  if (!okSkillBanner) throw new Error("no skill pointer in banner");
+
+  const state9 = createPluginState();
+  state9.config = { ...DEFAULT_CONFIG, injectProjectSkillHint: false };
+  const { deps: deps9 } = makeDeps({ readSkillNotice: () => "ENTRY SKILL: should-not-appear" });
+  const offSkill = await handleToolResult(
+    state9,
+    { toolName: "read", input: { path: file }, content: [] } as any,
+    mockCtx(),
+    deps9
+  );
+  const okSkillOff = !JSON.stringify(offSkill?.content ?? []).includes("should-not-appear");
+  console.log("14. injectProjectSkillHint=off suppresses the pointer:", okSkillOff ? "PASS" : "FAIL");
+  if (!okSkillOff) throw new Error("skill pointer leaked past the setting");
 }

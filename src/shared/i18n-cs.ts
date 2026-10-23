@@ -108,6 +108,24 @@ ${diagnostics}`,
     rewritePlaceholder: "Napište, co má AI v návrhu upravit, doplnit nebo přepsat...",
   },
 
+  skillModal: {
+    badge: "🪷 LotusScript projekt",
+    question: "detekován — načíst entry skill?",
+    detectedLabel: "📁 Doklad o Domino projektu:",
+    actionLoad: "🌱 [Načíst skill]",
+    actionLoadHint: "— SKILL.md dostane agent jako instrukce hned na startu",
+    actionSkip: "⏭️  [Přeskočit]",
+    actionSkipHint: "— v promptu zůstane jen ukazatel, skill si přečte sám",
+    actionNever: "🚫 [Neptat se v tomto projektu]",
+    actionNeverHint: "— uloží skillPrompt=never do .pi/lotusscript-modular.json",
+    choose: "🎯 ↑↓ a Enter, nebo y / n / v:",
+    footer: "🪷 Esc = přeskočit",
+    loaded: (path) => `🪷 Entry skill načten: ${path}`,
+    skipped: "🪷 Entry skill přeskočen — ukazatel zůstává v promptu.",
+    remembered: "🪷 V tomto projektu se už nezeptám (skillPrompt=never).",
+    missing: "🪷 SKILL.md nenalezen — skill nelze načíst.",
+  },
+
   settled: {
     score: (s, m) => ` [skóre: ${s}/${m}]`,
     done: (file, tail) => `🪷 [LotusScript Modular] Hotovo: ${file} ${tail}`,
@@ -252,6 +270,16 @@ ${diagnostics}`,
         "Vkládat místo obecného souhrnu gotchas cílené nálezy podle identifikátorů agenta",
       on: "Zapnuto — předletová kontrola gotchas podle vlastních identifikátorů agenta",
       off: "Vypnuto — vkládat obecný souhrn top gotchas",
+    },
+    injectProjectSkillHint: {
+      description:
+        "Ukázat agentovi na entry skill, když pracovní složka obsahuje Domino zdroje (.lss/.dxl/.fl/.ls)",
+      on: "Zapnuto — odkaz na SKILL.md v systémovém promptu i v banneru při čtení .lss",
+      off: "Vypnuto — skill se nepřipomíná, agent ho musí najít sám",
+    },
+    skillPrompt: {
+      description:
+        "Nabídka entry skillu na startu session v Domino projektu: ask = zeptat se, always = načíst bez ptaní, never = nenabízet (volba „neptat se“ se ukládá sem)",
     },
     autoDraftRecurringGotchas: {
       description:

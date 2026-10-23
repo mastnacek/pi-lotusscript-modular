@@ -127,6 +127,25 @@ export interface Strings {
     rewritePlaceholder: string;
   };
 
+  /** Entry-skill consent modal (session start in a Domino project). */
+  skillModal: {
+    badge: string;
+    question: string;
+    detectedLabel: string;
+    actionLoad: string;
+    actionLoadHint: string;
+    actionSkip: string;
+    actionSkipHint: string;
+    actionNever: string;
+    actionNeverHint: string;
+    choose: string;
+    footer: string;
+    loaded: (path: string) => string;
+    skipped: string;
+    remembered: string;
+    missing: string;
+  };
+
   settled: {
     score: (s: number, m: number) => string;
     done: (file: string, tail: string) => string;

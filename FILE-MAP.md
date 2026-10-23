@@ -56,9 +56,9 @@ Imported by slices. No slice may import another slice.
 
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `types.ts` | 175 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FileLintResult`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (16 settings); `ProcedureLintItem` carries `filePath` + `startLine` for a procedure inside a whole file. |
+| `types.ts` | 200 | `ModularConfig`, `HookName`, `HookTelemetry`, `CommentStyle`, `CommentAnalysis`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `ProcedureLintItem`, `FileLintResult`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion`, `ProjectFingerprint`, `SkillPromptMode`, `SkillPromptChoice` | All cross-slice type declarations. `ModularConfig` is the single knob set (20 catalogue settings); `ProjectFingerprint` is the bounded project scan result; `ProcedureLintItem` carries `filePath` + `startLine` for a procedure inside a whole file. |
 | `config.ts` | 115 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`, `checkProcedureLimits`, `maxProcedureLines`, `enforceCzechComments`) so a stale file cannot revive removed behaviour. |
-| `paths.ts` | 29 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `sanitizeFileName` | Path protocol only — the modular-root/monolith detection helpers were deleted with the pipeline. |
+| `paths.ts` | 40 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `isFormulaSource`, `isLooseScript`, `sanitizeFileName` | Path protocol only — the modular-root/monolith detection helpers were deleted with the pipeline. `isFormulaSource` (`.fl`) and `isLooseScript` (`.ls`) are evidence-only: they never compile, gate or banner. |
 | `state.ts` | 295 | `PluginState`, `createPluginState` | Runtime state container wiring config + session + gate objects. Owns `telemetry`, `countHook`, `lastCheckedFile` (the file the settle debrief grades) and `beginRun()` per-run resets. |
 | `state-insights.ts` | 157 | `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Derived session insights: scorecard build/history, `collectFileTokens(filePath)` (declarations of ONE file), pre-flight gotcha banner. |
 | `state-telemetry.ts` | 126 | `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel`, `TELEMETRY_WIDGET_KEY` | In-TUI telemetry panel (`setWidget` aboveEditor, Component factory, width-safe). Tracks hook usage, KB-gate blocks, whole-file checks and the last LSP outcome. |
@@ -123,6 +123,18 @@ Generates new whole-file LotusScript sources.
 | `index.ts` | 11 | re-export | Barrel. |
 | `deps.ts` | 66 | `PipelineDeps`, `GuardBlockLite` | Slice-isolation seam. |
 
+### project — bounded detection + entry-skill consent
+| File | Lines | Exports | Purpose |
+|---|---:|---|---|
+| `detect.ts` | 175 | `detectLotusScriptProject`, `createProjectDetector`, `ProjectDetector`, `DetectOptions`, `MAX_DEPTH` (2), `MAX_ENTRIES`, `BUDGET_MS` | Shallowest-first BFS for the first evidence file (`.lss`/`.lsa`/`.dxl`/`.fl`/`.ls`). Skips `.git`, `node_modules`, `bin`, `obj`, `dist`, `target`, caches and hidden directories; stops at the first hit; reports `truncated` when a cap ended the scan. The detector memoizes one scan per session root. **Never a repository walk** — it runs on the first run / first `.lss` read. |
+| `skill-source.ts` | 50 | `getEntrySkillPath`, `hasEntrySkill`, `readEntrySkillBody` | Absolute path of the bundled `skills/lotusscript-modular/SKILL.md` (same versioning rule as `scaffold/template.lss`), plus existence/read guards so a trimmed package degrades to "nothing loaded" instead of a dead path or a thrown error. |
+| `hints.ts` | 45 | `buildProjectSkillGuideline`, `buildReadSkillNotice` | Pure model-facing English text: the system-prompt routing paragraph (only with evidence) and the entry-skill block injected into every `.lss` read banner. |
+| `policy.ts` | 60 | `skillPromptDecision`, `skillChoiceOutcome`, `wrapSkillMessage`, `SkillPromptDecision`, `SkillChoiceOutcome` | Pure consent policy: evidence + `skillPrompt` → `ask`/`load`/`skip` (a non-Domino tree or a typo never auto-loads); modal answer → load + optional persisted `never`; body → context message naming the reference directory. |
+| `prompt-modal.ts` | 235 | `LotusSkillPromptComponent`, `promptSkillConsent` | The lotus consent modal: a six-stage bloom with a shimmering centre over water (8 fps `setInterval` + `tui.requestRender`, cleared in `dispose()`), the evidence line, and three choices (`load` / `skip` / `never ask here`). Width-safe via `truncateToWidth`; keys ↑↓/Tab, Enter, `y`/`n`/`v`, Esc. Returns undefined outside the TUI. |
+| `index.ts` | 25 | barrel | Slice exports; no logic. |
+
+> **Review note:** detection is deliberately *shallow*. `.pi/tmp/…/main.lss`, `func_*.lss` and vendored test fixtures can and do match — the result therefore only decides whether to *ask* or to *point* at the skill, never what the code should look like.
+
 ### settings — slash-command completion
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
@@ -160,10 +172,11 @@ workflow phases. Every check throws on failure (no log-only assertions).
 | `test/test_i18n.ts` | 134 | Deep locale parity, catalogue copy, telemetry/completion rendering in both locales, `normalizeLocale`, help parity. |
 | `test/test_workflow.ts` | 39 | Phase runner + cleanup. |
 | `test/phases/phase-scorecard.ts` | 135 | Full-marks clean file, absence of manifest/artifact items, failure rendering, check-based trend, pending LSP semantics, whole-file rubric, diagnostic normalisation, recurring draft. |
-| `test/phases/phase-pipeline.ts` | 170 | KB gate, auto-check on edit + telemetry, auto-check off, `.dxl` tracking, oversized procedure not blocked, comment warning, read banner, settle nudge + latch. |
+| `test/phases/phase-pipeline.ts` | 207 | KB gate, auto-check on edit + telemetry, auto-check off, `.dxl` tracking, oversized procedure not blocked, comment warning, read banner, entry-skill pointer (+ setting gate), settle nudge + latch. |
 | `test/phases/phase-commands.ts` | 108 | `/ls` menu, removal of modular subcommands, scaffold completions, catalogue ↔ config parity, parse/format, retired-key dropping on load. |
 | `test/phases/phase-tools.ts` | 147 | `lotusscript_check` registration + clean/failing execution, scaffold tool params, agent/library artifacts, pinned date, overwrite refusal, gotcha registry. |
-| `test/phases/phase-extension.ts` | 108 | Composition root: tools, command, hooks, subscription draining, injected whole-file guidelines. |
+| `test/phases/phase-project.ts` | 300 | Detection (root/nested/formula/DXL/loose `.ls`, skip list, depth + entry caps, detector caching), path protocol, bundled skill presence, hint builders, the `injectProjectSkillHint` gate, consent policy + typo fallback, modal render width safety and key paths. |
+| `test/phases/phase-extension.ts` | 190 | Composition root: tools, command, hooks, subscription draining, injected whole-file guidelines, and the consent flow (modal opened → skill injected once → `never` persisted → next session silent). |
 
 ---
 

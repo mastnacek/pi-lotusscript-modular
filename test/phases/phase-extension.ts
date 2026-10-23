@@ -5,7 +5,9 @@
  */
 
 import lotusscriptModularExtension from "../../index.js";
-import { ensureTestDir, mockCtx } from "../helpers.js";
+import fs from "node:fs";
+import path from "node:path";
+import { ensureTestDir, mockCtx, TEST_DIR, writeLss } from "../helpers.js";
 
 export async function phaseExtension(): Promise<void> {
   ensureTestDir();
@@ -14,11 +16,13 @@ export async function phaseExtension(): Promise<void> {
   const tools: string[] = [];
   const hooks: string[] = [];
   const subs: Array<() => void> = [];
+  const handlers: Record<string, any> = {};
   let commandDescription = "";
 
   const pi: any = {
     on: (evt: string, handler: any) => {
       hooks.push(evt);
+      handlers[evt] = handler;
       const unsub = () => {
         const i = subs.indexOf(unsub);
         if (i >= 0) subs.splice(i, 1);
@@ -96,4 +100,44 @@ export async function phaseExtension(): Promise<void> {
     joined.includes("lotusscript_check");
   console.log("6. injected guidelines describe the whole-file workflow:", okGuidelines ? "PASS" : "FAIL");
   if (!okGuidelines) throw new Error(`Guidelines:\n${joined.slice(0, 600)}`);
+
+  // 7. Consent flow: a Domino workspace asks first, consent queues the skill,
+  //    and the queued body is injected exactly once at the next run.
+  writeLss("Consent.lss");
+  const ctxAsk = mockCtx(true, "load");
+  await handlers["session_start"]!({ type: "session_start", reason: "startup" }, ctxAsk);
+  console.log("7. session_start opens the consent modal in a Domino project:", ctxAsk.modals.length === 1 ? "PASS" : "FAIL");
+  if (ctxAsk.modals.length !== 1) throw new Error("no consent modal");
+
+  const injected = await handlers["before_agent_start"]!(
+    { systemPromptOptions: { promptGuidelines: [] } } as any,
+    ctxAsk
+  );
+  const injectedText = JSON.stringify(injected ?? {});
+  const okInjected = injectedText.includes("lotusscript-skill") && injectedText.includes("ENTRY SKILL LOADED");
+  console.log("8. consent injects the entry skill into the first run:", okInjected ? "PASS" : "FAIL");
+  if (!okInjected) throw new Error(`No skill message: ${injectedText.slice(0, 200)}`);
+
+  const again = await handlers["before_agent_start"]!(
+    { systemPromptOptions: { promptGuidelines: [] } } as any,
+    ctxAsk
+  );
+  console.log("9. the skill is injected exactly once:", again === undefined ? "PASS" : "FAIL");
+  if (again !== undefined) throw new Error("skill re-injected");
+
+  // 10. "Don't ask in this project" is persisted and silences later sessions.
+  await handlers["session_start"]!(
+    { type: "session_start", reason: "startup" },
+    mockCtx(true, "never")
+  );
+  const cfgFile = path.join(TEST_DIR, ".pi", "lotusscript-modular.json");
+  const persisted = fs.existsSync(cfgFile) ? fs.readFileSync(cfgFile, "utf-8") : "";
+  const okPersist = persisted.includes('"skillPrompt": "never"');
+  console.log("10. 'never ask' is stored in the project config:", okPersist ? "PASS" : "FAIL");
+  if (!okPersist) throw new Error(`Not persisted: ${persisted.slice(0, 200)}`);
+
+  const ctxSilent = mockCtx(true, "load");
+  await handlers["session_start"]!({ type: "session_start", reason: "startup" }, ctxSilent);
+  console.log("11. the persisted answer silences the next session:", ctxSilent.modals.length === 0 ? "PASS" : "FAIL");
+  if (ctxSilent.modals.length !== 0) throw new Error("asked again after 'never'");
 }

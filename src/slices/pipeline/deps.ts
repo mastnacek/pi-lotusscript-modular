@@ -44,6 +44,14 @@ export interface PipelineDeps {
   // trace slice — visible checkpoints (user-facing, never model context)
   /** Emit one skill-trace checkpoint; deduped and switchable inside the slice. */
   trace(event: { kind: string; detail?: string; ok?: boolean }): void;
+  // project slice — is this workspace a Domino project? (bounded, cached scan)
+  /**
+   * Entry-skill routing guideline for the system prompt, or null when the
+   * workspace holds no LotusScript/DXL/formula evidence.
+   */
+  projectSkillGuideline(): string | null;
+  /** Entry-skill pointer block for a `.lss` read banner, or null when the bundled skill is missing. */
+  readSkillNotice(): string | null;
   // drift slice — "this belongs in the library"
   /** Notice to append when an agent re-implements library-owned logic. */
   checkDrift(filePath: string): string | null;

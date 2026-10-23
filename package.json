@@ -1,7 +1,7 @@
 {
   "name": "pi-lotusscript-modular",
-  "version": "0.2.0",
-  "description": "Pi extension for modular LotusScript compilation (manifest sync, settle-time recompile), scaffolding and LSP diagnostics for Notes/Domino 9.0.1",
+  "version": "0.3.0",
+  "description": "Pi extension for whole-file LotusScript work (IBM Notes/Domino 9.0.1): compiler-oracle checks, scaffolding, gotcha registry, bounded project detection with an operator-consented entry-skill modal",
   "type": "module",
   "main": "index.ts",
   "types": "index.ts",

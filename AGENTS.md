@@ -20,6 +20,7 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 - `src/slices/lsp/`       MCP client for notes-sys `domino-mcp.exe` (whole-file diagnostics, explain, format)
 - `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search & append
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
+- `src/slices/project/`   bounded project detection → entry-skill hint AND the lotus consent modal (`skillPrompt`)
 - `src/slices/commands/`  `/ls` dispatch — sibling-slice capabilities arrive via `deps.ts` (`CommandsDeps`), wired in the composition root
 - `skills/`               bundled skill (`skills/lotusscript-modular/SKILL.md`)
 - `test/`                 test suites
@@ -37,6 +38,10 @@ is ever wanted again, do not re-grow a second copy in `src/`.
   If a modular feature is ever wanted back, restore it from the archive — do not
   re-grow it in `src/`.
 - Single source of truth for gotchas: all newly discovered gotchas must be recorded in `src/slices/gotchas/gotchas.md` (via `/ls gotchas add` or tool `lotusscript_gotchas`).
+- Project detection stays bounded: never walk the repository at startup (depth/entry/time limits in
+  `src/slices/project/detect.ts`), never treat "no evidence" as proof of absence, and never load the
+  entry skill without operator consent (`skillPrompt`). The consent modal is the only startup dialog
+  and must degrade to silence outside the TUI (RPC / print / json).
 
 ## UX: Lazy Menus & i18n
 - **Lazy menus** = `/ls` argument completions via `completeLsArguments(prefix, config)`.

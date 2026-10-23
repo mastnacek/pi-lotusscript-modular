@@ -11,6 +11,7 @@ import { phaseScorecard } from "./phases/phase-scorecard.js";
 import { phasePipeline } from "./phases/phase-pipeline.js";
 import { phaseCommands } from "./phases/phase-commands.js";
 import { phaseTools } from "./phases/phase-tools.js";
+import { phaseProject } from "./phases/phase-project.js";
 import { phaseExtension } from "./phases/phase-extension.js";
 
 async function runTest(): Promise<void> {
@@ -20,6 +21,7 @@ async function runTest(): Promise<void> {
   await phasePipeline();
   await phaseCommands();
   await phaseTools();
+  await phaseProject();
   await phaseExtension();
 
   console.log("=== All whole-file workflow tests passed ===");
