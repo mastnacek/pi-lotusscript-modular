@@ -1,7 +1,7 @@
 {
   "name": "pi-lotusscript-modular",
   "version": "0.2.0",
-  "description": "Pi extension for automatic LotusScript decompilation, virtual modularization, auto-recompilation, and optional LSP diagnostics for Notes/Domino 9.0.1",
+  "description": "Pi extension for modular LotusScript compilation (manifest sync, settle-time recompile), scaffolding and LSP diagnostics for Notes/Domino 9.0.1",
   "type": "module",
   "main": "index.ts",
   "types": "index.ts",
@@ -16,7 +16,6 @@
     "lotus-notes",
     "domino",
     "dxl",
-    "decompilation",
     "modular"
   ],
   "author": "mastnacek",

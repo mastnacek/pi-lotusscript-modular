@@ -1,11 +1,20 @@
 # pi-lotusscript-modular — build guide
 
-Pi extension for virtual modularization, automatic decompilation, compilation, LSP verification, and central Gotchas registry for IBM Notes/Domino 9.0.1 LotusScript.
+Pi extension for **opt-in** virtual modularization of LotusScript, modular compilation, LSP
+verification, and a central Gotchas registry for IBM Notes/Domino 9.0.1.
+
+**Decompilation was removed on 2026-10-23.** A monolithic `.lss`/`.dxl` is the
+source shape this plugin works with; nothing is split on read and no hook rewrites
+`input.path`. The removed pipeline (decompile-lss/-dxl, the `lotusscript_decompile`
+tool, `/ls decompile`, the read-time interception and the shell content-dump guard)
+is archived with its documentation in
+`D:\01_programovani\pi\plugins\_archiv\lotusscript-dekompilace` — restore from
+there if it is ever wanted again, do not re-grow a second copy in `src/`.
 
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
 - `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts` (no slice imports)
-- `src/slices/parser/`    decompilation, recompilation, manifest.json synchronization
+- `src/slices/parser/`    recompilation, manifest.json synchronization
 - `src/slices/lsp/`       LotusScript LSP diagnostics client
 - `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search & append
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
@@ -19,6 +28,9 @@ Pi extension for virtual modularization, automatic decompilation, compilation, L
 - Node built-ins only, plus `typebox` for tool schemas.
 - `src/**` imports use explicit `.js` extensions (NodeNext).
 - Pure functions in slices.
+- No modularization of monoliths: `tool_call` must not rewrite `input.path`, no hook may block
+  shell inspection of a source file, and `guidelines.ts` must not offer decompilation as an
+  option. `test/fixtures/` keeps the archived decompiler for compile-side fixtures only.
 - Single source of truth for gotchas: all newly discovered gotchas must be recorded in `src/slices/gotchas/gotchas.md` (via `/ls gotchas add` or tool `lotusscript_gotchas`).
 
 ## UX: Lazy Menus & i18n

@@ -37,7 +37,7 @@ function insertOrdinal(fileName: string, n: number): string {
  *
  * A DXL form carries one `<code event='click'>` block per button, and a form
  * flattened into a single .lss carries one `Sub Click` body per button. Both
- * decompilers used to derive the module name from the event/procedure name
+ * procedure module names from the event/procedure name
  * alone, so the second block overwrote the first and the modular folder
  * silently lost a button — the manifest then listed the same file twice.
  *
@@ -45,7 +45,7 @@ function insertOrdinal(fileName: string, n: number): string {
  * stay byte-identical to before; later ones get `_2`, `_3`, … Counting is
  * case-insensitive, otherwise `Click` and `click` would still collide.
  *
- * Deterministic in the input order, which keeps compile → decompile round trips
+ * Deterministic in the input order, which keeps repeated assemblies
  * stable: the same source always yields the same module names.
  */
 export function makeUniqueFileNames(fileNames: string[]): string[] {
@@ -130,130 +130,6 @@ export function isMonolithicDxl(filePath: string): boolean {
 
   const content = fs.readFileSync(resolved, "utf-8");
   return /<code\s+event=['"](?:options|declarations|initialize|action|terminate)/i.test(content);
-}
-
-/** A monolithic LotusScript reference found inside a shell command or code snippet. */
-export interface MonolithicReadHit {
-  /** Path exactly as written in the command/code. */
-  referenced: string;
-  /** Absolute resolved path. */
-  resolved: string;
-  /** Existing sibling modular directory, when one already exists. */
-  modularRoot: string | null;
-}
-
-/**
- * File-name shapes that belong to a modular folder and are safe to inspect.
- * A monolithic agent file never matches any of these.
- */
-const MODULAR_PART_NAME =
-  /^(?:main\.lss|0{2}_.*\.lss|0{1}_.*\.lss|99_.*\.lss|sub_.*\.lss|func_.*\.lss|prop_.*\.lss|.*_compiled\.lss)$/i;
-
-/**
- * Positive read-intent signals: a tool that can dump file CONTENT.
- * Metadata-only commands (wc, ls, dir, stat, find, git plumbing) are intentionally
- * absent.
- *
- * Two word-boundary traps are closed here, both observed on real sessions:
- *  - `\bcat\b` matched `git cat-file`, so the guard reported a content dump for a
- *    blob-size query.
- *  - `\bhead\b` (case-insensitive) matched the git revision `HEAD`, so
- *    `git show --stat HEAD` was blocked with a false "you are dumping" reason.
- * Verb tokens must therefore not continue into `-`, `.` or a word character, and
- * `head` is matched lowercase-only because `HEAD` is a revision, not a command.
- */
-const READ_VERB_SHELL =
-  /(?<![-\w.])(?:cat|sed|tail|more|less|awk|perl|python3?|node|ruby|php|get-content|gc|select-string|rg|grep|findstr|type)(?![-\w.])/i;
-const READ_VERB_HEAD = /(?<![-\w.])head(?![-\w.])/;
-const READ_MEMBER =
-  /(?:readfilesync|readfile|read_text|readlines|open)\s*[\(/]/i;
-const TYPE_DUMP = /(?<![-\w.])type\s+["']?[A-Za-z0-9_.\\/:-]+\.(?:lss|dxl)/i;
-
-function hasContentReadIntent(text: string): boolean {
-  return (
-    READ_VERB_SHELL.test(text) ||
-    READ_VERB_HEAD.test(text) ||
-    READ_MEMBER.test(text) ||
-    TYPE_DUMP.test(text)
-  );
-}
-
-/** Extracts every `.lss` / `.dxl` path token from arbitrary command text. */
-function extractScriptPathTokens(text: string): string[] {
-  const tokens = new Set<string>();
-  const pattern = /(?:[A-Za-z]:[\\/])?[\w.\-\\/]*[\w.\-]\.(?:lss|dxl)\b/gi;
-  for (const match of text.matchAll(pattern)) {
-    tokens.add(match[0]);
-  }
-  return [...tokens];
-}
-
-/**
- * Directories a command switches into before touching the file: `cd <dir>` and
- * `--cwd <dir>`. Without these, a relative token like `tlacitko.lss` in
- * `cd 01_scripts && cat tlacitko.lss` would resolve against the session cwd and
- * the monolithic file would never be found.
- */
-function extractDirectoryHints(text: string, base: string): string[] {
-  const dirs: string[] = [];
-  const patterns = [
-    /(?:^|[;&|]|\bthen\b)\s*cd\s+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gi,
-    /--cwd[=\s]+(?:"([^"]+)"|'([^']+)'|([^\s;&|]+))/gi,
-  ];
-
-  for (const pattern of patterns) {
-    for (const match of text.matchAll(pattern)) {
-      const raw = match[1] ?? match[2] ?? match[3];
-      if (!raw) continue;
-      const resolved = path.isAbsolute(raw) ? path.normalize(raw) : path.resolve(base, raw);
-      if (fs.existsSync(resolved)) dirs.push(resolved);
-    }
-  }
-
-  return dirs;
-}
-
-/**
- * Finds monolithic LotusScript files that a shell command or code snippet would
- * read through a content-dumping tool. Returns [] when no read intent exists, when
- * only metadata commands are used, or when every referenced file is a modular part
- * or a generated artifact.
- *
- * Used to block the `cat tlacitko.lss | sed -n '1,400p'` escape hatch that bypasses
- * read-time auto-decompilation.
- */
-export function findMonolithicScriptReads(text: string, cwd?: string): MonolithicReadHit[] {
-  if (!text || !hasContentReadIntent(text)) return [];
-
-  const base = path.resolve(cwd || process.cwd());
-  const bases = [base, ...extractDirectoryHints(text, base)];
-  const hits: MonolithicReadHit[] = [];
-  const seen = new Set<string>();
-
-  for (const token of extractScriptPathTokens(text)) {
-    const name = path.basename(token).toLowerCase();
-    if (MODULAR_PART_NAME.test(name)) continue;
-
-    for (const candidateBase of bases) {
-      const resolved = path.isAbsolute(token) ? path.normalize(token) : path.resolve(candidateBase, token);
-      if (seen.has(resolved)) break;
-      if (!fs.existsSync(resolved)) continue;
-      if (!fs.statSync(resolved).isFile()) break;
-
-      // A file that already lives inside a modular folder is not monolithic.
-      if (findModularRoot(resolved)) break;
-
-      seen.add(resolved);
-      hits.push({
-        referenced: token,
-        resolved,
-        modularRoot: getExistingModularDir(resolved),
-      });
-      break;
-    }
-  }
-
-  return hits;
 }
 
 /**

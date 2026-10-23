@@ -1,21 +1,23 @@
 /**
- * Model tools lotusscript_compile / lotusscript_decompile. Split out of
- * tools/index.ts for the per-file line limit.
+ * Model tool lotusscript_compile. Split out of tools/index.ts for the
+ * per-file line limit.
  *
  * Cross-slice capabilities (parser / lsp) arrive via ToolsDeps wired in the
  * composition root — slices never import each other (VSA).
  */
 
-import path from "node:path";
-import fs from "node:fs";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import { findModularRoot } from "../../shared/paths.js";
 import type { ToolsDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
-export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
-  const { config } = state;
+export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
+  // NOTE: state.config is a live getter — session_start's syncConfig() replaces
+  // the config OBJECT after tool registration, so a registration-time capture
+  // (`const { config } = state`) would freeze the pre-sync defaults forever
+  // (banner showed LSP ENABLED while this tool reported "validation disabled").
+  // Read state.config at execution time instead.
 
   const CompileParams = Type.Object({
     folder: Type.String({ description: "Path to modular agent directory containing manifest.json" }),
@@ -34,19 +36,31 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
       }
 
       const shouldClean = params.clean ?? false;
+      const cfg = state.config;
       const compiledPath = deps.compileAgent(modularRoot, {
-        keepTimestamp: config.keepTimestampInCompiledName,
-        overwriteSourceLss: config.overwriteSourceLss,
+        keepTimestamp: cfg.keepTimestampInCompiledName,
+        overwriteSourceLss: cfg.overwriteSourceLss,
         createLssForDxl: true,
         deleteModularDir: shouldClean,
       });
 
       let lspReport = "";
-      if (config.enableLsp) {
+      if (cfg.enableLsp) {
         const lspResult = await deps.checkLotusScriptDiagnostics(compiledPath);
-        lspReport = lspResult.ok
-          ? "\nLSP Diagnostics: 0 errors (clean)"
-          : `\nLSP Diagnostics:\n${lspResult.diagnostics}`;
+        if (lspResult.ok) {
+          lspReport = "\nLSP Diagnostics: 0 errors (clean)";
+        } else {
+          lspReport = `\nLSP Diagnostics:\n${lspResult.diagnostics}`;
+          // SPAI-008 automation: attach lsp_explain help for the error codes.
+          if (cfg.autoExplainLspCodes) {
+            try {
+              const explain = await deps.explainLotusScriptCodes(lspResult.diagnostics);
+              if (explain) lspReport += `\n\n${explain}`;
+            } catch {
+              // explain lane unavailable — report bare codes
+            }
+          }
+        }
       } else {
         lspReport = "\n(LSP validation disabled)";
       }
@@ -59,37 +73,4 @@ export function registerCompileDecompileTools(pi: ExtensionAPI, state: PluginSta
     },
   });
 
-  const DecompileParams = Type.Object({
-    path: Type.String({ description: "Path to .lss or .dxl file to decompile" }),
-    outputDir: Type.Optional(Type.String({ description: "Optional custom output directory (defaults to folder alongside source file)" })),
-  });
-
-  pi.registerTool<typeof DecompileParams, { ok: boolean; outDir?: string }>({
-    name: "lotusscript_decompile",
-    label: "Decompile LotusScript Monolith",
-    description: "Decompiles monolithic LotusScript (.lss) or Domino agent DXL (.dxl) into modular files with manifest.json and main.lss in a folder named after the script.",
-    parameters: DecompileParams,
-    async execute(_toolCallId: string, params: { path: string; outputDir?: string }) {
-      const resolved = path.resolve(params.path);
-      if (!fs.existsSync(resolved)) {
-        throw new Error(`File not found: ${resolved}`);
-      }
-
-      let outDir = "";
-      if (resolved.toLowerCase().endsWith(".dxl")) {
-        outDir = deps.decompileDxl(resolved, params.outputDir) || "";
-      } else {
-        outDir = deps.decompileLss(resolved, params.outputDir);
-      }
-
-      if (!outDir) {
-        throw new Error(`No LotusScript code found in ${resolved}`);
-      }
-
-      return {
-        content: [{ type: "text", text: `Decompiled to: ${outDir}\nFiles: manifest.json, main.lss, 00_options.lss, 01_declarations.lss, procedures, 99_initialize.lss` }],
-        details: { ok: true, outDir },
-      };
-    },
-  });
 }

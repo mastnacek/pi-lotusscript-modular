@@ -1,6 +1,6 @@
 # pi-lotusscript-modular
 
-> Pi coding agent extension for virtual modularization, automatic decompilation, compilation, optional LSP verification, and central Gotchas knowledge registry for IBM Notes/Domino 9.0.1 LotusScript.
+> Pi coding agent extension for modular compilation, manifest synchronization, optional LSP verification, and a central Gotchas knowledge registry for IBM Notes/Domino 9.0.1 LotusScript.
 
 Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus**.
 
@@ -8,11 +8,10 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 
 ## Features
 
-- **Virtual Modularization:** Decomposes monolithic `.lss` and `.dxl` Domino agents into structured modular files (`00_options.lss`, `01_declarations.lss`, `sub_*.lss`, `func_*.lss`, `99_initialize.lss`, `main.lss`, and `manifest.json`).
-- **Auto-Decompile on Read:** When an agent reads or inspects a monolithic `.lss` or `.dxl` file (via `read`, `read_all`, `ctx_execute_file`, etc.), the extension automatically splits it into a folder alongside the source file and redirects reading to `main.lss`.
-- **Auto-Manifest Sync & Recompile on Save:** When editing or adding any procedure in the modular folder, `manifest.json` is updated and the compiled artifact is regenerated automatically.
+- **Modular Compilation:** Reassembles a modular folder (`00_options.lss`, `01_declarations.lss`, `sub_*.lss`, `func_*.lss`, `99_initialize.lss`, `main.lss`, `manifest.json`) into a single `.lss` artifact. Modular folders are created by `lotusscript_scaffold` (`type: "modular"`) — the decompiler that split monoliths was removed on 2026-10-23 and its source is archived in `_archiv/lotusscript-dekompilace`.
+- **Auto-Manifest Sync & Recompile on Save:** Inside an existing modular folder, editing or adding a procedure updates `manifest.json` and regenerates the compiled artifact automatically.
 - **Overwrite `.lss` Source:** Keeps the original `.lss` source file in sync on recompile by default (safe for git). DXL files are never overwritten with plain text.
-- **Idempotent Round Trip:** The generated provenance header (`%REM … Assembled from modular source files …`) and the `' === SECTION: <file> ===` markers are stripped from every modular file before assembly and from the source `.lss` before parsing, so repeated `compile → decompile` cycles never nest scaffolding into `01_declarations.lss` and the artifact stays byte-stable.
+- **Idempotent Assembly:** The generated provenance header (`%REM … Assembled from modular source files …`) and the `' === SECTION: <file> ===` markers are stripped from every modular file before assembly, so repeated compiles never nest scaffolding and the artifact stays byte-stable.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
 - **Central Gotchas Registry (64 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
 - **Deterministic Scorecard & Definition of Done:** Every recompile emits a computed scorecard (procedure limits, Czech purpose comments, LSP errors, manifest sync, artifact) with trend history — the model never self-reports.
@@ -20,7 +19,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
 - **Bundled Skill (auto-loaded):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) IS registered — pi auto-discovers the conventional `skills/` directory even without a `pi` manifest entry, so the skill loads in every session and routes to on-demand reference docs (`references/`: workflow, coding conventions, naming, 64-gotcha index, scaffolding, DXL/ODP, formula language). The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection (IBM 9.0.1 reference, Guirard performance book, community articles) before writing or modifying Notes 9.0.1 LotusScript code.
-- **In-TUI Telemetry Panel:** Live counters above the editor (`showTelemetryPanel`): hook usage, monolithic→modular read redirects, KB-gate / monolith-dump / protected-file blocks, recompiles, and code length (procedure count, longest vs limit, LSP outcome). Subagent sessions are excluded via the recursion guard.
+- **In-TUI Telemetry Panel:** Live counters above the editor (`showTelemetryPanel`): hook usage, KB-gate / protected-file blocks, recompiles, and code length (procedure count, longest vs limit, LSP outcome). Subagent sessions are excluded via the recursion guard.
 - **Hard KB Edit Gate:** The KB rule is ENFORCED — `edit`/`write` calls on `.lss`/`.dxl` files are rejected (`block: true`) until `kb_search` (collection `lotus-notes`) has been called this session. Gate re-arms on every new session; disable with `"enforceKbGate": false`.
 
 ---
@@ -41,7 +40,6 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls pack [složka]` — Sestavit do .lss a smazat modulární složku
 - `/ls lint [složka]` — Zkontrolovat délku procedur (max 300 řádků) a komentáře
 - `/ls score [složka]` — Zobrazit scorecard a trend hodnocení agenta
-- `/ls decompile <soubor>` — Rozložit monolitický `.lss` nebo `.dxl` do podsložky
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
 
 ---
@@ -53,7 +51,6 @@ Stored in `.pi/lotusscript-modular.json`:
 ```json
 {
   "enableLsp": false,
-  "autoDecompileOnRead": true,
   "autoRecompileOnSave": true,
   "keepTimestampInCompiledName": false,
   "overwriteSourceLss": true,
@@ -68,7 +65,6 @@ Stored in `.pi/lotusscript-modular.json`:
 ## Tools for LLM
 
 - `lotusscript_compile`: Recompiles modular folder to `<AgentName>_compiled.lss` (and original `.lss` if enabled).
-- `lotusscript_decompile`: Decompiles monolithic `.lss` or `.dxl`.
 - `lotusscript_scaffold`: Generates compliant code skeletons (agent, library, procedure, modular folder) with StringEnum-typed parameters.
 - `lotusscript_lsp_toggle`: Programmatically toggle LSP check on/off.
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
@@ -79,7 +75,7 @@ Stored in `.pi/lotusscript-modular.json`:
 
 `skills/lotusscript-modular/` — the session skill (`SKILL.md` router, auto-loaded by pi from the conventional `skills/` directory) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
 
-- `workflow.md` — modular lifecycle, CLI/tool reference, language policy detail
+- `workflow.md` — modular folder lifecycle, CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
 - `gotchas-index.md` — 64-entry one-liner index + recording protocol
 - `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation
@@ -92,7 +88,7 @@ Stored in `.pi/lotusscript-modular.json`:
 
 - `index.ts` — Composition root: wires slices and Pi hooks.
 - `src/shared/` — Kernel types, config, and path utilities.
-- `src/slices/parser/` — Decompilation, recompilation, manifest synchronization.
+- `src/slices/parser/` — Recompilation and manifest synchronization (`emitters`, `scaffolding`, `sync-manifest`, `compile-agent`).
 - `src/slices/lsp/` — LotusScript LSP client diagnostics.
 - `src/slices/gotchas/` — Central 64-gotcha registry, search, and dynamic append.
 - `src/slices/scaffold/` — LotusScript code templates and scaffold engine.

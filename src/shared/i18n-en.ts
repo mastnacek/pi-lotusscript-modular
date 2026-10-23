@@ -24,7 +24,6 @@ export const STRINGS_EN: Strings = {
     rubric: "Definition of Done rubric",
     preflight: "Pre-flight gotchas check",
     autoDraft: "Auto-draft gotcha from recurring errors",
-    autoDecompile: "Auto-decompile on read",
     autoRecompile: "Auto-recompile on save",
     kbPrompt: "Enforce lotus-notes KB prompt",
     kbGate: "Enforce lotus-notes KB hard gate",
@@ -81,10 +80,7 @@ export const STRINGS_EN: Strings = {
     packedLspErrors: (diagnostics) => `Compiled with LSP errors:\n${diagnostics}`,
     packedDone: (p) => `Compiled to: ${p} and the modular folder was deleted.`,
     packError: (msg) => `Cleanup error: ${msg}`,
-    decompileUsage: "Usage: /ls decompile <path to .lss or .dxl file>",
     fileNotFound: (p) => `File not found: ${p}`,
-    decompiled: (dir) => `Decompiled into: ${dir}`,
-    decompileError: (msg) => `Decompile error: ${msg}`,
   },
 
   scaffoldCmd: {
@@ -188,10 +184,9 @@ export const STRINGS_EN: Strings = {
   telemetry: {
     hooks: (total, calls, results, settled) =>
       `🪷 LS hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
-    reads: (redirected, modular, kb) =>
-      `   reads: monolith→modular ${redirected} · modular ${modular} · KB ${kb}`,
-    gates: (kb, dumps, protectedB, compiles, kbNudges) =>
-      `   gates: KB ${kb} · monolith ${dumps} · protected ${protectedB} · compiles ${compiles} · settle-nudges ${kbNudges}`,
+    reads: (kb) => `   KB queries ${kb}`,
+    gates: (kb, protectedB, compiles, kbNudges) =>
+      `   gates: KB ${kb} · protected ${protectedB} · compiles ${compiles} · settle-nudges ${kbNudges}`,
     codeNone: "code: no compile yet",
     code: (procs, longest, max) => `code: ${procs} procs · longest ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
@@ -213,7 +208,6 @@ export const STRINGS_EN: Strings = {
     subPack: "Build into .lss and delete the modular folder",
     subLint: "Check procedure length (max 300 lines) and comments",
     subScore: "Show the agent scorecard and grading trend",
-    subDecompile: "Decompile a monolithic .lss or .dxl into a subfolder",
     subGotchas: "Search the LotusScript Gotchas database (40+ rules)",
     subConfig: "Show or change settings (get/set, legacy)",
     subHelp: "Show command help",
@@ -254,15 +248,20 @@ export const STRINGS_EN: Strings = {
       on: "On — sync the source .lss file",
       off: "Off — write only to modular/<Name>_compiled.lss; the folder stays on disk",
     },
-    autoDecompileOnRead: {
-      description: "Automatically decompile a monolith on read",
-      on: "On — split the monolith into a subfolder and read main.lss",
-      off: "Off — read the original monolith unchanged",
-    },
     autoRecompileOnSave: {
       description: "Automatically recompile when procedural .lss files are edited",
       on: "On — build the code when sub_*.lss is saved",
       off: "Off — compile only manually via /ls compile",
+    },
+    autoFormatOnSave: {
+      description: "Auto-format the edited modular file via the LSP formatter before recompile (ASCII-only files)",
+      on: "On — LSP formatting runs on save before the recompile",
+      off: "Off — format only on explicit request (lsp_format)",
+    },
+    autoExplainLspCodes: {
+      description: "Auto-attach lsp_explain help pages for new LSP error codes after a failed check",
+      on: "On — every new LS-0x… / FORMULA-0x… code gets a help block",
+      off: "Off — error codes are reported bare, explain on demand",
     },
     enforceKbPrompt: {
       description: "Enforce querying the lotus-notes MCP knowledge base before edits",
@@ -299,9 +298,9 @@ export const STRINGS_EN: Strings = {
     },
     cleanupOnSettled: {
       description:
-        "Build the final .lss and delete the temporary decompiled folder when the agent finishes",
-      on: "On — automatically clean up and delete the decompiled folder after the task",
-      off: "Off — keep the decompiled folder on disk",
+        "Build the final .lss and delete the modular folder when the agent finishes",
+      on: "On — automatically clean up and delete the modular folder after the task",
+      off: "Off — keep the modular folder on disk",
     },
     checkProcedureLimits: {
       description: "Check the maximum procedure (sub/function) length and comment presence",
@@ -359,7 +358,6 @@ export const STRINGS_EN: Strings = {
       "  /ls lint [folder]               — Check procedure length and comments",
       "  /ls score [folder]              — Show the agent scorecard and trend",
       "  /ls pack [folder]               — Build into .lss and delete the modular folder",
-      "  /ls decompile <file>            — Decompile a monolith .lss/.dxl",
       "  /ls gotchas [query]             — Search the central registry of 40+ gotchas",
     ],
   },

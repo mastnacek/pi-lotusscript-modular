@@ -75,8 +75,6 @@ export interface CommandsDeps {
   ): Promise<GotchaReviewResult>;
   // parser slice
   compileAgent(targetDirOrFile: string, options?: CompileOptionsLite): string;
-  decompileLss(lssPath: string): string;
-  decompileDxl(dxlPath: string): string | null;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
   // linter slice

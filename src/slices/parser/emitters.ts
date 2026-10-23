@@ -1,7 +1,6 @@
 /**
- * Shared artifact emitters for the decompilers — modular module files,
- * manifest.json and the synthetic main.lss index. Extracted from
- * agent-parser.ts so each decompiler module stays under the per-file limit.
+ * Shared artifact emitters — modular module files, manifest.json and the
+ * synthetic main.lss index, used by the compile pipeline and manifest sync.
  */
 
 import fs from "node:fs";

@@ -6,10 +6,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { CodeBlock } from "../../shared/types.js";
-import { detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../shared/paths.js";
-import { writeMainLss, writeManifest, writeModuleFile } from "./emitters.js";
-import { stripArtifactScaffolding } from "./scaffolding.js";
+import type { CodeBlock } from "../../src/shared/types.js";
+import { detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../src/shared/paths.js";
+import { writeMainLss, writeManifest, writeModuleFile } from "../../src/slices/parser/emitters.js";
+import { stripArtifactScaffolding } from "../../src/slices/parser/scaffolding.js";
 
 /**
  * Decompile a bare LotusScript source file (.lss) into a modular folder structure.

@@ -13,15 +13,9 @@ import {
 } from "../../src/shared/state-telemetry.js";
 import { handleToolCall } from "../../src/slices/pipeline/index.js";
 import type { PipelineDeps } from "../../src/slices/pipeline/deps.js";
-import {
-  collectShellLikeSources,
-  guardKbBeforeEdit,
-  guardMonolithDump,
-  guardProtectedFiles,
-  MUTATING_TOOL_NAMES,
-  SHELL_LIKE_TOOL_NAMES,
-} from "../../src/slices/guards/index.js";
-import { AgentParser } from "../../src/slices/parser/index.js";
+import { guardKbBeforeEdit, guardProtectedFiles } from "../../src/slices/guards/index.js";
+import { MUTATING_TOOL_NAMES } from "../../src/slices/pipeline/mutating-tools.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import { MONOLITH_CODE, makeRoot, MOCK_THEME, TEST_DIR } from "../helpers.js";
 
@@ -32,15 +26,12 @@ export async function phase16(): Promise<void> {
   // collaborators directly (composition-root pattern, VSA).
   const deps: PipelineDeps = {
     compileAgent: (target, options) => AgentParser.compileAgent(target, options),
-    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
-    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
     guardProtectedFiles,
     guardKbBeforeEdit,
-    guardMonolithDump,
-    collectShellLikeSources,
     mutatingToolNames: MUTATING_TOOL_NAMES,
-    shellLikeToolNames: SHELL_LIKE_TOOL_NAMES,
     checkLotusScriptDiagnostics: async () => ({ ok: true, diagnostics: "", errorCount: 0, warningCount: 0 }),
+    explainLotusScriptCodes: async () => "",
+    formatLotusScriptFile: async () => null,
     formatScorecard: () => "",
     buildGradingRubric: () => "",
     trendLabel: () => "",
@@ -74,26 +65,26 @@ export async function phase16(): Promise<void> {
   console.log("85c. kb_search counted and gate armed:", kbOk ? "PASS" : "FAIL");
   if (!kbOk) throw new Error(`kbSearches=${state.telemetry.kbSearches}`);
 
-  // 85d. Monolith dump guard counted
-  tc("bash", { command: `cat ${monolith}` });
-  const dumpOk = state.telemetry.dumpBlocks === 1;
-  console.log("85d. Monolith dump block counted:", dumpOk ? "PASS" : "FAIL");
-  if (!dumpOk) throw new Error(`dumpBlocks=${state.telemetry.dumpBlocks}`);
+  // 85d. Shell inspection of a monolith is no longer intercepted (the dump
+  // guard was retired): `cat`/`grep` pass through untouched.
+  const shellRead = { toolName: "bash", input: { command: `cat ${monolith}` } };
+  const shellResult = handleToolCall(state, shellRead as never, deps);
+  const dumpOk = shellResult === undefined;
+  console.log("85d. Shell read of a monolith is not blocked:", dumpOk ? "PASS" : "FAIL");
+  if (!dumpOk) throw new Error(`unexpected block: ${JSON.stringify(shellResult)}`);
 
-  // 85e. First read of a monolith decompiles and redirects; second reuses the folder
+  // 85e. Reading a monolith no longer decompiles or rewrites the path.
   const firstRead = { toolName: "read", input: { path: monolith } };
   handleToolCall(state, firstRead as never, deps);
   const secondRead = { toolName: "read", input: { path: monolith } };
   handleToolCall(state, secondRead as never, deps);
   const readsOk =
-    state.telemetry.readsRedirected === 1 &&
-    String(secondRead.input.path).endsWith("main.lss") &&
-    state.telemetry.readsModular === 1;
-  console.log("85e. Read redirect + modular reuse counted:", readsOk ? "PASS" : "FAIL");
+    firstRead.input.path === monolith &&
+    secondRead.input.path === monolith &&
+    !fs.existsSync(path.join(TEST_DIR, "TelemetryMonolith"));
+  console.log("85e. Read leaves the monolith untouched (no auto-decompile):", readsOk ? "PASS" : "FAIL");
   if (!readsOk) {
-    throw new Error(
-      `redirected=${state.telemetry.readsRedirected} modular=${state.telemetry.readsModular} path=${String(secondRead.input.path)}`
-    );
+    throw new Error(`path=${String(secondRead.input.path)} folder=${fs.existsSync(path.join(TEST_DIR, "TelemetryMonolith"))}`);
   }
 
   // 86. Panel lines: content markers + width safety through the component
@@ -130,7 +121,7 @@ export async function phase16(): Promise<void> {
   if (!hookOk) throw new Error(`hookCalls=${JSON.stringify(state.telemetry.hookCalls)}`);
 
   state.syncConfig(process.cwd());
-  const resetOk = state.telemetry.readsRedirected === 0 && state.telemetry.hookCalls.tool_call === 0;
+  const resetOk = state.telemetry.kbSearches === 0 && state.telemetry.hookCalls.tool_call === 0;
   console.log("87b. syncConfig resets session telemetry:", resetOk ? "PASS" : "FAIL");
   if (!resetOk) throw new Error(`telemetry not reset: ${JSON.stringify(state.telemetry)}`);
 }

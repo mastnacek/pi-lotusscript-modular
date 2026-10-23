@@ -24,7 +24,6 @@ export const STRINGS_CS: Strings = {
     rubric: "Rubrika Definition of Done",
     preflight: "Předletová kontrola gotchas",
     autoDraft: "Auto-návrh gotchy z opakované chyby",
-    autoDecompile: "Auto-dekompilace při čtení",
     autoRecompile: "Auto-rekompilace při uložení",
     kbPrompt: "Vynucovat lotus-notes KB prompt",
     kbGate: "Vynucovat tvrdou lotus-notes KB bránu",
@@ -81,10 +80,7 @@ export const STRINGS_CS: Strings = {
     packedLspErrors: (diagnostics) => `Sestaveno s chybami LSP:\n${diagnostics}`,
     packedDone: (p) => `Sestaveno do: ${p} a modulární složka byla smazána.`,
     packError: (msg) => `Chyba při úklidu: ${msg}`,
-    decompileUsage: "Použití: /ls decompile <cesta k souboru .lss nebo .dxl>",
     fileNotFound: (p) => `Soubor nenalezen: ${p}`,
-    decompiled: (dir) => `Dekompilováno do: ${dir}`,
-    decompileError: (msg) => `Chyba dekompilace: ${msg}`,
   },
 
   scaffoldCmd: {
@@ -188,10 +184,9 @@ export const STRINGS_CS: Strings = {
   telemetry: {
     hooks: (total, calls, results, settled) =>
       `🪷 LS haky ${total}: volání ${calls} · výsledky ${results} · dokončení ${settled}`,
-    reads: (redirected, modular, kb) =>
-      `   čtení: monolit→modul ${redirected} · modulární ${modular} · KB ${kb}`,
-    gates: (kb, dumps, protectedB, compiles, kbNudges) =>
-      `   brány: KB ${kb} · monolit ${dumps} · chráněné ${protectedB} · kompilace ${compiles} · settle-nudges ${kbNudges}`,
+    reads: (kb) => `   KB dotazy ${kb}`,
+    gates: (kb, protectedB, compiles, kbNudges) =>
+      `   brány: KB ${kb} · chráněné ${protectedB} · kompilace ${compiles} · settle-nudges ${kbNudges}`,
     codeNone: "kód: zatím žádná kompilace",
     code: (procs, longest, max) => `kód: ${procs} proc. · nejdelší ${longest}/${max}`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
@@ -213,7 +208,6 @@ export const STRINGS_CS: Strings = {
     subPack: "Sestavit do .lss a smazat modulární složku",
     subLint: "Zkontrolovat délku procedur (max 300 řádků) a komentáře",
     subScore: "Zobrazit scorecard a trend hodnocení agenta",
-    subDecompile: "Rozložit monolitický .lss nebo .dxl do podsložky",
     subGotchas: "Vyhledat v databázi LotusScript Gotchas (40+ pravidel)",
     subConfig: "Zobrazit nebo změnit nastavení (get/set, legacy)",
     subHelp: "Zobrazit nápovědu příkazů",
@@ -255,15 +249,20 @@ export const STRINGS_CS: Strings = {
       on: "Zapnuto — synchronizovat zdrojový .lss soubor",
       off: "Vypnuto — zapisovat pouze do modular/<Nazev>_compiled.lss; složka zůstane na disku",
     },
-    autoDecompileOnRead: {
-      description: "Automaticky dekompilovat monolit při čtení (read)",
-      on: "Zapnuto — rozložit monolit do podsložky a číst main.lss",
-      off: "Vypnuto — číst původní monolit beze změn",
-    },
     autoRecompileOnSave: {
       description: "Automaticky rekompilovat při editaci procedurálních .lss souborů",
       on: "Zapnuto — při uložení sub_*.lss sestavit kód",
       off: "Vypnuto — kompilovat pouze ručně přes /ls compile",
+    },
+    autoFormatOnSave: {
+      description: "Před rekompilací automaticky naformátovat editovaný modulární soubor přes LSP (jen ASCII soubory)",
+      on: "Zapnuto — LSP formátování proběhne při uložení před rekompilací",
+      off: "Vypnuto — formátovat jen na výslovnou žádost (lsp_format)",
+    },
+    autoExplainLspCodes: {
+      description: "K novým chybovým kódům automaticky doplnit nápovědu lsp_explain",
+      on: "Zapnuto — každý nový kód LS-0x… / FORMULA-0x… dostane blok nápovědy",
+      off: "Vypnuto — kódy se hlásí bez vysvětlení, nápověda na žádost",
     },
     enforceKbPrompt: {
       description: "Vynucovat dotaz do lotus-notes MCP znalostní báze před úpravami",
@@ -300,9 +299,9 @@ export const STRINGS_CS: Strings = {
     },
     cleanupOnSettled: {
       description:
-        "Po dokončení práce agenta sestavit výsledný .lss a smazat dočasnou dekompilovanou složku",
-      on: "Zapnuto — automaticky uklidit a smazat dekompilovanou složku po dokončení úkolu",
-      off: "Vypnuto — ponechat dekompilovanou složku na disku",
+        "Po dokončení práce agenta sestavit výsledný .lss a smazat modulární složku",
+      on: "Zapnuto — automaticky uklidit a smazat modulární složku po dokončení úkolu",
+      off: "Vypnuto — ponechat modulární složku na disku",
     },
     checkProcedureLimits: {
       description: "Kontrolovat maximální délku procedur (sub/funkcí) a přítomnost komentářů",
@@ -360,7 +359,6 @@ export const STRINGS_CS: Strings = {
       "  /ls lint [složka]               — Zkontrolovat délku procedur a komentáře",
       "  /ls score [složka]              — Zobrazit scorecard a trend agenta",
       "  /ls pack [složka]               — Sestavit do .lss a smazat modulární složku",
-      "  /ls decompile <soubor>          — Rozložit monolit .lss/.dxl",
       "  /ls gotchas [dotaz]             — Prohledat centrální bázi 40+ gotchas",
     ],
   },

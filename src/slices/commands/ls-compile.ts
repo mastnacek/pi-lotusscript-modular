@@ -1,5 +1,5 @@
 /**
- * `/ls` subcommand handlers — compile / pack(clean) / decompile (build side).
+ * `/ls` subcommand handlers — compile / pack(clean) (build side).
  * Split out of commands/index.ts for the per-file line limit.
  *
  * Cross-slice capabilities (parser / lsp / linter / scorecard) arrive via
@@ -8,7 +8,6 @@
  */
 
 import path from "node:path";
-import fs from "node:fs";
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
 import { findModularRoot } from "../../shared/paths.js";
@@ -95,32 +94,5 @@ export async function lsPack(state: PluginState, parts: LsParts, ctx: ExtensionC
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     ctx.ui.notify(s.compile.packError(msg), "error");
-  }
-}
-
-export async function lsDecompile(state: PluginState, parts: LsParts, ctx: ExtensionCommandContext, deps: CommandsDeps): Promise<void> {
-  void state;
-  const s = stringsFor(state.config.lang);
-  const target = parts[1];
-  if (!target) {
-    ctx.ui.notify(s.compile.decompileUsage, "warning");
-    return;
-  }
-  const resolved = path.resolve(target);
-  if (!fs.existsSync(resolved)) {
-    ctx.ui.notify(s.compile.fileNotFound(resolved), "error");
-    return;
-  }
-  try {
-    let outDir = "";
-    if (resolved.toLowerCase().endsWith(".dxl")) {
-      outDir = deps.decompileDxl(resolved) || "";
-    } else {
-      outDir = deps.decompileLss(resolved);
-    }
-    ctx.ui.notify(s.compile.decompiled(outDir), "info");
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    ctx.ui.notify(s.compile.decompileError(msg), "error");
   }
 }

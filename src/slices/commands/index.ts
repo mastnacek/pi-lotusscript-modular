@@ -23,7 +23,7 @@ import {
   type LsParts,
 } from "./ls-config.js";
 import { lsLint, lsScaffold, lsScore } from "./ls-inspect.js";
-import { lsCompile, lsDecompile, lsPack } from "./ls-compile.js";
+import { lsCompile, lsPack } from "./ls-compile.js";
 import { lsGotchas } from "./ls-gotchas.js";
 
 export interface RegisteredLsCommand {
@@ -43,7 +43,6 @@ const SUBCOMMANDS: Record<string, LsSubHandler> = {
   compile: lsCompile,
   pack: lsPack,
   clean: lsPack,
-  decompile: lsDecompile,
   gotchas: lsGotchas,
 };
 

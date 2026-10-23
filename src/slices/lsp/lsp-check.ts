@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { LspCheckResult } from "../../shared/types.js";
+import { DEFAULT_SERVER_JS } from "./mcp-client.js";
 
-const DEFAULT_SERVER_JS = "D:/01_programovani/RESOURCES-NOTES/agent-lsp-mcp/server.js";
+export { DEFAULT_SERVER_JS };
 
 interface RpcResponse {
   id?: number;

@@ -1,7 +1,8 @@
-# Modular Workflow Reference (Virtual Modularization)
+# Modular Workflow Reference
 
-Deep detail for the ephemeral modularization lifecycle. The parent `SKILL.md`
-holds the router and the hard rules; this file holds the "how it works" detail.
+Deep detail for the modular-folder lifecycle (compile, manifest sync, cleanup).
+The parent `SKILL.md` holds the router and the hard rules; this file holds the
+"how it works" detail.
 
 ---
 
@@ -17,22 +18,14 @@ A modular agent folder contains:
 - `99_initialize.lss` — `Sub Initialize` runtime entrypoint.
 - `99_terminate.lss` — Optional `Sub Terminate`.
 
-### ⚠️ `main.lss` is a virtual index, not a truncated read
+### `main.lss` is an index, not the script
 
-When you ask to read a monolithic `.lss` / `.dxl`, the extension intercepts the call, splits the
-file into the modular folder above, and returns `main.lss` instead. That response is the **complete**
-index — its line count (often ~30) is the size of the index, **not** the size of the original script.
+`main.lss` is ~30 lines of `' %pi-import "..."` directives. Reading it returns exactly that —
+the line count is the size of the index, **not** of the script. Read `01_declarations.lss` first,
+then only the specific `sub_*.lss` / `func_*.lss` file you need.
 
-- Do **not** conclude the read failed, was truncated, or returned a "stub".
-- Do **not** re-read the original monolith to "get the full content".
-- Read `01_declarations.lss` first, then only the specific `sub_*.lss` / `func_*.lss` file you need.
-
-### ⛔ Never dump the monolith through a shell or code tool
-
-`bash`, `ctx_execute`, `ctx_batch_execute` and similar tools bypass read-time auto-decompilation.
-Dumping the original file (`cat`, `sed`, `head`, `tail`, `more`, `less`, `Get-Content`, `python`,
-`node`, `readFileSync`, …) pulls thousands of lines into the context window and is **blocked** as an
-instant failure. Metadata-only commands (`wc -l`, `ls`, `git status`) remain allowed.
+A monolithic `.lss`/`.dxl` is read as it is: the decompiler was removed on 2026-10-23, so
+nothing is split behind your back and `bash`/`grep` inspection of a monolith is allowed.
 
 ---
 
@@ -69,13 +62,15 @@ instant failure. Metadata-only commands (`wc -l`, `ls`, `git status`) remain all
 
 ---
 
-## 3. Recompiling & Automation (Ephemeral Modularization)
+## 3. Modular Folder Lifecycle
 
-The extension automates the full ephemeral modularization lifecycle:
+A monolithic `.lss`/`.dxl` is edited in place — never split into a modular folder
+(that feature was removed on 2026-10-23). A modular folder exists only if
+`lotusscript_scaffold` created it or if it predates that removal.
 
-1. **Auto-Decompile on Read:** Reading a monolithic `.lss` or `.dxl` automatically splits it into a
-   temporary `<ScriptName>/` folder and redirects reading to `main.lss`.
-2. **Auto-Manifest Sync & Incremental Recompile on Edit:** When editing `sub_*.lss` /
+### 3.1 Once a folder exists
+
+1. **Manifest Sync & Incremental Recompile on Edit:** When editing `sub_*.lss` /
    `func_*.lss` / `01_declarations.lss`, the extension automatically reconciles `manifest.json`
    and syncs the code.
 3. **Automatic Cleanup on Completion (`cleanupOnSettled`):** Once the agent finishes modifications
@@ -83,7 +78,7 @@ The extension automates the full ephemeral modularization lifecycle:
    - For `.lss` files: overwrites the source `.lss` file with the final compiled code.
    - For `.dxl` files: creates `<AgentName>.lss` alongside the `.dxl` file.
    - Completely deletes the temporary modular folder, leaving no clutter.
-4. **Manual Pack & Clean (fallback / on-demand):**
+4. **Manual Pack & Clean (on demand):**
    - Command: `/ls pack [složka]`
    - Tool: `lotusscript_compile(folder: "...", clean: true)`
    - Assembles final `.lss` file, verifies LSP, and deletes modular folder.
@@ -110,13 +105,11 @@ The extension automates the full ephemeral modularization lifecycle:
 | `/ls status` | Show live plugin configuration |
 | `/ls config get\|set <key>` | Read/write a setting |
 | `/ls scaffold <type> [name]` | Create compliant code skeleton (see `scaffolding.md`) |
-| `/ls decompile <file>` | Decompose monolith `.lss`/`.dxl` into modular folder |
 | `/ls compile [složka]` | Manually recompile modular folder to `_compiled.lss` |
 | `/ls pack [složka]` | Compile, write artifact, delete modular folder |
 | `/ls lint [složka]` | Per-procedure line counts + Czech comment check |
 | `/ls score [složka]` | Scorecard + trend |
 | `/ls gotchas [query]` | Search the 42-entry gotcha base |
 | `lotusscript_compile` | Tool: recompile modular folder (+LSP) |
-| `lotusscript_decompile` | Tool: decompose monolith |
 | `lotusscript_scaffold` | Tool: generate agent/library/procedure/modular skeletons |
 | `lotusscript_gotchas` | Tool: search / summary / propose new gotcha |

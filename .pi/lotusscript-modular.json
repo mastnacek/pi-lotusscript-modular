@@ -1,11 +1,14 @@
 {
+  "lang": "cs",
   "enableLsp": true,
-  "autoDecompileOnRead": true,
   "autoRecompileOnSave": true,
   "keepTimestampInCompiledName": false,
   "overwriteSourceLss": true,
   "cleanupOnSettled": true,
   "enforceKbPrompt": true,
+  "enforceKbGate": true,
+  "verifyKbBeforeSettle": true,
+  "minKbSearchesPerRun": 3,
   "injectGotchasSummary": true,
   "enforceGotchaCapture": true,
   "checkProcedureLimits": true,
@@ -14,5 +17,6 @@
   "enableScorecard": true,
   "enforceGradingRubric": true,
   "injectPreflightGotchas": true,
-  "autoDraftRecurringGotchas": true
+  "autoDraftRecurringGotchas": true,
+  "showTelemetryPanel": true
 }

@@ -1,20 +1,19 @@
 /**
- * tool_call interception — instant-failure guards (protected files, KB edit
- * gate), monolith dump guard, and read-time auto-decompilation redirect.
- * Split out of pipeline/index.ts for the per-file line limit.
+ * tool_call interception — instant-failure guards only (protected files, KB edit
+ * gate). Split out of pipeline/index.ts for the per-file line limit.
  *
- * Cross-slice capabilities (parser / guards) arrive via PipelineDeps wired in
- * the composition root — slices never import each other (VSA).
+ * LotusScript reads are not intercepted here: reading a monolithic `.lss`/`.dxl`
+ * returns the file as it is (the decompiler was removed on 2026-10-23).
+ *
+ * Cross-slice capabilities (guards) arrive via PipelineDeps wired in the
+ * composition root — slices never import each other (VSA).
  */
 
 import path from "node:path";
-import fs from "node:fs";
 import type { ToolCallEvent, ToolCallEventResult } from "@earendil-works/pi-coding-agent";
 import type { PipelineDeps } from "./deps.js";
-import * as paths from "../../shared/paths.js";
 import type { PluginState } from "../../shared/state.js";
 
-// 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
 export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: PipelineDeps): ToolCallEventResult | undefined {
   const rawName = event.toolName || "";
   const base = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
@@ -36,7 +35,7 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: P
         ? "file"
         : null;
 
-  // --- Instant-failure guards (edit/write only; independent of autoDecompileOnRead) ---
+  // --- Instant-failure guards (edit/write only) ---
   if ((base === "edit" || base === "write") && input && pathKey) {
     const guardPath = path.resolve(input[pathKey] as string);
     const guard = deps.guardProtectedFiles(guardPath);
@@ -49,63 +48,6 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: P
     if (kbGuard) {
       state.telemetry.kbGateBlocks++;
       return kbGuard;
-    }
-  }
-
-  if (!state.config.autoDecompileOnRead) return;
-  if (deps.mutatingToolNames.has(base)) return;
-
-  // --- Shell / code-execution read guards (bash, ctx_execute, ctx_batch_execute) ---
-  // These tools carry no top-level `path`, so the redirect below cannot see them.
-  // Without this guard an agent can dump the whole monolithic file with
-  // `cat tlacitko.lss | sed -n '1,400p'`, defeating auto-decompilation.
-  if (deps.shellLikeToolNames.has(base) && input) {
-    const sources = deps.collectShellLikeSources(input);
-    for (const source of sources) {
-      const guard = deps.guardMonolithDump(source, state.activeCwd);
-      if (guard) {
-        state.telemetry.dumpBlocks++;
-        return guard;
-      }
-    }
-  }
-  if (!input || !pathKey) return;
-
-  const targetPath = input[pathKey] as string;
-  if (!targetPath) return;
-
-  const resolved = path.resolve(targetPath);
-  if (!fs.existsSync(resolved)) return;
-
-  const existingDir = paths.getExistingModularDir(resolved);
-  if (existingDir) {
-    state.readModularDirs.add(existingDir);
-    state.telemetry.readsModular++;
-    input[pathKey] = path.join(existingDir, "main.lss");
-    return;
-  }
-
-  if (paths.isMonolithicLss(resolved)) {
-    try {
-      const outDir = deps.decompileLss(resolved);
-      state.readModularDirs.add(outDir);
-      state.telemetry.readsRedirected++;
-      input[pathKey] = path.join(outDir, "main.lss");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[LotusScript Modular] Auto-decompile LSS failed: ${msg}`);
-    }
-  } else if (paths.isMonolithicDxl(resolved)) {
-    try {
-      const outDir = deps.decompileDxl(resolved);
-      if (outDir) {
-        state.readModularDirs.add(outDir);
-        state.telemetry.readsRedirected++;
-        input[pathKey] = path.join(outDir, "main.lss");
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[LotusScript Modular] Auto-decompile DXL failed: ${msg}`);
     }
   }
 }

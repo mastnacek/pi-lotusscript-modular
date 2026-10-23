@@ -48,7 +48,6 @@ export interface Strings {
     rubric: string;
     preflight: string;
     autoDraft: string;
-    autoDecompile: string;
     autoRecompile: string;
     kbPrompt: string;
     kbGate: string;
@@ -100,10 +99,7 @@ export interface Strings {
     packedLspErrors: (diagnostics: string) => string;
     packedDone: (path: string) => string;
     packError: (msg: string) => string;
-    decompileUsage: string;
     fileNotFound: (p: string) => string;
-    decompiled: (dir: string) => string;
-    decompileError: (msg: string) => string;
   };
 
   scaffoldCmd: {
@@ -203,8 +199,8 @@ export interface Strings {
 
   telemetry: {
     hooks: (total: number, calls: number, results: number, settled: number) => string;
-    reads: (redirected: number, modular: number, kb: number) => string;
-    gates: (kb: number, dumps: number, protectedB: number, compiles: number, kbNudges: number) => string;
+    reads: (kb: number) => string;
+    gates: (kb: number, protectedB: number, compiles: number, kbNudges: number) => string;
     codeNone: string;
     code: (procs: number, longest: number | null, max: number) => string;
     suffix: (code: string, lsp: string) => string;
@@ -226,7 +222,6 @@ export interface Strings {
     subPack: string;
     subLint: string;
     subScore: string;
-    subDecompile: string;
     subGotchas: string;
     subConfig: string;
     subHelp: string;

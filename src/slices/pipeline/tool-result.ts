@@ -10,6 +10,7 @@
  */
 
 import path from "node:path";
+import fs from "node:fs";
 import type { ExtensionContext, ToolResultEvent } from "@earendil-works/pi-coding-agent";
 import { isEditToolResult, isWriteToolResult } from "@earendil-works/pi-coding-agent";
 import type { LspCheckResult } from "../../shared/types.js";
@@ -159,6 +160,41 @@ function limitGateError(
   };
 }
 
+/**
+ * ASCII-only gate for auto-format (SPAI-008 encoding rule): Domino sources
+ * are Cp1250 and the LSP lane reads utf-8, so a file with any byte above
+ * 0x7F must never round-trip through the formatter. ASCII files are
+ * encoding-identical in both code pages and safe to rewrite.
+ */
+function isAsciiOnlyFile(filePath: string): boolean {
+  try {
+    return fs.readFileSync(filePath).every((b) => b <= 0x7f);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Auto-format the edited modular file via the LSP formatter before the
+ * recompile so the assembled artifact inherits clean layout. Never touches
+ * compiled artifacts or non-ASCII files. Returns a one-line notice.
+ */
+async function autoFormatEditedFile(
+  state: PluginState,
+  deps: PipelineDeps,
+  resolved: string
+): Promise<string> {
+  if (!resolved.toLowerCase().endsWith(".lss")) return "";
+  if (/_compiled\.lss$/i.test(resolved)) return "";
+  if (!isAsciiOnlyFile(resolved)) return "";
+  const before = fs.readFileSync(resolved, "utf8");
+  const formatted = await deps.formatLotusScriptFile(resolved);
+  if (formatted === null || formatted === before) return "";
+  fs.writeFileSync(resolved, formatted, "utf8");
+  state.notesMutatedThisRun = true;
+  return `\n✨ LSP auto-format applied to ${path.basename(resolved)} (ASCII-only file)`;
+}
+
 /** Recompiles the modular root and assembles the scorecard/LSP notice block. */
 async function recompileAndReport(
   state: PluginState,
@@ -171,6 +207,17 @@ async function recompileAndReport(
 ): Promise<ToolResultEventResultShape> {
   const { config } = state;
   state.renderStatusline("compiling");
+
+  // SPAI-008 automation: format the edited file BEFORE the compile so the
+  // artifact inherits the clean layout (ASCII-only files, see helper above).
+  let formatNotice = "";
+  if (config.autoFormatOnSave) {
+    try {
+      formatNotice = await autoFormatEditedFile(state, deps, resolved);
+    } catch {
+      formatNotice = "";
+    }
+  }
 
   const compiledPath = deps.compileAgent(modularRoot, {
     keepTimestamp: config.keepTimestampInCompiledName,
@@ -190,6 +237,17 @@ async function recompileAndReport(
     }
   } else {
     state.renderStatusline("clean");
+  }
+
+  // SPAI-008 automation: attach lsp_explain help for NEW error codes so the
+  // agent gets the fix guidance without an extra MCP round-trip.
+  let explainNotice = "";
+  if (config.autoExplainLspCodes && config.enableLsp && lspResult && !lspResult.ok) {
+    try {
+      explainNotice = await deps.explainLotusScriptCodes(lspResult.diagnostics);
+    } catch {
+      explainNotice = "";
+    }
   }
 
   // Telemetry: recompile count + code-length snapshot for the TUI panel.
@@ -234,9 +292,11 @@ async function recompileAndReport(
     "---",
     `🔨 [LotusScript Modular: Recompiled]`,
     `- Artifact: ${compiledPath}${overwriteNotice}${cleanupNotice}`,
+    ...(formatNotice ? [formatNotice] : []),
     ...(scorecardBlock ? ["", scorecardBlock] : []),
     ...(recurringNotice ? [recurringNotice.trimStart()] : []),
     ...(lspNotice ? [lspNotice.trimStart()] : []),
+    ...(explainNotice ? ["", explainNotice] : []),
     ...(gotchaNudge ? [gotchaNudge.trimStart()] : []),
     ...(commentWarnings ? [commentWarnings.trimStart()] : []),
     "---",

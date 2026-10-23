@@ -14,7 +14,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { AgentParser } from "../../src/slices/parser/index.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
 import { makeUniqueFileNames } from "../../src/shared/paths.js";
 import { TEST_DIR } from "../helpers.js";
 

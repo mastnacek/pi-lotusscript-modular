@@ -5,9 +5,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import type { CodeBlock } from "../../shared/types.js";
-import { decodeXml, detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../shared/paths.js";
-import { writeMainLss, writeManifest, writeModuleFile } from "./emitters.js";
+import type { CodeBlock } from "../../src/shared/types.js";
+import { decodeXml, detectProcPrefix, makeUniqueFileNames, sanitizeFileName } from "../../src/shared/paths.js";
+import { writeMainLss, writeManifest, writeModuleFile } from "../../src/slices/parser/emitters.js";
 
 /**
  * Decompile a Domino Agent DXL XML file into a modular folder structure.

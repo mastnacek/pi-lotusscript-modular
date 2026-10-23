@@ -5,7 +5,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { AgentParser } from "../../src/slices/parser/index.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
 import lotusscriptModularExtension from "../../index.js";
 import { MONOLITH_CODE, TEST_DIR, mockPi } from "../helpers.js";
 
@@ -72,11 +72,16 @@ End Sub
   const liveLss = path.join(TEST_DIR, "LiveAgent.lss");
   fs.writeFileSync(liveLss, MONOLITH_CODE, "utf-8");
 
-  // Simulate reading file -> decompiles
+  // Reading the monolith no longer decompiles it (opt-in): the folder appears
+  // only when the user consented and `lotusscript_decompile` ran.
   const readEvt: any = { toolName: "read", input: { path: liveLss } };
   extToolCallHandler(readEvt);
   const liveModularDir = path.join(TEST_DIR, "LiveAgent");
-  if (!fs.existsSync(liveModularDir)) throw new Error("Failed to auto-decompile LiveAgent");
+  if (fs.existsSync(liveModularDir)) throw new Error("read created a modular folder without consent");
+  if (readEvt.input.path !== liveLss) throw new Error("read path was rewritten");
+
+  const liveDecompiledDir = AgentParser.decompileLss(liveLss);
+  if (!fs.existsSync(liveDecompiledDir)) throw new Error("explicit decompile did not create the folder");
 
   // Simulate editing a procedure inside the modular folder
   const subClick = path.join(liveModularDir, "sub_ProcessNotes.lss");

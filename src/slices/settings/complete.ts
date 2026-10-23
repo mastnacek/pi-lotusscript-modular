@@ -36,7 +36,6 @@ function lsSubcommands(s: Strings): readonly Suggestion[] {
     { value: "pack", description: c.subPack, space: true },
     { value: "lint", description: c.subLint, space: true },
     { value: "score", description: c.subScore, space: true },
-    { value: "decompile", description: c.subDecompile, space: true },
     { value: "gotchas", description: c.subGotchas, space: true },
     ...directSettingSubcommands(s).filter(
       (x) => !["enableLsp", "overwriteSourceLss"].includes(x.value)

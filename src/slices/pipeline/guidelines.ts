@@ -52,7 +52,12 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
   }
 
   guidelines.push(
-    "LOTUSSCRIPT MODULAR AGENTS (EPHEMERAL WORKFLOW): When reading LotusScript (.lss) or Domino agent DXL (.dxl) files, the extension temporarily decompiles them into modular folders (manifest.json, main.lss, sub_*.lss, func_*.lss) for fine-grained editing. Always edit the individual modular files. Once you finish your modifications, the extension automatically compiles the final code into the standalone .lss file (or creates <name>.lss for .dxl) and completely deletes the temporary modular folder."
+    [
+      "LOTUSSCRIPT SOURCE SHAPE:",
+      "A monolithic `.lss` or `.dxl` is the source shape this plugin handles. Read it with the `read` tool using offset/limit, inspect it with `grep`/`bash`, and edit it with anchored edits — nothing is created, split or rewritten behind your back.",
+      "Do not create a modular folder (manifest.json, main.lss, sub_*.lss, func_*.lss) for an existing monolith: the decompiler was removed from this plugin on 2026-10-23 and modularization of monoliths is no longer supported.",
+      "Modular folders still legitimately exist when `lotusscript_scaffold` created them (type 'modular') or when one is already on disk. There, edits go to the individual part files, never to main.lss, manifest.json or *_compiled.lss, and `lotusscript_compile` reassembles the artifact.",
+    ].join(" ")
   );
 
   return guidelines;

@@ -48,10 +48,10 @@ export interface ScaffoldResultFull {
 export interface ToolsDeps {
   // parser slice
   compileAgent(targetDirOrFile: string, options?: ToolsCompileOptions): string;
-  decompileLss(lssPath: string, outputDirOverride?: string): string;
-  decompileDxl(dxlPath: string, outputDirOverride?: string): string | null;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
+  // lsp slice — automation lane (SPAI-008)
+  explainLotusScriptCodes(diagnosticsText: string): Promise<string>;
   // gotchas slice
   searchGotchas(query: string, limit?: number): GotchaItem[];
   getGotchasSummary(limit?: number): string;

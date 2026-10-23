@@ -16,8 +16,9 @@ export interface SettingSpec {
 export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "enableLsp", kind: "boolean" },
   { key: "overwriteSourceLss", kind: "boolean" },
-  { key: "autoDecompileOnRead", kind: "boolean" },
   { key: "autoRecompileOnSave", kind: "boolean" },
+  { key: "autoFormatOnSave", kind: "boolean" },
+  { key: "autoExplainLspCodes", kind: "boolean" },
   { key: "enforceKbPrompt", kind: "boolean" },
   { key: "enforceKbGate", kind: "boolean" },
   { key: "verifyKbBeforeSettle", kind: "boolean" },

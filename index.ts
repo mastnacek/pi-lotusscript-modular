@@ -33,14 +33,8 @@ import type { CommandsDeps } from "./src/slices/commands/deps.js";
 import { registerModelTools } from "./src/slices/tools/index.js";
 import type { ToolsDeps } from "./src/slices/tools/deps.js";
 import type { PipelineDeps } from "./src/slices/pipeline/deps.js";
-import {
-  guardKbBeforeEdit,
-  guardMonolithDump,
-  guardProtectedFiles,
-  collectShellLikeSources,
-  MUTATING_TOOL_NAMES,
-  SHELL_LIKE_TOOL_NAMES,
-} from "./src/slices/guards/index.js";
+import { guardKbBeforeEdit, guardProtectedFiles } from "./src/slices/guards/index.js";
+import { MUTATING_TOOL_NAMES } from "./src/slices/pipeline/mutating-tools.js";
 import {
   buildGradingRubric,
   buildRecurringGotchaDraft,
@@ -63,7 +57,11 @@ import {
   searchGotchas,
 } from "./src/slices/gotchas/index.js";
 import { AgentParser } from "./src/slices/parser/index.js";
-import { checkLotusScriptDiagnostics } from "./src/slices/lsp/index.js";
+import {
+  checkLotusScriptDiagnostics,
+  explainLotusScriptCodes,
+  formatLotusScriptFile,
+} from "./src/slices/lsp/index.js";
 import { lintModularFolder } from "./src/slices/linter/index.js";
 import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
@@ -92,8 +90,6 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     addGotcha,
     promptGotchaReview,
     compileAgent: (target, options) => AgentParser.compileAgent(target, options),
-    decompileLss: (p) => AgentParser.decompileLss(p),
-    decompileDxl: (p) => AgentParser.decompileDxl(p),
     checkLotusScriptDiagnostics,
     lintModularFolder,
     formatScorecard,
@@ -110,15 +106,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // parser / guards / lsp / scorecard / gotchas only through this seam (VSA §6).
   const pipelineDeps: PipelineDeps = {
     compileAgent: (target, options) => AgentParser.compileAgent(target, options),
-    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
-    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
     guardProtectedFiles,
     guardKbBeforeEdit,
-    guardMonolithDump,
-    collectShellLikeSources,
     mutatingToolNames: MUTATING_TOOL_NAMES,
-    shellLikeToolNames: SHELL_LIKE_TOOL_NAMES,
     checkLotusScriptDiagnostics,
+    explainLotusScriptCodes,
+    formatLotusScriptFile,
     formatScorecard,
     buildGradingRubric,
     trendLabel,
@@ -132,9 +125,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // Model-tools slice wiring (parser / lsp / gotchas / scaffold + i18n copy).
   const toolsDeps: ToolsDeps = {
     compileAgent: (target, options) => AgentParser.compileAgent(target, options),
-    decompileLss: (p, out) => AgentParser.decompileLss(p, out),
-    decompileDxl: (p, out) => AgentParser.decompileDxl(p, out),
     checkLotusScriptDiagnostics,
+    explainLotusScriptCodes,
     searchGotchas,
     getGotchasSummary,
     addGotcha,
@@ -193,7 +185,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     return debriefMessage;
   }));
 
-  // 1. Tool Call Interception (Auto-decompile on Read/Inspect or redirect to existing modular dir)
+  // 1. Tool Call Interception (protected-file guard + KB edit gate)
   track(pi.on("tool_call", (event) => {
     const result = handleToolCall(state, event, pipelineDeps);
     state.countHook("tool_call");

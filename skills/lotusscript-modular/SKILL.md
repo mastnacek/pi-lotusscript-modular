@@ -1,33 +1,44 @@
 ---
 name: lotusscript-modular
-description: Working with decompiled and modularized LotusScript agents and scripts. Use when editing, navigating, scaffolding, or recompiling modular .lss files (options, declarations, sub_*.lss, func_*.lss, main.lss, manifest.json) and assembling compiled .lss output for IBM Notes/Domino 9.0.1.
+description: Working with LotusScript agents and scripts — monolithic .lss/.dxl sources as well as modular folders (options, declarations, sub_*.lss, func_*.lss, main.lss, manifest.json). Use when editing, navigating, scaffolding, or recompiling for IBM Notes/Domino 9.0.1.
 ---
 
 # LotusScript Modular Agent Workflow (Virtual Modularization)
 
-This skill guides the AI assistant when working with decompiled LotusScript
-agents and scripts split into modular `.lss` files. Plugin: `pi-lotusscript-modular`.
+This skill guides the AI assistant when working with LotusScript agents and
+scripts — either as a monolithic `.lss`/`.dxl` or as a modular folder.
+Plugin: `pi-lotusscript-modular`.
 
-## Core Contract (always in force)
+## Two source shapes
 
-A modular agent folder contains `manifest.json`, `main.lss` (virtual index),
+**A monolithic script is the normal shape.** Read it with `read` offset/limit,
+inspect it with `grep`, edit it with anchored edits. Nothing is created, nothing
+is rewritten. The plugin no longer decompiles monoliths (removed 2026-10-23):
+never split an existing `.lss`/`.dxl` into a modular folder, and never propose
+that as an option to the user.
+
+**A modular folder exists only when it was created deliberately** — by
+`lotusscript_scaffold` (`type: "modular"`) or before 2026-10-23 by the retired
+decompiler. There the rules below apply, and `lotusscript_compile` reassembles
+the artifact.
+
+## Core Contract (inside a modular folder)
+
+A modular folder contains `manifest.json`, `main.lss` (index),
 `00_options.lss`, `01_declarations.lss`, `sub_<name>.lss` / `func_<name>.lss`,
 `99_initialize.lss`.
 
-1. **`main.lss` is a virtual index, not a truncated read.** Reading a monolithic
-   `.lss`/`.dxl` auto-decompiles it and returns `main.lss` (~30 lines). That is
-   the complete index — do not re-read the monolith.
-2. **Never dump the monolith** through `bash`, `ctx_execute`, `ctx_batch_execute`,
-   `cat`, `Get-Content`, `readFileSync`, … — blocked as instant failure.
-   Metadata-only commands (`wc -l`, `ls`) are fine.
-3. **Never edit** `main.lss`, `manifest.json`, or `*_compiled.lss` — all three
+1. **`main.lss` is an index, not the script.** ~30 lines naming the parts. The
+   monolithic source is still on disk and remains readable when the whole-file
+   view is more useful.
+2. **Never edit** `main.lss`, `manifest.json`, or `*_compiled.lss` — all three
    are extension-maintained; hand edits are discarded on the next compile.
-4. **Always consult `01_declarations.lss`** before touching a procedure —
+3. **Always consult `01_declarations.lss`** before touching a procedure —
    LotusScript module scope is flat.
-5. **English for everything the agent reads. Czech for everything the user
+4. **English for everything the agent reads. Czech for everything the user
    reads** (notifications, modals). The literal marker `' Účel: ...` and Czech
    sample words in code stay Czech inside agent text.
-6. **Full language policy & regression tests:** `references/workflow.md` §6.
+5. **Full language policy & regression tests:** `references/workflow.md` §6.
 
 ## Progressive Disclosure (read on demand — do not preload everything)
 
@@ -138,10 +149,10 @@ Manual inspection: `/ls score [složka]` (scorecard + trend), `/ls lint [složka
    main.lss read banner derives concrete `kb_search` suggestions from the
    agent's own `Notes*` declarations, and the scorecard grades the per-run
    query count as DoD item 7 (`(1/3)` progress label).
-2b. **Monolith read guard:** dumping the original `.lss` / `.dxl` through
-   `bash`, `ctx_execute`, `ctx_batch_execute` or any other content-read tool is
-   blocked. Read the modular files instead; the guard resolves `cd <dir>` and
-   `--cwd` before matching, so relative paths cannot slip through.
+2b. **No forced modularization:** reading a monolith returns the file as it is.
+   `bash` / `grep` inspection is allowed; there is no read redirect and no dump
+   guard any more — prefer `read` with offset/limit only to keep the context
+   window small.
 3. **Debrief (note-to-self):** when `agent_settled` finalises an agent folder,
    if any Definition of Done item is unmet the harness records a debrief. It is
    injected as a message at the start of the next turn and consumed exactly once.
@@ -167,11 +178,11 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Concern | Location |
 | --- | --- |
 | Composition root (pure wiring) | `index.ts` |
-| Decompile/compile/manifest (decompile-lss, decompile-dxl, sync-manifest, compile-agent) | `src/slices/parser/` |
+| Compile/manifest (sync-manifest, compile-agent, emitters, scaffolding) | `src/slices/parser/` |
 | Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
-| Instant-failure guards (protected files, monolith dump) | `src/slices/guards/` |
+| Instant-failure guards (protected files, KB edit gate) | `src/slices/guards/` |
 | `/ls` command switch (ls-config, ls-inspect, ls-compile, ls-gotchas) | `src/slices/commands/` |
-| Model tools (compile/decompile/gotchas/scaffold) | `src/slices/tools/` |
+| Model tools (compile/gotchas/scaffold) | `src/slices/tools/` |
 | Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
 | Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
 | LSP diagnostics | `src/slices/lsp/` |

@@ -11,7 +11,7 @@ import {
   getExistingModularDir,
   isMonolithicLss,
 } from "../../src/shared/paths.js";
-import { AgentParser } from "../../src/slices/parser/index.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
 import { checkLotusScriptDiagnostics } from "../../src/slices/lsp/index.js";
 import { getAllGotchas, searchGotchas, GotchaReviewComponent, promptGotchaReview } from "../../src/slices/gotchas/index.js";
 import { completeLsArguments } from "../../src/slices/settings/index.js";
@@ -143,7 +143,8 @@ export async function phase1To4(): Promise<void> {
     throw new Error(`LSP diagnostics reported errors: ${lspRes.diagnostics}`);
   }
 
-  // 14. Test tool_call interception with custom reading tools (e.g. ctx_execute_file, read_all)
+  // 14. Reading a monolith is NOT intercepted: decompilation is opt-in, so the
+  // tool_call hook must leave the path alone for every read-shaped tool.
   const monolith2Path = path.join(TEST_DIR, "Monolith2.lss");
   fs.writeFileSync(monolith2Path, MONOLITH_CODE, "utf-8");
 
@@ -161,22 +162,24 @@ export async function phase1To4(): Promise<void> {
   };
   toolCallHandler(mockEvent);
 
-  const redirected = typeof mockEvent.input.path === "string" && mockEvent.input.path.endsWith("main.lss");
-  console.log("14. Auto-decompile on custom tool (ctx_execute_file):", redirected ? "PASS" : "FAIL");
-  if (!redirected) {
-    throw new Error(`Custom tool input.path was not redirected to main.lss: ${mockEvent.input.path}`);
+  const untouched = mockEvent.input.path === monolith2Path;
+  console.log("14. Monolith read is not auto-decompiled (ctx_execute_file):", untouched ? "PASS" : "FAIL");
+  if (!untouched) {
+    throw new Error(`tool_call rewrote input.path to: ${mockEvent.input.path}`);
   }
 
-  // 15. Verify that second access to the already decompiled file redirects to existing modular dir
+  // 15. Repeated reads stay on the monolith as well — nothing creates a folder.
   const mockEvent2: any = {
     toolName: "read_all",
     input: { path: monolith2Path },
   };
   toolCallHandler(mockEvent2);
-  const redirectedExisting = typeof mockEvent2.input.path === "string" && mockEvent2.input.path.endsWith("main.lss");
-  console.log("15. Redirect existing modular dir on custom tool (read_all):", redirectedExisting ? "PASS" : "FAIL");
-  if (!redirectedExisting) {
-    throw new Error(`Custom tool input.path was not redirected to existing modular dir: ${mockEvent2.input.path}`);
+  const untouchedAgain =
+    mockEvent2.input.path === monolith2Path &&
+    !fs.existsSync(path.join(TEST_DIR, "Monolith2"));
+  console.log("15. Repeated read leaves the monolith and creates no folder (read_all):", untouchedAgain ? "PASS" : "FAIL");
+  if (!untouchedAgain) {
+    throw new Error(`path=${mockEvent2.input.path} folder=${fs.existsSync(path.join(TEST_DIR, "Monolith2"))}`);
   }
 
   // --------------------------------------------------

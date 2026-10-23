@@ -37,17 +37,17 @@ export interface PipelineCompileOptions {
 export interface PipelineDeps {
   // parser slice
   compileAgent(targetDirOrFile: string, options?: PipelineCompileOptions): string;
-  decompileLss(lssPath: string, outputDirOverride?: string): string;
-  decompileDxl(dxlPath: string, outputDirOverride?: string): string | null;
   // guards slice (constants exposed as sets; blocks are structural)
+  /** Tools that mutate sources and must never be treated as a read. */
+  readonly mutatingToolNames: ReadonlySet<string>;
   guardProtectedFiles(guardPath: string): GuardBlockLite | null;
   guardKbBeforeEdit(guardPath: string, kbConsulted: boolean, enforce: boolean): GuardBlockLite | null;
-  guardMonolithDump(source: string, activeCwd: string): GuardBlockLite | null;
-  collectShellLikeSources(input: Record<string, unknown> | undefined): string[];
-  readonly mutatingToolNames: ReadonlySet<string>;
-  readonly shellLikeToolNames: ReadonlySet<string>;
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
+  // lsp slice — automation lane (SPAI-008): MCP is pull-only, so automatic
+  // invocation of MCP-only features runs through these event-driven helpers
+  explainLotusScriptCodes(diagnosticsText: string): Promise<string>;
+  formatLotusScriptFile(filePath: string): Promise<string | null>;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   buildGradingRubric(config: ModularConfig): string;

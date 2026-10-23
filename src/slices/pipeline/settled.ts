@@ -14,7 +14,6 @@ import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type { AgentScorecard, LspCheckResult } from "../../shared/types.js";
 import { stringsFor } from "../../shared/i18n.js";
 import type { PluginState } from "../../shared/state.js";
-import { isPristineModularDir } from "../../shared/paths.js";
 
 /** Structural compile options (no cross-slice type imports — slice isolation). */
 export interface SettledCompileOptions {
@@ -103,35 +102,8 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
     }
   }
 
-  const retainedReadDirs: string[] = [];
-  for (const modDir of state.readModularDirs) {
-    if (!state.modifiedModularDirs.has(modDir) && fs.existsSync(modDir)) {
-      // Only remove what the plugin itself produced and nobody touched. A shell
-      // that restores files into the folder leaves mtimes newer than the decompile
-      // stamp — those bytes are not ours to delete.
-      if (isPristineModularDir(modDir)) {
-        try {
-          fs.rmSync(modDir, { recursive: true, force: true });
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.error(`[LotusScript Modular] Chyba při mazání read-only složky ${modDir}: ${msg}`);
-        }
-      } else {
-        retainedReadDirs.push(modDir);
-      }
-    }
-  }
-
-  if (retainedReadDirs.length > 0 && ctx.hasUI) {
-    ctx.ui.notify(
-      stringsFor(config.lang).settled.retained(
-        retainedReadDirs.length,
-        retainedReadDirs.map((d) => path.basename(d)).join(", ")
-      ),
-      "warning"
-    );
-  }
-
+  // Folders the agent only read are the user's: they come from scaffolding or
+  // from an earlier decompile, so settling never deletes them.
   state.modifiedModularDirs.clear();
   state.readModularDirs.clear();
 }

@@ -35,15 +35,16 @@ akci/sloupec", "změň popisek", "doplň hide-when", "uprav view", or hands over
 
 ---
 
-## 3. Monolith → Modular for DXL Agents
+## 3. DXL Agents and Modular Folders
 
-Agents exported as `.dxl` (`<agent>` with `<code event="initialize">` etc.)
-are handled by the same pipeline as `.lss`:
+Agents exported as `.dxl` (`<agent>` with `<code event="initialize">` etc.) are
+edited as DXL — the decompiler that turned them into `<AgentName>/` was removed
+on 2026-10-23, so do not split a `.dxl` and do not create the folder by hand.
 
-- Reading a `.dxl` auto-decompiles into `<AgentName>/` and returns `main.lss`.
-- Compiling creates `<AgentName>.lss` next to the `.dxl`
+- A modular folder for a DXL agent exists only if it predates that removal or was
+  scaffolded; there, `main.lss` and `manifest.json` stay extension-maintained.
+- Compiling such a folder creates `<AgentName>.lss` next to the `.dxl`
   (`createLssForDxl: true`); the `.dxl` itself is never overwritten.
-- Same instant-failure rules apply (no monolith dumps, no `main.lss` edits).
 
 ---
 

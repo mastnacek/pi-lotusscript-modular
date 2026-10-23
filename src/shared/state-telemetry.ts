@@ -29,12 +29,9 @@ export function createTelemetry(): HookTelemetry {
       tool_call: 0,
       tool_result: 0,
     },
-    readsRedirected: 0,
-    readsModular: 0,
     kbSearches: 0,
     kbGateBlocks: 0,
     kbSettleNudges: 0,
-    dumpBlocks: 0,
     protectedBlocks: 0,
     recompiles: 0,
     lastProcCount: null,
@@ -69,8 +66,8 @@ export function telemetryLines(t: HookTelemetry, config: ModularConfig): string[
   const lsp = t.lastLspOk === null ? "?" : t.lastLspOk ? "✓" : "⚠";
   return [
     s.hooks(totalHookCalls(t), t.hookCalls.tool_call, t.hookCalls.tool_result, t.hookCalls.agent_settled),
-    s.reads(t.readsRedirected, t.readsModular, t.kbSearches),
-    s.gates(t.kbGateBlocks, t.dumpBlocks, t.protectedBlocks, t.recompiles, t.kbSettleNudges),
+    s.reads(t.kbSearches),
+    s.gates(t.kbGateBlocks, t.protectedBlocks, t.recompiles, t.kbSettleNudges),
     s.suffix(code, lsp),
   ];
 }

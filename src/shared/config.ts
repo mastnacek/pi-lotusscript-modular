@@ -7,8 +7,9 @@ import type { ModularConfig } from "./types.js";
 export const DEFAULT_CONFIG: ModularConfig = {
   lang: "cs",
   enableLsp: false,
-  autoDecompileOnRead: true,
   autoRecompileOnSave: true,
+  autoFormatOnSave: true,
+  autoExplainLspCodes: true,
   keepTimestampInCompiledName: false,
   overwriteSourceLss: true,
   cleanupOnSettled: true,

@@ -38,12 +38,12 @@ the code in §4–§6 is what actually executes.
 | File | Lines | Purpose |
 |---|---:|---|
 | `SKILL.md` | 195 | Frontmatter (`name: lotusscript-modular`) + the operating manual: Scaffold Fast Path, Definition of Done, file-map table of `src/slices/*`, KB-lookup block naming the collection's three layers. Loaded by pi's skill discovery. |
-| `references/workflow.md` | 122 | Modular workflow reference — the decompile → edit → compile lifecycle and when the plugin intervenes. |
+| `references/workflow.md` | 129 | Modular workflow reference — the compile → edit → package lifecycle and when the plugin intervenes. |
 | `references/scaffolding.md` | 124 | Scaffolding reference: which skeleton type to use, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, and the template-source rules. |
 | `references/coding-conventions.md` | 199 | LotusScript coding conventions for Domino 9.0.1 — comment style, header shape, naming prefixes, error handling. |
 | `references/gotchas-index.md` | 101 | Index of the 64 bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
 | `references/naming-conventions.md` | 117 | Alias grammar and the type→prefix table (`ag_`, `lib_`, …). |
-| `references/dxl-and-odp.md` | 65 | DXL/ODP design-element reference for the decompile path. |
+| `references/dxl-and-odp.md` | 66 | DXL/ODP design-element reference (forms, views, agents, ODP). |
 | `references/formula-language.md` | 150 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, `@Today` in views, formula/DXL escaping. Names the KB layers and cites `kapitola-04..07`. |
 
 > **Review note:** `SKILL.md` was stale until commit `f684b55` — it still promised `%Include "lsconst.lss"` and an `On Error GoTo Catch` label, neither of which the template emits. Worth re-reading `SKILL.md` §"Scaffold Fast Path" against `template.lss` on any future template change; the two are kept in sync by hand.
@@ -87,11 +87,9 @@ Generates new LotusScript files. Most recently reworked in this session.
 
 ## 5. `src/slices/` — the other features
 
-### parser — decompile / compile round trip
+### parser — modular folder → artifact
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `decompile-lss.ts` | 234 | `decompileLss` | Splits a monolithic `.lss` into a modular folder (`00_options`, `01_declarations`, `sub_*`, `func_*`, `manifest.json`, `main.lss`). |
-| `decompile-dxl.ts` | 128 | `decompileDxl` | Same for a `.dxl` form/script element. |
 | `compile-agent.ts` | 124 | `compileAgent` | Reassembles a modular folder into one compiled `.lss`. |
 | `agent-parser.ts` | 41 | `AgentParser` | Low-level block extraction from LotusScript source. |
 | `scaffolding.ts` | 84 | `ASSEMBLED_HEADER_MARKER`, `isSectionTagLine`, `sectionTag`, `endSectionTag`, `buildArtifactHeader`, `stripArtifactScaffolding` | Generated provenance markers and their removal, so recompiles stay idempotent. |
@@ -112,12 +110,12 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### pipeline — event translation
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `tool-call.ts` | 114 | `handleToolCall` | Redirects reads of monolithic scripts into ephemeral decompilation. Increments the telemetry counters (KB searches, gate blocks, redirects). |
+| `tool-call.ts` | 54 | `handleToolCall` | Instant-failure guards only (protected files, KB edit gate) plus KB-search telemetry. Reads of monolithic scripts pass through untouched. |
 | `tool-result.ts` | 254 | `handleToolResult` | Post-edit recompile, lint gate, scorecard injection. Feeds recompile/code-length/LSP outcome into telemetry. |
-| `settled.ts` | 97 | `handleAgentSettled` | Cleanup when the agent finishes — deletes the ephemeral folder. |
+| `settled.ts` | 97 | `handleAgentSettled` | At settle: recompile folders the agent edited, write the artifact, delete the folder. Folders that were only read are the user's and are never deleted. |
 | `guidelines.ts` | 48 | `buildPromptGuidelines` | Builds the system-prompt text: DoD, rubric, top gotchas, KB prompt (names the collection's three layers and the Guirard chapters). |
 | `recurring-gotcha.ts` | 70 | `draftRecurringGotcha` | Auto-drafts a gotcha when the same diagnostic repeats. |
-| `read-banner.ts` | 52 | `readBanner` | Banner shown when a monolithic script is read. |
+| `read-banner.ts` | 52 | `readBanner` | Banner shown when `main.lss` of an existing modular folder is read (index semantics, not truncation). |
 | `shared.ts` | 19 | `ToolResultEventResultShape`, `baseToolName` | Small shared helpers. |
 | `index.ts` | 11 | re-export | Barrel. |
 
@@ -135,14 +133,14 @@ Generates new LotusScript files. Most recently reworked in this session.
 ### guards — instant-failure prevention
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `index.ts` | 148 | `MUTATING_TOOL_NAMES`, `SHELL_LIKE_TOOL_NAMES`, `collectShellLikeSources`, `GuardBlock`, `guardProtectedFiles`, `guardMonolithDump`, `guardKbBeforeEdit` | Blocks edits to protected files, blocks dumping a monolith into chat, and hard-gates `.lss`/`.dxl` edits behind a `kb_search` on the `lotus-notes` collection. |
+| `index.ts` | 26 | `GuardBlock`, `guardProtectedFiles`, `guardKbBeforeEdit` | Blocks edits to plugin-maintained files and hard-gates `.lss`/`.dxl` edits behind a `kb_search`. |
 
 ### commands — `/ls` slash commands
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `index.ts` | 96 | `RegisteredLsCommand`, `createLsCommand` | `/ls` dispatcher. |
 | `ls-inspect.ts` | 92 | `lsScaffold`, `lsLint`, `lsScore` | Inspect/act commands, including the scaffold path. |
-| `ls-compile.ts` | 121 | `lsCompile`, `lsPack`, `lsDecompile` | Compile/pack/decompile. |
+| `ls-compile.ts` | 96 | `lsCompile`, `lsPack` | Compile / pack-and-clean. |
 | `ls-config.ts` | 142 | `LsParts`, `lsStatus`, `lsLsp`, `lsOverwrite`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu with current-value annotation. |
 | `ls-gotchas.ts` | 48 | `lsGotchas` | Gotcha query. |
 
@@ -151,7 +149,7 @@ Generates new LotusScript files. Most recently reworked in this session.
 |---|---:|---|---|
 | `index.ts` | 17 | `registerModelTools` | Registers all four tools. |
 | `scaffold-tool.ts` | 78 | `registerScaffoldTool` | `lotusscript_scaffold`. TypeBox schema with `StringEnum` for `type`; `date` pins the header date for a reproducible scaffold. |
-| `compile-tool.ts` | 92 | `registerCompileDecompileTools` | `lotusscript_compile` / `lotusscript_decompile`. |
+| `compile-tool.ts` | 78 | `registerCompileTools` | `lotusscript_compile`. |
 | `gotchas-tool.ts` | 136 | `registerGotchasTool` | `lotusscript_gotchas`. |
 
 ### settings — slash-command completion
@@ -178,7 +176,7 @@ Harness: `test/test_modular_workflow.ts` (58 lines) runs numbered assertions acr
 | File | Lines | Covers |
 |---|---:|---|
 | `test/helpers.ts` | 105 | Temp-dir fixtures and a `mockPi` ExtensionAPI double. |
-| `test/phases/phase1.ts` | 284 | Phases 1–4: gotchas catalogue, menu completions, core decompile→compile→LSP, gotcha review modal + approval gate. |
+| `test/phases/phase1.ts` | 284 | Phases 1–4: gotchas catalogue, menu completions, core compile→LSP, gotcha review modal + approval gate. Fixture modular folders are built by `test/fixtures/` (archived decompiler). |
 | `test/phases/phase5.ts` | 100 | Phase 5 (20–22): ephemeral modularization and cleanup on `agent_settled`. |
 | `test/phases/phase6.ts` | 187 | Phases 6 (23–28): procedure line-limit + comment linter, modal, tool_result lint gate, anti-loop gate, sizing. |
 | `test/phases/phase7.ts` | 80 | Phases 7 (29–34): scorecard / grading — compute, trend, format, rubric, prompt injection, recompile integration. |

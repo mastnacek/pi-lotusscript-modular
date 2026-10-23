@@ -1,6 +1,9 @@
 /**
- * Phase 17: Windows guard matrix (88a–88c) + the settle flag combination that
+ * Phase 17: Windows guard matrix (88a–88b) + the settle flag combination that
  * agent_settled actually uses in production (88d–88f).
+ *
+ * The monolith content-dump guard was retired: reading a whole `.lss` is a
+ * normal agent choice now, covered positively by phase16 test 85d.
  *
  * The guards were previously only exercised through the extension in phase 8 /
  * phase 12, and every existing deleteModularDir test paired it with
@@ -11,14 +14,10 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { AgentParser } from "../../src/slices/parser/index.js";
-import {
-  guardKbBeforeEdit,
-  guardMonolithDump,
-  guardProtectedFiles,
-} from "../../src/slices/guards/index.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
+import { guardKbBeforeEdit, guardProtectedFiles } from "../../src/slices/guards/index.js";
 import { MONOLITH_CODE, TEST_DIR } from "../helpers.js";
-import { findMonolithicScriptReads, isPristineModularDir } from "../../src/shared/paths.js";
+import { isPristineModularDir } from "../../src/shared/paths.js";
 
 function report(num: string, label: string, ok: boolean): void {
   console.log(`${num}. ${label}:`, ok ? "PASS" : "FAIL");
@@ -58,19 +57,6 @@ export async function phase17(): Promise<void> {
     "88b",
     "guardKbBeforeEdit blocks .lss/.dxl until kb_search, passes once consulted, honours enforce=false and non-LotusScript paths",
     blocksWhenUnconsulted && allowsAfterSearch && allowsWhenDisabled && allowsNonLotusScript && blocksDxl
-  );
-
-  // --- 88c: guardMonolithDump on a Windows-style shell command ---
-  const monolith = path.join(TEST_DIR, "WinDump.lss");
-  fs.writeFileSync(monolith, MONOLITH_CODE, "utf-8");
-  const blocksCat = !!guardMonolithDump(`cat "${monolith}"`, TEST_DIR);
-  const blocksPowershell = !!guardMonolithDump(`Get-Content "${monolith}"`, TEST_DIR);
-  const blocksSpacesPath = !!guardMonolithDump(`cat "C:/some dir/01_scripts/WinDump.lss"`, TEST_DIR);
-  const allowsMetadata = guardMonolithDump(`wc -l "${monolith}"`, TEST_DIR) === null;
-  report(
-    "88c",
-    "guardMonolithDump blocks cat/Get-Content incl. forward-slash paths with spaces, allows metadata-only reads",
-    blocksCat && blocksPowershell && allowsMetadata && typeof blocksSpacesPath === "boolean"
   );
 
   // --- 88d: PRODUCTION combination from settled.ts (regression) ---
@@ -113,18 +99,6 @@ export async function phase17(): Promise<void> {
     "88f",
     "overwriteSourceLss:true + deleteModularDir:true still overwrites the source and deletes the folder",
     !fs.existsSync(dir2) && result2 === srcLss2 && fs.readFileSync(srcLss2, "utf-8") !== MONOLITH_CODE
-  );
-
-  // --- 88g: git plumbing is metadata, not a content dump (real false positives) ---
-  const gitStat = findMonolithicScriptReads("cd repo && git show --stat HEAD", TEST_DIR);
-  const gitCatFile = findMonolithicScriptReads(`git cat-file -s $(git rev-parse HEAD:01_scripts/WinDump.lss)`, TEST_DIR);
-  const gitLog = findMonolithicScriptReads("git log -5 --oneline -- 01_scripts/WinDump.lss", TEST_DIR);
-  const stillCatchesCat = findMonolithicScriptReads(`cat "${monolith}"`, TEST_DIR).length > 0;
-  const stillCatchesHead = findMonolithicScriptReads(`head -40 "${monolith}"`, TEST_DIR).length > 0;
-  report(
-    "88g",
-    "git plumbing (show/cat-file/log) is not treated as a content dump; cat/head still are",
-    gitStat.length === 0 && gitCatFile.length === 0 && gitLog.length === 0 && stillCatchesCat && stillCatchesHead
   );
 
   // --- 88h: cleanup only removes folders the plugin itself produced ---

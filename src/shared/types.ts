@@ -8,15 +8,17 @@ export interface ModularConfig {
   lang: string;
   /** Run LotusScript LSP diagnostics check after compile */
   enableLsp: boolean;
-  /** Automatically decompile monolithic .lss or .dxl files on read */
-  autoDecompileOnRead: boolean;
   /** Automatically recompile on edits to modular procedure files */
   autoRecompileOnSave: boolean;
+  /** Auto-format the edited modular file via the LSP formatter before recompile (ASCII-only files) */
+  autoFormatOnSave: boolean;
+  /** Auto-attach lsp_explain help pages for new LSP error codes after a failed check */
+  autoExplainLspCodes: boolean;
   /** Keep timestamped copy of compiled file (<Name>_<timestamp>_compiled.lss) */
   keepTimestampInCompiledName: boolean;
   /** Overwrite original .lss file with recompiled code (never touches .dxl) */
   overwriteSourceLss: boolean;
-  /** Automatically clean up and delete decompiled folder when agent finishes modifications */
+  /** Clean up (compile then delete) the modular folder when the agent finishes modifications */
   cleanupOnSettled: boolean;
   /** Enforce consulting lotus-notes MCP knowledge base (prompt guideline) */
   enforceKbPrompt: boolean;
@@ -69,10 +71,6 @@ export type HookName =
 export interface HookTelemetry {
   /** Invocation count per subscribed hook. */
   hookCalls: Record<HookName, number>;
-  /** Monolithic .lss/.dxl reads auto-decompiled and redirected to main.lss. */
-  readsRedirected: number;
-  /** Reads redirected to an already-existing modular folder. */
-  readsModular: number;
   /** kb_search calls observed this session (satisfies the KB edit gate). */
   kbSearches: number;
   
@@ -80,8 +78,6 @@ export interface HookTelemetry {
   kbGateBlocks: number;
   /** agent_before_settle verification turns injected (mutated .lss/.dxl without a KB query in the run). */
   kbSettleNudges: number;
-  /** Monolith dump attempts blocked in shell-like tools. */
-  dumpBlocks: number;
   /** Edits of protected files (main.lss / manifest.json / *_compiled.lss) blocked. */
   protectedBlocks: number;
   /** Edit-triggered recompiles of a modular root. */

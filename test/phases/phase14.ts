@@ -10,7 +10,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { AgentParser } from "../../src/slices/parser/index.js";
+import { AgentParser } from "../fixtures/agent-parser.js";
 import {
   ASSEMBLED_HEADER_MARKER,
   buildArtifactHeader,

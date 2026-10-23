@@ -57,31 +57,28 @@ export async function phase12a(): Promise<GuardFixture> {
   const shellMonolith = path.join(TEST_DIR, "ShellGuardAgent.lss");
   fs.writeFileSync(shellMonolith, ["Option Public", "Sub Work()", "\tPrint \"1\"", "End Sub", ""].join("\n"), "utf-8");
 
-  // 55. bash content dump of the monolith is blocked
+  // 55-57. Shell inspection of a monolith is no longer intercepted. The
+  // content-dump guard was retired: `cat`, `readFileSync` and batch commands
+  // pass through, and reading a whole script is the agent's own choice.
   const bashDump = guardToolCall({
     toolName: "bash",
     input: { command: `cd "${TEST_DIR}" && cat -n ShellGuardAgent.lss | sed -n '1,180p'` },
   });
-  const bashDumpBlocked =
-    bashDump?.block === true &&
-    String(bashDump.reason).includes("INSTANT FAILURE") &&
-    String(bashDump.reason).includes("monolithic");
-  console.log("55. Guard blocks bash content dump of monolithic .lss:", bashDumpBlocked ? "PASS" : "FAIL");
-  if (!bashDumpBlocked) throw new Error(`bash monolith dump was not blocked: ${JSON.stringify(bashDump)}`);
+  const bashDumpAllowed = bashDump?.block !== true;
+  console.log("55. bash content read of monolithic .lss passes through:", bashDumpAllowed ? "PASS" : "FAIL");
+  if (!bashDumpAllowed) throw new Error(`bash monolith read was blocked: ${JSON.stringify(bashDump)}`);
 
-  // 56. ctx_execute code that reads the monolith is blocked
   const ctxExec = guardToolCall({
     toolName: "ctx_execute",
     input: {
       language: "javascript",
-      code: `const fs = require('fs'); console.log(fs.readFileSync('${shellMonolith.replace(/\\/g, "\\\\")}', 'utf8'));`,
+      code: `const fs = require('fs'); console.log(fs.readFileSync('${shellMonolith}', 'utf8'));`,
     },
   });
-  const ctxExecBlocked = ctxExec?.block === true && String(ctxExec.reason).includes("INSTANT FAILURE");
-  console.log("56. Guard blocks ctx_execute readFileSync of monolithic .lss:", ctxExecBlocked ? "PASS" : "FAIL");
-  if (!ctxExecBlocked) throw new Error(`ctx_execute monolith read was not blocked: ${JSON.stringify(ctxExec)}`);
+  const ctxExecAllowed = ctxExec?.block !== true;
+  console.log("56. ctx_execute readFileSync of monolithic .lss passes through:", ctxExecAllowed ? "PASS" : "FAIL");
+  if (!ctxExecAllowed) throw new Error(`ctx_execute monolith read was blocked: ${JSON.stringify(ctxExec)}`);
 
-  // 57. ctx_batch_execute command array is scanned
   const ctxBatch = guardToolCall({
     toolName: "ctx_batch_execute",
     input: {
@@ -89,11 +86,11 @@ export async function phase12a(): Promise<GuardFixture> {
       queries: ["anything"],
     },
   });
-  const ctxBatchBlocked = ctxBatch?.block === true && String(ctxBatch.reason).includes("INSTANT FAILURE");
-  console.log("57. Guard blocks ctx_batch_execute content dump of monolithic .lss:", ctxBatchBlocked ? "PASS" : "FAIL");
-  if (!ctxBatchBlocked) throw new Error(`ctx_batch_execute monolith dump was not blocked: ${JSON.stringify(ctxBatch)}`);
+  const ctxBatchAllowed = ctxBatch?.block !== true;
+  console.log("57. ctx_batch_execute content read of monolithic .lss passes through:", ctxBatchAllowed ? "PASS" : "FAIL");
+  if (!ctxBatchAllowed) throw new Error(`ctx_batch_execute monolith read was blocked: ${JSON.stringify(ctxBatch)}`);
 
-  // 58. Modular parts remain readable via bash (no false positive)
+  // 58. Modular parts remain readable via bash (unchanged)
   const modularRead = guardToolCall({
     toolName: "bash",
     input: { command: `cat "${path.join(shellDir, "sub_Work.lss")}"` },
