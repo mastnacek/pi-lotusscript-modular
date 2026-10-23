@@ -30,8 +30,6 @@ export async function lsStatus(state: PluginState, _parts: LsParts, ctx: Extensi
   const lines = [
     t.title,
     `- ${t.lspCheck}: ${flag(config.enableLsp)}`,
-    `- ${t.procLimits}: ${flag(config.checkProcedureLimits)}`,
-    `- ${t.maxLines}: ${config.maxProcedureLines}`,
     `- ${t.czechComments}: ${flag(config.enforceCzechComments)}`,
     `- ${t.scorecard}: ${flag(config.enableScorecard)}`,
     `- ${t.rubric}: ${flag(config.enforceGradingRubric)}`,

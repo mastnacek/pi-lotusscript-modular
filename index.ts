@@ -104,6 +104,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const pipelineDeps: PipelineDeps = {
     guardKbBeforeEdit,
     mutatingToolNames: MUTATING_TOOL_NAMES,
+    lintFile: (filePath, checkComments) => lintLotusScriptFile(filePath, checkComments),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
     formatLotusScriptFile,

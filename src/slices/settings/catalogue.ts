@@ -24,8 +24,6 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "minKbSearchesPerRun", kind: "number" },
   { key: "injectGotchasSummary", kind: "boolean" },
   { key: "enforceGotchaCapture", kind: "boolean" },
-  { key: "checkProcedureLimits", kind: "boolean" },
-  { key: "maxProcedureLines", kind: "number" },
   { key: "enforceCzechComments", kind: "boolean" },
   { key: "enableScorecard", kind: "boolean" },
   { key: "enforceGradingRubric", kind: "boolean" },

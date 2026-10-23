@@ -41,7 +41,14 @@ export async function phaseCommands(): Promise<void> {
   if (!okTypes) throw new Error(`Types: ${JSON.stringify(types)}`);
 
   // 4. Direct setting completions never advertise a retired key.
-  const retired = ["overwriteSourceLss", "keepTimestampInCompiledName", "cleanupOnSettled", "autoRecompileOnSave"];
+  const retired = [
+    "overwriteSourceLss",
+    "keepTimestampInCompiledName",
+    "cleanupOnSettled",
+    "autoRecompileOnSave",
+    "checkProcedureLimits",
+    "maxProcedureLines",
+  ];
   const settingValues = subs.map((s) => s.value);
   const leaked = retired.filter((k) => settingValues.includes(k));
   console.log("4. retired settings are not offered as subcommands:", leaked.length === 0 ? "PASS" : "FAIL");
@@ -58,11 +65,11 @@ export async function phaseCommands(): Promise<void> {
 
   // 6. boolean/number parsing still validates.
   const boolSpec = findSetting("enableLsp")!;
-  const numSpec = findSetting("maxProcedureLines")!;
+  const numSpec = findSetting("minKbSearchesPerRun")!;
   const okParse =
     (parseValue(boolSpec, "on") as { ok: true; value: boolean }).value === true &&
     (parseValue(boolSpec, "off") as { ok: true; value: boolean }).value === false &&
-    (parseValue(numSpec, "120") as { ok: true; value: number }).value === 120 &&
+    (parseValue(numSpec, "5") as { ok: true; value: number }).value === 5 &&
     parseValue(numSpec, "abc").ok === false &&
     parseValue(boolSpec, "maybe").ok === false;
   console.log("6. settings parse/validate booleans and numbers:", okParse ? "PASS" : "FAIL");
@@ -84,6 +91,8 @@ export async function phaseCommands(): Promise<void> {
       cleanupOnSettled: true,
       keepTimestampInCompiledName: true,
       autoRecompileOnSave: true,
+      checkProcedureLimits: true,
+      maxProcedureLines: 300,
     }),
     "utf-8"
   );
@@ -94,7 +103,9 @@ export async function phaseCommands(): Promise<void> {
     !("overwriteSourceLss" in loaded) &&
     !("cleanupOnSettled" in loaded) &&
     !("keepTimestampInCompiledName" in loaded) &&
-    !("autoRecompileOnSave" in loaded);
+    !("autoRecompileOnSave" in loaded) &&
+    !("checkProcedureLimits" in loaded) &&
+    !("maxProcedureLines" in loaded);
   console.log("8. retired settings are dropped when a config is loaded:", okRetired ? "PASS" : "FAIL");
   if (!okRetired) throw new Error(`Loaded config kept retired keys: ${JSON.stringify(loaded)}`);
 

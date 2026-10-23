@@ -1,7 +1,8 @@
 # LotusScript Coding Conventions (Domino 9.0.1)
 
-Coding standards enforced by the plugin linter (`maxProcedureLines`,
-`enforceCzechComments`) and checked on every compile.
+Coding standards the plugin linter enforces (`enforceCzechComments`) plus the
+conventions the compiler and Designer reward. There is **no line-length rule** —
+that convention died with the per-procedure file layout.
 
 ---
 
@@ -178,15 +179,17 @@ Catch:
 
 ---
 
-## 6. Procedure Size & Comments (Linter Contract)
+## 6. Procedure Comments (Linter Contract)
 
-1. No procedure exceeds `maxProcedureLines` (default **300**) unless the user
-   approves an exception in the interactive modal.
-2. Every `Sub`/`Function` carries a Czech purpose comment `' Účel: ...`.
-3. Purpose comments sit **above the procedure declaration** — but see gotcha
-   #41: comments directly above a procedure declaration can be lost during
-   recompile/decompile cycles; prefer placing them inside the synthetic header
-   block (`@script-member-of` block) or the first line inside the procedure.
+1. Every `Sub`/`Function` carries a Czech purpose comment `' Účel: ...`.
+2. The comment sits **directly above the declaration**. The linter walks upward
+   from the `Sub`/`Function` line, skipping blank lines and stopping at the first
+   non-comment line — a comment inside the body, or up at `Option`/`Declare`
+   level, does not describe that procedure and is reported as missing.
+3. Size is not linted. The 300-line guideline belonged to the days when every
+   procedure was its own file; the 9.0.1 compiler enforces the real ceiling
+   (`'Script structure too large'`, 32 KB of bytecode/data per procedure) and
+   reports it as a diagnostic.
 
 ---
 

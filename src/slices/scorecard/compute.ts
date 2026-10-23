@@ -39,20 +39,7 @@ function condense(text: string, maxLines = 3): string | undefined {
 export function computeScorecard(input: ScorecardInput): AgentScorecard {
   const items: ScorecardItem[] = [];
 
-  // DoD 1 — procedure length
-  const exceeded = input.lint.exceededProcedures;
-  items.push({
-    id: "proc-limit",
-    label: `procedures ≤ ${input.maxProcedureLines} lines`,
-    ok: exceeded.length === 0,
-    weight: 2,
-    detail:
-      exceeded.length > 0
-        ? condense(exceeded.map((p) => `${p.procedureName} (${p.lineCount})`).join(", "), 1)
-        : undefined,
-  });
-
-  // DoD 2 — Czech purpose comments
+  // DoD 1 — Czech purpose comments
   if (input.enforceCzechComments) {
     const total = input.lint.allItems.length;
     const missing = input.lint.missingCommentProcedures;
@@ -65,7 +52,7 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     });
   }
 
-  // DoD 3 — LSP diagnostics.
+  // DoD 2 — LSP diagnostics.
   // A check that did not run (no result) or failed on the harness side (server
   // missing, timeout, query error) is "not measured" — never "failed". Grading
   // an absent result as a failure produced the self-contradictory
@@ -86,7 +73,7 @@ export function computeScorecard(input: ScorecardInput): AgentScorecard {
     });
   }
 
-  // DoD 4 — KB verification. Scored only when a KB enforcement toggle is on;
+  // DoD 3 — KB verification. Scored only when a KB enforcement toggle is on;
   // a user who disabled all KB machinery is not punished for skipping it.
   // Plural by design: one call per KB layer (reference / book / community).
   if (input.kbExpected) {
@@ -148,33 +135,28 @@ export function formatScorecard(current: AgentScorecard, previous?: AgentScoreca
  * Static rules only — live numbers belong in the per-check scorecard.
  */
 export function buildGradingRubric(config: ModularConfig): string {
-  const n = config.maxProcedureLines;
-
   const commentRule = config.enforceCzechComments
-    ? "2. Every sub/function carries a concise Czech purpose comment (' Účel: ...)."
-    : "2. (Czech purpose comments are disabled by config.)";
+    ? "1. Every sub/function carries a concise Czech purpose comment (' Účel: ...)."
+    : "1. (Czech purpose comments are disabled by config.)";
 
   const kbExpected = config.enforceKbPrompt || config.enforceKbGate || config.verifyKbBeforeSettle;
   const kbRule = kbExpected
-    ? `5. The lotus-notes knowledge base was consulted at least ${config.minKbSearchesPerRun}× per run (kb_search) — once per layer: IBM API reference, Guirard book, community/error text.`
-    : "5. (KB verification is disabled by config.)";
+    ? `3. The lotus-notes knowledge base was consulted at least ${config.minKbSearchesPerRun}× per run (kb_search) — once per layer: IBM API reference, Guirard book, community/error text.`
+    : "3. (KB verification is disabled by config.)";
 
   const lspRule = config.enableLsp
-    ? "3. The whole .lss file reports 0 LSP errors (verified with lotusscript_check)."
-    : "3. (LSP validation is disabled by config.)";
+    ? "2. The whole .lss file reports 0 LSP errors (verified with lotusscript_check)."
+    : "2. (LSP validation is disabled by config.)";
 
-    return [
+  return [
     "LOTUSSCRIPT DEFINITION OF DONE (per .lss file you touch):",
-    `1. No procedure exceeds ${n} lines, unless the user approved an exception.`,
     commentRule,
     lspRule,
-    "4. Every newly discovered trap is proposed via lotusscript_gotchas(action: \"add\") and user-approved.",
     kbRule,
     "",
     "HOW YOU'RE GRADED (the plugin computes this — never self-report a score):",
     "  +2 per satisfied DoD item",
     "  -5 per LSP error remaining at the final whole-file check",
-    `  -5 per procedure over ${n} lines without an approved exception`,
     "  -3 per procedure missing its Czech purpose comment",
     "  INSTANT FAILURE: creating a modular folder (manifest.json / main.lss / sub_*.lss) — the modular workflow was removed; every .lss is a whole script",
     "  A live scorecard is attached to every check result — treat it as your feedback signal.",

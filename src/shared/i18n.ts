@@ -39,8 +39,6 @@ export interface Strings {
   status: {
     title: string;
     lspCheck: string;
-    procLimits: string;
-    maxLines: string;
     czechComments: string;
     scorecard: string;
     rubric: string;
@@ -100,7 +98,6 @@ export interface Strings {
   lint: {
     title: (name: string) => string;
     total: (n: number) => string;
-    exceeding: (limit: number, n: number) => string;
     missingComment: (n: number) => string;
     missingDesc: string;
     linesCount: (n: number) => string;
@@ -139,34 +136,6 @@ export interface Strings {
     rewritePlaceholder: string;
   };
 
-  limitModal: {
-    header: string;
-    procedureLabel: string;
-    lineCountLabel: string;
-    limitLabel: string;
-    overBy: (n: number) => string;
-    riskLabel: string;
-    riskText: string;
-    commentsLabel: string;
-    choose: string;
-    approve: string;
-    approveHint: string;
-    reject: string;
-    rejectHint: string;
-    instructions: string;
-    instructionsEmpty: string;
-    instructionsPrefix: string;
-    inputPlaceholder: string;
-    footer: string;
-    moreRows: (parts: string) => string;
-    inputPrompt: (file: string) => string;
-    inputDialogPlaceholder: string;
-  };
-
-  limits: {
-    exceptionApproved: (file: string, lines: number) => string;
-  };
-
   settled: {
     score: (s: number, m: number) => string;
     done: (file: string, tail: string) => string;
@@ -189,7 +158,7 @@ export interface Strings {
     reads: (kb: number) => string;
     gates: (kb: number, checks: number, kbNudges: number) => string;
     codeNone: string;
-    code: (procs: number, longest: number | null, max: number) => string;
+    code: (procs: number) => string;
     suffix: (code: string, lsp: string) => string;
   };
 

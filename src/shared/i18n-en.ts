@@ -15,8 +15,6 @@ export const STRINGS_EN: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Configuration status]:",
     lspCheck: "LSP check",
-    procLimits: "Procedure limit check",
-    maxLines: "Max lines per procedure",
     czechComments: "Enforce Czech comments",
     scorecard: "Scorecard (grading)",
     rubric: "Definition of Done rubric",
@@ -81,7 +79,6 @@ ${diagnostics}`,
   lint: {
     title: (name) => `🔍 [LotusScript Linter — ${name}]:`,
     total: (n) => `- Total procedures: ${n}`,
-    exceeding: (limit, n) => `- Exceeds the ${limit}-line limit: ${n}`,
     missingComment: (n) => `- Missing Czech comment: ${n}`,
     missingDesc: "⚠️ missing description",
     linesCount: (n) => `${n} lines`,
@@ -120,36 +117,6 @@ ${diagnostics}`,
     rewritePlaceholder: "Describe what the AI should change, add or rewrite in the proposal...",
   },
 
-  limitModal: {
-    header: "Procedure length limit exceeded 📏",
-    procedureLabel: "📌 Procedure:",
-    lineCountLabel: "📊 Line count:",
-    limitLabel: "/ limit:",
-    overBy: (n) => `(+${n} lines over the limit)`,
-    riskLabel: "⚠️  Risk:",
-    riskText: "LotusScript 32 KB procedure bytecode limit ('Script structure too large')",
-    commentsLabel: "ℹ️  Comments:",
-    choose: "🎯 Choose an action (arrow keys ↑ / ↓, confirm with Enter):",
-    approve: "✅ [Allow exception]",
-    approveHint: "— approve a minor excess and continue",
-    reject: "✂️ [Reject and split]",
-    rejectHint: "— send the AI a directive to split into smaller subs/functions",
-    instructions: "✏️ [Split instructions]",
-    instructionsEmpty: "Instructions: (Enter to type)",
-    instructionsPrefix: "Instructions: ",
-    inputPlaceholder: " (type split instructions here)",
-    footer: "💡 ↑↓ actions • Enter confirm • Esc reject • PageUp/PageDown scroll",
-    moreRows: (parts) => `… ${parts} rows (PageUp/PageDown) …`,
-    inputPrompt: (file) => `✏️ Instructions for splitting procedure '${file}':`,
-    inputDialogPlaceholder:
-      "Describe how the AI should split the procedure (e.g. extract HTTP calls or database queries)...",
-  },
-
-  limits: {
-    exceptionApproved: (file, lines) =>
-      `✓ Length exception approved for ${file} (${lines} lines)`,
-  },
-
   settled: {
     score: (s, m) => ` [score: ${s}/${m}]`,
     done: (file, tail) => `🪷 [LotusScript Modular] Done: ${file} ${tail}`,
@@ -173,7 +140,7 @@ ${diagnostics}`,
     gates: (kb, checks, kbNudges) =>
       `   gates: KB ${kb} · checks ${checks} · settle-nudges ${kbNudges}`,
     codeNone: "code: no check yet",
-    code: (procs, longest, max) => `code: ${procs} procs · longest ${longest}/${max}`,
+    code: (procs) => `code: ${procs} procedures`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
   },
 
@@ -266,14 +233,6 @@ ${diagnostics}`,
       description: "Enforce recording newly discovered pitfalls and gotchas",
       on: "On — remind to save a new gotcha after solving a problem",
       off: "Off — optional",
-    },
-    checkProcedureLimits: {
-      description: "Check the maximum procedure (sub/function) length and comment presence",
-      on: "On — watch the line limit and comments",
-      off: "Off — do not check",
-    },
-    maxProcedureLines: {
-      description: "Maximum allowed lines per procedure / function (default: 300)",
     },
     enforceCzechComments: {
       description: "Enforce concise Czech purpose comments on every procedure",

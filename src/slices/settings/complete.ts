@@ -240,7 +240,7 @@ function completeLsArgumentsClean(
     return filter(`${sub} `, gotchasTopics(s), afterSub);
   }
 
-  // Direct setting completions (e.g. /ls checkProcedureLimits <true|false>)
+  // Direct setting completions (e.g. /ls enforceCzechComments <true|false>)
   const directSpec = findSetting(sub);
   if (directSpec) {
     return completeValues(`${sub} `, sub, current, s, afterSub);

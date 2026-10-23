@@ -41,9 +41,9 @@ export function buildPromptGuidelines(config: ModularConfig, deps: PipelineDeps)
     );
   }
 
-  if (config.checkProcedureLimits) {
+  if (config.enforceCzechComments) {
     guidelines.push(
-      `LOTUSSCRIPT PROCEDURE LIMITS & COMMENTS: Individual subroutines and functions MUST NOT exceed ${config.maxProcedureLines} lines for maintainability and to avoid the hard LotusScript 32 KB bytecode/data procedure limit (compiler halts with 'Script structure too large' if exceeded). Decompose complex logic into smaller subroutines/functions. Each procedure MUST have a concise Czech comment explaining its purpose (' Účel: ...). If a procedure exceeds ${config.maxProcedureLines} lines, an interactive approval modal is shown to the user to either approve a slight excess or reject and require splitting.`
+      "LOTUSSCRIPT PROCEDURE COMMENTS: every Sub/Function carries a concise Czech comment stating its purpose (' Účel: ...) directly above the declaration — the linter reads upward from the declaration and reports any procedure without one."
     );
   }
 

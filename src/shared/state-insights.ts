@@ -52,7 +52,6 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
     const cfg = config();
     return computeScorecard({
       agent: path.basename(filePath),
-      maxProcedureLines: cfg.maxProcedureLines,
       lint: opts.lint,
       lsp: opts.lsp,
       lspEnabled: cfg.enableLsp,

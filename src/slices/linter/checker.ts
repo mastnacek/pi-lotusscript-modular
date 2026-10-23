@@ -1,10 +1,11 @@
 /**
  * Whole-file procedure linter.
  *
- * A LotusScript module is ONE `.lss` file holding every `Sub`/`Function`, so the
- * linter splits that file into procedure blocks and measures each one: line
- * count against `maxProcedureLines`, and the presence of a Czech purpose
- * comment (`' Účel: ...`) above the declaration.
+ * A LotusScript module is ONE `.lss` file holding every `Sub`/`Function`. The
+ * linter locates those blocks only to check that each one carries a Czech
+ * purpose comment (`' Účel: ...`) above its declaration — no size rule: the
+ * 300-line convention belonged to the per-procedure file layout, and the
+ * compiler reports a genuinely oversized procedure itself.
  */
 
 import fs from "node:fs";
@@ -93,17 +94,15 @@ export function findProcedures(content: string): Array<{ name: string; startLine
 }
 
 /**
- * Lints one whole `.lss` file: every procedure inside it.
+ * Lints one whole `.lss` file: the purpose comment of every procedure inside it.
  * Returns an empty result when the file is missing or holds no procedure.
  */
 export function lintLotusScriptFile(
   filePath: string,
-  maxLines = 300,
   checkComments = true
 ): FileLintResult {
   const empty: FileLintResult = {
     ok: true,
-    exceededProcedures: [],
     missingCommentProcedures: [],
     allItems: [],
   };
@@ -123,17 +122,15 @@ export function lintLotusScriptFile(
       procedureName: proc.name,
       startLine: proc.startLine,
       lineCount: proc.lineCount,
-      maxLines,
-      isExceeded: proc.lineCount > maxLines,
       hasDocComment: docCheck.hasDocComment,
       commentNotice: (docCheck as { notice?: string }).notice,
     });
   }
 
+  const missingCommentProcedures = allItems.filter((item) => !item.hasDocComment);
   return {
-    ok: allItems.every((item) => !item.isExceeded),
-    exceededProcedures: allItems.filter((item) => item.isExceeded),
-    missingCommentProcedures: allItems.filter((item) => !item.hasDocComment),
+    ok: missingCommentProcedures.length === 0,
+    missingCommentProcedures,
     allItems,
   };
 }

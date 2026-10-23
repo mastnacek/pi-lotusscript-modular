@@ -7,11 +7,10 @@
  * Every session creates one state via `createPluginState()`; nothing here is
  * global, so concurrent/mocked extension registrations stay isolated.
  *
- * Heavy helpers live in sibling modules (state-insights.ts,
- * state-procedure-limits.ts) — this file stays the composition kernel.
+ * Heavy helpers live in a sibling module (state-insights.ts) — this file stays
+ * the composition kernel.
  */
 
-import fs from "node:fs";
 import type { ExtensionContext } from "@earendil-works/pi-coding-agent";
 import type {
   AgentScorecard,
@@ -24,7 +23,6 @@ import type {
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
 import { stringsFor } from "./i18n.js";
 import { createStateInsights } from "./state-insights.js";
-import { createProcedureLimitGate } from "./state-procedure-limits.js";
 import {
   createTelemetry,
   renderTelemetryPanel as renderTelemetryPanelWidget,
@@ -44,8 +42,6 @@ export interface PluginState {
   latestScorecard: AgentScorecard | undefined;
   /** Absolute path of the file the current run last ran a whole-file check on. */
   lastCheckedFile: string | null;
-  readonly approvedLineExceptions: Set<string>;
-  readonly rejectedLineSignatures: Map<string, string>;
   readonly scoreHistory: Map<string, AgentScorecard[]>;
   readonly preflightBannerCache: Map<string, string>;
   readonly pendingDebriefs: string[];
@@ -67,7 +63,6 @@ export interface PluginState {
   readonly telemetry: HookTelemetry;
 
   // --- helpers ---
-  procedureSignature(filePath: string): string;
   buildScorecard(
     filePath: string,
     opts: {
@@ -78,16 +73,6 @@ export interface PluginState {
   recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined;
   collectFileTokens(filePath: string): string[];
   buildGotchasBanner(filePath: string): string;
-  verifyProcedureLimits(
-    filePath: string,
-    ctx?: ExtensionContext
-  ): Promise<{
-    ok: boolean;
-    message?: string;
-    splitInstructions?: string;
-    warnings: string[];
-    lint: FileLintResult;
-  }>;
   renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
   /** Count a hook invocation and refresh the telemetry panel. */
   countHook(name: HookName): void;
@@ -110,8 +95,6 @@ export function createPluginState(): PluginState {
   let latestScorecard: AgentScorecard | undefined = undefined;
   let lastCheckedFile: string | null = null;
 
-  const approvedLineExceptions = new Set<string>();
-  const rejectedLineSignatures = new Map<string, string>();
   const scoreHistory = new Map<string, AgentScorecard[]>();
   const preflightBannerCache = new Map<string, string>();
   const pendingDebriefs: string[] = [];
@@ -123,16 +106,6 @@ export function createPluginState(): PluginState {
   let settleKbNudgeSent = false;
   const telemetry = createTelemetry();
 
-  /** Cheap content signature used to avoid re-prompting for unchanged files. */
-  function procedureSignature(filePath: string): string {
-    try {
-      const st = fs.statSync(filePath);
-      return `${st.mtimeMs}:${st.size}`;
-    } catch {
-      return "missing";
-    }
-  }
-
   // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
   const insights = createStateInsights({
     getConfig: () => config,
@@ -143,13 +116,6 @@ export function createPluginState(): PluginState {
     },
     scoreHistory,
     preflightBannerCache,
-  });
-  const limitGate = createProcedureLimitGate({
-    getConfig: () => config,
-    approvedLineExceptions,
-    rejectedLineSignatures,
-    procedureSignature,
-    getLatestUiContext: () => latestUiContext,
   });
 
   function renderStatusline(state: "idle" | "checking" | "clean" | "error" = "idle"): void {
@@ -244,8 +210,6 @@ export function createPluginState(): PluginState {
     set lastCheckedFile(filePath: string | null) {
       lastCheckedFile = filePath;
     },
-    approvedLineExceptions,
-    rejectedLineSignatures,
     scoreHistory,
     preflightBannerCache,
     pendingDebriefs,
@@ -280,12 +244,10 @@ export function createPluginState(): PluginState {
       lastCheckedFile = null;
     },
     telemetry,
-    procedureSignature,
     buildScorecard: insights.buildScorecard,
     recordScorecard: insights.recordScorecard,
     collectFileTokens: insights.collectFileTokens,
     buildGotchasBanner: insights.buildGotchasBanner,
-    verifyProcedureLimits: limitGate.verifyProcedureLimits,
     renderStatusline,
     countHook,
     renderTelemetryPanel,

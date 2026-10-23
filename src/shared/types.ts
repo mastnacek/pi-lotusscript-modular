@@ -26,10 +26,6 @@ export interface ModularConfig {
   injectGotchasSummary: boolean;
   /** Enforce recording newly discovered LotusScript traps and gotchas */
   enforceGotchaCapture: boolean;
-  /** Enforce checking procedure line limits and comments */
-  checkProcedureLimits: boolean;
-  /** Maximum lines allowed per individual subroutine or function */
-  maxProcedureLines: number;
   /** Enforce concise Czech documentation comments on procedures */
   enforceCzechComments: boolean;
   /** Compute and inject a deterministic per-file scorecard after every check */
@@ -72,8 +68,6 @@ export interface HookTelemetry {
   checks: number;
   /** Procedure count in the last checked file (null before the first check). */
   lastProcCount: number | null;
-  /** Longest procedure line count (null before the first check). */
-  lastLongestProc: number | null;
   /** Last LSP outcome (null = LSP disabled or not run yet). */
   lastLspOk: boolean | null;
 }
@@ -112,7 +106,6 @@ export interface AgentScorecard {
 
 export interface ScorecardInput {
   agent: string;
-  maxProcedureLines: number;
   lint: FileLintResult;
   lsp: LspCheckResult | null;
   lspEnabled: boolean;
@@ -133,8 +126,6 @@ export interface ProcedureLintItem {
   /** First line of the procedure block (1-based), for coordinates. */
   startLine: number;
   lineCount: number;
-  maxLines: number;
-  isExceeded: boolean;
   hasDocComment: boolean;
   commentNotice?: string;
   commentStyle?: CommentStyle;
@@ -142,8 +133,8 @@ export interface ProcedureLintItem {
 
 /** Lint result for one whole LotusScript file. */
 export interface FileLintResult {
+  /** True when every procedure carries its purpose comment. */
   ok: boolean;
-  exceededProcedures: ProcedureLintItem[];
   missingCommentProcedures: ProcedureLintItem[];
   allItems: ProcedureLintItem[];
 }

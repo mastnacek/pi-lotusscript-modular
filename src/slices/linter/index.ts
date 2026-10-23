@@ -1,16 +1,12 @@
 /**
- * Linter barrel — checker (pure lint functions) + modal component + prompt
- * helper. Implementation modules stay under the per-file line limit.
+ * Linter barrel — checker (pure lint functions).
+ *
+ * The over-limit approval modal (ProcedureLimitComponent, InstructionsInput,
+ * promptProcedureLineReview) was deleted together with the procedure-length
+ * rule; only the purpose-comment check remains.
  */
 
 export {
   findProcedures,
   lintLotusScriptFile,
 } from "./checker.js";
-
-export {
-  ProcedureLimitComponent,
-  type ProcedureReviewResult,
-} from "./modal.js";
-
-export { promptProcedureLineReview } from "./prompt-review.js";

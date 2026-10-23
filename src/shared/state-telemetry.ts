@@ -34,7 +34,6 @@ export function createTelemetry(): HookTelemetry {
     kbSettleNudges: 0,
     checks: 0,
     lastProcCount: null,
-    lastLongestProc: null,
     lastLspOk: null,
   };
 }
@@ -61,7 +60,7 @@ export function telemetryLines(t: HookTelemetry, config: ModularConfig): string[
   const code =
     t.lastProcCount === null
       ? s.codeNone
-      : s.code(t.lastProcCount, t.lastLongestProc, config.maxProcedureLines);
+      : s.code(t.lastProcCount);
   const lsp = t.lastLspOk === null ? "?" : t.lastLspOk ? "✓" : "⚠";
   return [
     s.hooks(totalHookCalls(t), t.hookCalls.tool_call, t.hookCalls.tool_result, t.hookCalls.agent_settled),

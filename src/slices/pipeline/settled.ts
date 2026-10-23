@@ -18,7 +18,7 @@ import type { PluginState } from "../../shared/state.js";
 /** Cross-slice capabilities injected by the composition root. */
 export interface SettledDeps {
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
-  lintFile(filePath: string, maxLines: number, checkComments: boolean): FileLintResult;
+  lintFile(filePath: string, checkComments: boolean): FileLintResult;
   trendLabel(current: AgentScorecard, previous?: AgentScorecard): string;
 }
 
@@ -30,7 +30,7 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
   if (!filePath || !fs.existsSync(filePath)) return;
   if (!config.enableScorecard) return;
 
-  const lint = deps.lintFile(filePath, config.maxProcedureLines, config.enforceCzechComments);
+  const lint = deps.lintFile(filePath, config.enforceCzechComments);
 
   // Measure the LSP on the file as it now stands. Skipping the check
   // (lsp: null) made the debrief grade "not measured" as "failed" — see

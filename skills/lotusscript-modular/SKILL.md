@@ -102,15 +102,18 @@ feedback signal.
 
 **Definition of Done (per `.lss` file you touch):**
 
-1. No procedure exceeds `maxProcedureLines` (default 300), unless the user approved an exception.
-2. Every sub/function has a concise Czech purpose comment (`' Účel: ...`).
-3. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
+1. Every sub/function has a concise Czech purpose comment (`' Účel: ...`).
+2. The whole file reports 0 LSP errors (verified with `lotusscript_check`).
+3. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
 4. Every newly discovered trap is proposed via `lotusscript_gotchas(action: "add")` and user-approved.
-5. The `lotus-notes` knowledge base was consulted at least `minKbSearchesPerRun`× this run (`kb_search`, default 3) — once per layer: IBM API reference, Guirard book, community/error text.
 
-Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-5` per
-over-limit procedure without an approved exception, `-3` per procedure missing
-its Czech purpose comment.
+Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error, `-3` per
+procedure missing its Czech purpose comment.
+
+There is **no procedure-length rule**: the 300-line convention belonged to the
+per-procedure file layout and is gone with it. The 9.0.1 compiler reports a
+genuinely oversized procedure itself (`'Script structure too large'`), and
+`lotusscript_check` surfaces that as a diagnostic.
 
 Instant failure condition: creating a modular folder (`manifest.json`,
 `main.lss`, `sub_*.lss`, `*_compiled.lss`) — the modular workflow is gone and

@@ -56,18 +56,16 @@ export async function lsLint(state: PluginState, parts: LsParts, ctx: ExtensionC
     ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
     return;
   }
-  const res = deps.lintLotusScriptFile(target, config.maxProcedureLines, config.enforceCzechComments);
+  const res = deps.lintLotusScriptFile(target, config.enforceCzechComments);
   const lines = [
     s.lint.title(path.basename(target)),
     s.lint.total(res.allItems.length),
-    s.lint.exceeding(config.maxProcedureLines, res.exceededProcedures.length),
     s.lint.missingComment(res.missingCommentProcedures.length),
   ];
   for (const item of res.allItems) {
-    const statusIcon = item.isExceeded ? "❌" : "✓";
     const docIcon = item.hasDocComment ? "📝" : s.lint.missingDesc;
     lines.push(
-      `  ${statusIcon} ${item.procedureName} (${item.startLine}) — ${s.lint.linesCount(item.lineCount)} [${docIcon}]`
+      `  ${docIcon} ${item.procedureName} (line ${item.startLine}) — ${s.lint.linesCount(item.lineCount)}`
     );
   }
   if (config.enableScorecard) {
@@ -85,7 +83,7 @@ export async function lsScore(state: PluginState, parts: LsParts, ctx: Extension
     ctx.ui.notify(s.check.usage(parts[1] || ""), "warning");
     return;
   }
-  const lintRes = deps.lintLotusScriptFile(target, config.maxProcedureLines, config.enforceCzechComments);
+  const lintRes = deps.lintLotusScriptFile(target, config.enforceCzechComments);
   let lspRes: LspCheckResult | null = null;
   if (config.enableLsp) {
     lspRes = await deps.checkLotusScriptDiagnostics(target);

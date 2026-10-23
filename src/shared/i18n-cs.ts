@@ -15,8 +15,6 @@ export const STRINGS_CS: Strings = {
   status: {
     title: "⚙️ [LotusScript Modular — Stav konfigurace]:",
     lspCheck: "LSP kontrola",
-    procLimits: "Kontrola limitů procedur",
-    maxLines: "Max řádků na proceduru",
     czechComments: "Vynucovat české komentáře",
     scorecard: "Scorecard (hodnocení)",
     rubric: "Rubrika Definition of Done",
@@ -81,7 +79,6 @@ ${diagnostics}`,
   lint: {
     title: (name) => `🔍 [LotusScript Linter — ${name}]:`,
     total: (n) => `- Celkem procedur: ${n}`,
-    exceeding: (limit, n) => `- Překračuje limit ${limit} řádků: ${n}`,
     missingComment: (n) => `- Chybějící český komentář: ${n}`,
     missingDesc: "⚠️ chybí popis",
     linesCount: (n) => `${n} řádků`,
@@ -120,36 +117,6 @@ ${diagnostics}`,
     rewritePlaceholder: "Napište, co má AI v návrhu upravit, doplnit nebo přepsat...",
   },
 
-  limitModal: {
-    header: "Překročení limitu délky procedury 📏",
-    procedureLabel: "📌 Procedura:",
-    lineCountLabel: "📊 Počet řádků:",
-    limitLabel: "/ limit:",
-    overBy: (n) => `(+${n} řádků nad limit)`,
-    riskLabel: "⚠️  Riziko:",
-    riskText: "LotusScript 32 KB bytecode limit procedury ('Script structure too large')",
-    commentsLabel: "ℹ️  Komentáře:",
-    choose: "🎯 Zvolte akci (šipkami ↑ / ↓, potvrďte Enter):",
-    approve: "✅ [Povolit výjimku]",
-    approveHint: "— schválit mírné překročení a pokračovat",
-    reject: "✂️ [Odmítnout a rozdělit]",
-    rejectHint: "— vrátit AI pokyn k rozdělení na menší sub/funkce",
-    instructions: "✏️ [Pokyny k rozdělení]",
-    instructionsEmpty: "Pokyny: (Enter pro zadání)",
-    instructionsPrefix: "Pokyny: ",
-    inputPlaceholder: " (zde napište pokyny k rozdělení)",
-    footer: "💡 ↑↓ akce • Enter potvrdit • Esc zamítnout • PageUp/PageDown posun",
-    moreRows: (parts) => `… ${parts} řádků (PageUp/PageDown) …`,
-    inputPrompt: (file) => `✏️ Pokyny pro rozdělení procedury '${file}':`,
-    inputDialogPlaceholder:
-      "Napište, jak má AI proceduru rozdělit (např. vyčleň HTTP volání nebo databázové dotazy)...",
-  },
-
-  limits: {
-    exceptionApproved: (file, lines) =>
-      `✓ Schválena výjimka délky pro ${file} (${lines} řádků)`,
-  },
-
   settled: {
     score: (s, m) => ` [skóre: ${s}/${m}]`,
     done: (file, tail) => `🪷 [LotusScript Modular] Hotovo: ${file} ${tail}`,
@@ -173,7 +140,7 @@ ${diagnostics}`,
     gates: (kb, checks, kbNudges) =>
       `   brány: KB ${kb} · kontroly ${checks} · settle-nudges ${kbNudges}`,
     codeNone: "kód: zatím žádná kontrola",
-    code: (procs, longest, max) => `kód: ${procs} proc. · nejdelší ${longest}/${max}`,
+    code: (procs) => `kód: ${procs} procedur`,
     suffix: (code, lsp) => `📏 ${code} · LSP ${lsp}`,
   },
 
@@ -266,14 +233,6 @@ ${diagnostics}`,
       description: "Vynucovat zaznamenávání nově objevených chyb a gotchas",
       on: "Zapnuto — připomínat povinnost uložit nový gotcha po vyřešení problému",
       off: "Vypnuto — nepovinné",
-    },
-    checkProcedureLimits: {
-      description: "Kontrolovat maximální délku procedur (sub/funkcí) a přítomnost komentářů",
-      on: "Zapnuto — hlídat limit řádků a komentáře",
-      off: "Vypnuto — nekontrolovat",
-    },
-    maxProcedureLines: {
-      description: "Maximální povolený počet řádků na jednu proceduru / funkci (výchozí: 300)",
     },
     enforceCzechComments: {
       description: "Vynucovat stručné české komentáře s popisem účelu u každé procedury",

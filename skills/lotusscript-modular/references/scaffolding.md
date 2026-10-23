@@ -61,8 +61,9 @@ The tool never overwrites existing code.
 
 ## 5. After Scaffolding (Definition of Done chain)
 
-1. Fill the implementation inside the marked sections — keep every procedure
-   ≤ `maxProcedureLines` (300), each with a `' Účel: ...` comment.
+1. Fill the implementation inside the marked sections — every procedure needs
+   a `' Účel: ...` comment above its declaration (there is no line-length rule:
+   the compiler reports a genuinely oversized procedure itself).
 2. Declare globals/types in the file's declarations section, never inside
    procedure bodies (gotcha #38 for Option placement).
 3. Check the whole file: `lotusscript_check(path)` or `/ls compile <file.lss>`.

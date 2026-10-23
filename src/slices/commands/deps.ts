@@ -69,7 +69,7 @@ export interface CommandsDeps {
   // lsp slice
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
   // linter slice
-  lintLotusScriptFile(filePath: string, maxLines?: number, checkComments?: boolean): FileLintResult;
+  lintLotusScriptFile(filePath: string, checkComments?: boolean): FileLintResult;
   // scorecard slice
   formatScorecard(current: AgentScorecard, previous?: AgentScorecard): string;
   // scaffold slice

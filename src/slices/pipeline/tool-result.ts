@@ -76,14 +76,8 @@ async function handleEditToolResult(
   if (!paths.isLotusScriptSource(resolved)) return undefined;
   if (!fs.existsSync(resolved)) return undefined;
 
-  // Verify procedure line limits and comments inside this one file.
-  const limitCheck = await state.verifyProcedureLimits(resolved, state.latestUiContext ?? undefined);
-  if (!limitCheck.ok) {
-    return limitGateError(state, event, limitCheck);
-  }
-
   try {
-    return await checkAndReport(state, event, ctx, deps, resolved, limitCheck);
+    return await checkAndReport(state, event, ctx, deps, resolved);
   } catch (err: unknown) {
     state.renderStatusline("error");
     const msg = err instanceof Error ? err.message : String(err);
@@ -91,35 +85,6 @@ async function handleEditToolResult(
       content: [...event.content, { type: "text", text: `\n\n⚠️ [LotusScript: Check Failed]: ${msg}` }],
     };
   }
-}
-
-/** Blocking tool result when the user rejected an over-limit procedure. */
-function limitGateError(
-  state: PluginState,
-  event: ToolResultEvent,
-  limitCheck: { message?: string; splitInstructions?: string }
-): ToolResultEventResultShape {
-  state.renderStatusline("error");
-  const instructionsNotice = limitCheck.splitInstructions
-    ? `\nUser's splitting instructions:\n"${limitCheck.splitInstructions}"\n`
-    : "";
-  const errorText = [
-    "",
-    "---",
-    "⚠️ [LotusScript Lint Error: Procedure length limit exceeded]",
-    limitCheck.message,
-    instructionsNotice,
-    "Mandatory step for AI:",
-    `- Split the oversized procedure into smaller Sub/Function blocks inside the same .lss file.`,
-    `- Update the calls so that no procedure exceeds the ${state.config.maxProcedureLines}-line limit.`,
-    `- Do NOT retry the same oversized procedure unchanged; it will be rejected again.`,
-    "---",
-  ].filter(Boolean).join("\n");
-
-  return {
-    content: [...event.content, { type: "text", text: errorText }],
-    isError: true,
-  };
 }
 
 /**
@@ -157,13 +122,18 @@ async function checkAndReport(
   event: ToolResultEvent,
   ctx: ExtensionContext,
   deps: PipelineDeps,
-  resolved: string,
-  limitCheck: { warnings: string[]; lint: import("../../shared/types.js").FileLintResult }
+  resolved: string
 ): Promise<ToolResultEventResultShape> {
   const { config } = state;
   state.renderStatusline("checking");
 
   // SPAI-008 automation: format the edited file BEFORE the check.
+  // Whole-file lint: purpose comments only (no size rule any more).
+  const lint = deps.lintFile(resolved, config.enforceCzechComments);
+  const commentWarnings = lint.missingCommentProcedures.map(
+    (p) => `Procedure '${p.procedureName}' (line ${p.startLine}) lacks a concise Czech documentation comment describing its purpose (' Účel: ...).`
+  );
+
   let formatNotice = "";
   if (config.autoFormatOnSave) {
     try {
@@ -202,24 +172,16 @@ async function checkAndReport(
 
   // Telemetry: check count + code-length snapshot for the TUI panel.
   state.telemetry.checks++;
-  state.telemetry.lastProcCount = limitCheck.lint.allItems.length;
-  state.telemetry.lastLongestProc = limitCheck.lint.allItems.reduce(
-    (max, item) => Math.max(max, item.lineCount),
-    0
-  );
+  state.telemetry.lastProcCount = lint.allItems.length;
   state.telemetry.lastLspOk = config.enableLsp ? (lspResult ? lspResult.ok : null) : null;
 
   const gotchaNudge = config.enforceGotchaCapture
     ? "\n💡 GOTCHA CHECK: If this fix resolved an unexpected LotusScript bug or compiler error, propose recording it via 'lotusscript_gotchas(action: \"add\")'. The user will review and approve it via modal window."
     : "";
-  const commentWarnings = limitCheck.warnings.length > 0
-    ? `\nℹ️ [Comments]:\n${limitCheck.warnings.map((w) => `  - ${w}`).join("\n")}`
-    : "";
-
   let scorecardBlock = "";
   if (config.enableScorecard) {
     const scorecard = state.buildScorecard(resolved, {
-      lint: limitCheck.lint,
+      lint,
       lsp: lspResult,
     });
     const previous = state.recordScorecard(resolved, scorecard);
@@ -243,7 +205,9 @@ async function checkAndReport(
     ...(lspNotice ? [lspNotice.trimStart()] : []),
     ...(explainNotice ? ["", explainNotice] : []),
     ...(gotchaNudge ? [gotchaNudge.trimStart()] : []),
-    ...(commentWarnings ? [commentWarnings.trimStart()] : []),
+    ...(commentWarnings.length > 0
+      ? [`\nℹ️ [Missing purpose comments]:\n${commentWarnings.map((w) => `  - ${w}`).join("\n")}`]
+      : []),
     "---",
   ].join("\n");
 
