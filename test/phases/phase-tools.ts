@@ -66,6 +66,22 @@ export async function phaseTools(): Promise<void> {
   console.log("3. failing check returns diagnostics + help page:", okFailed ? "PASS" : "FAIL");
   if (!okFailed) throw new Error(failedText);
 
+  // 3b. The diagnostic text is matched against the gotcha catalogue (SPAI-021).
+  const matchHarness = mockPi([], "lotusscript_check");
+  registerModelTools(
+    matchHarness.pi,
+    state,
+    makeToolsDeps("ERROR x.lss:9:1 [LS-0xd019] Illegal parenthesized reference: hodnota"),
+  );
+  const matched = await matchHarness.tool.execute("t2b", { path: file });
+  const matchedText = matched.content[0].text as string;
+  const okMatch =
+    matchedText.includes("GOTCHA MATCHES") &&
+    matchedText.toLowerCase().includes("illegal parenthesized reference") &&
+    matchedText.includes("lotusscript_gotchas");
+  console.log("3b. a diagnostic surfaces the gotcha that describes it:", okMatch ? "PASS" : "FAIL");
+  if (!okMatch) throw new Error(matchedText);
+
   // 4. The other two tools are still registered.
   for (const name of ["lotusscript_scaffold", "lotusscript_gotchas"]) {
     const h = mockPi([], name);

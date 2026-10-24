@@ -12,6 +12,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { ToolsDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
+import { formatDiagnosticGotchas, matchDiagnosticGotchas } from "./diagnostic-gotchas.js";
 
 export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
   // NOTE: state.config is a live getter — session_start's syncConfig() replaces
@@ -38,6 +39,15 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
         report = `Checked: ${params.path}\nLSP Diagnostics: 0 errors (clean)`;
       } else {
         report = `Checked: ${params.path}\nLSP Diagnostics:\n${lspResult.diagnostics}`;
+        // SPAI-021: surface the catalogue entries that describe this very error
+        // text, so the search step is already done when the agent reads it.
+        try {
+          const matches = matchDiagnosticGotchas(lspResult.diagnostics, deps.searchGotchas);
+          const block = formatDiagnosticGotchas(matches);
+          if (block) report += `\n\n${block}`;
+        } catch {
+          // catalogue unavailable — diagnostics stand alone
+        }
         // SPAI-008 automation: attach lsp_explain help for the error codes.
         if (cfg.autoExplainLspCodes) {
           try {

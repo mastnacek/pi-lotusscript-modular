@@ -15,7 +15,9 @@ most common traps are listed in `coding-conventions.md`, section "Top traps".
 
 On **any compile/runtime error**: search the gotcha base with the exact error
 text (`lotusscript_gotchas(action: "search", query: "<error text>")`) and read
-every hit before fixing.
+every hit before fixing. `lotusscript_check` already appends the entries it
+matched for the diagnostic it just reported (`🧩 GOTCHA MATCHES`) — start there,
+then widen the search yourself.
 
 ## The `lotus-notes` KB — layers and recipes
 
