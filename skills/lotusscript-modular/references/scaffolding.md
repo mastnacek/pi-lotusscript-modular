@@ -90,6 +90,8 @@ The scaffold suggests the alias automatically per
 5. Total length cap 40 chars
 
 The result is returned as `alias` in the tool `details` and rendered in the
-Designer registration notice. The user may adjust the alias — it must keep
+**Designer registration notice** — element name, alias, suggested description,
+the paste steps and `Ctrl+Shift+F9`; the notice text is Czech for `/ls`
+notifications and English for tool results. The user may adjust the alias — it must keep
 the `<prefix>_<segments>` shape and be synced into the file header and
 Designer.

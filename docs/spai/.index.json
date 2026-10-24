@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 13:55:04",
+  "lastUpdated": "2026-10-24 13:58:14",
   "records": [
     {
       "id": "SPAI-001",
@@ -165,8 +165,8 @@
       "id": "SPAI-012",
       "title": "Phase 0 — reconnaissance & metrics: record line/byte counts per skill file, grep external references (workflow.md, lotus-class-index, gotchas-index, plugin-internals, references/, §N), check gotchas-index generation/tests, run npm test baseline",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -181,8 +181,8 @@
       "id": "SPAI-013",
       "title": "Phase 1 — extract plugin documentation: create references/plugin-internals.md, move verbatim Architecture Map, Language Policy, Self-Improvement Loop, Scorecard/DoD, /ls commands, workflow.md §5 CLI table, scaffolding.md §6 template sources",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -197,8 +197,8 @@
       "id": "SPAI-014",
       "title": "Phase 2 — rewrite SKILL.md as router (frontmatter unchanged, ~40-60 lines: always-rules + task→reference table)",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -213,8 +213,8 @@
       "id": "SPAI-015",
       "title": "Phase 3 — dissolve workflow.md: §2 → coding-conventions.md 'Editing an existing .lss', §4 → 'Pasting into Designer', discard §1/§3, delete file",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -229,8 +229,8 @@
       "id": "SPAI-016",
       "title": "Phase 4 — dedup & fixes: LSI_THREAD rule once (gotcha #37), scaffolding claims, ERROR_NOTIFY_EMAIL$ unification, KB layers once, merge comment sections, strip history/negation, unify link paths",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -245,8 +245,8 @@
       "id": "SPAI-017",
       "title": "Phase 5 — gotchas-index.md: drop 64-row table and count, keep intro/KB layers/recording protocol, add 'Top traps' section to coding-conventions.md with #1,#3,#7,#9,#10,#11,#21,#25,#37,#43,#45,#64",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -261,8 +261,8 @@
       "id": "SPAI-018",
       "title": "Phase 6 — lotus-class-index.md: delete file + rewrite object-model.md consultation order (BLOCKED: jq.exe execution denied; dataset is {nodes,links} so prescribed jq command is wrong)",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "waiting",
+      "symbol": "/.",
       "timestamp": "2026-10-24 13:55:03",
       "tags": [
         "skill",
@@ -277,8 +277,8 @@
       "id": "SPAI-019",
       "title": "Phase 7 — verify: link/§/gotcha checker script, grep remnants, npm test vs baseline, 5-scenario routing walkthrough",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 13:55:04",
       "tags": [
         "skill",
