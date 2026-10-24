@@ -889,6 +889,8 @@ Add-Type -AssemblyName System.Security
 [System.Security.Cryptography.Pkcs.SignedCms]
 ```
 
+---
+
 ## PowerShell 5.1 vs 7 — stdout encoding
 
 Windows PowerShell 5.1 defaults console pipes to the OEM code page (CP852/CP1250),
@@ -899,10 +901,14 @@ which mangles UTF-8 strings:
 $OutputEncoding = [System.Text.Encoding]::UTF8
 ```
 
+---
+
 ## PowerShell `switch` + `continue` doesn't stop fall-through
 
 Inside `switch`, `continue` acts like `break` for the current condition but does
 not skip outer loop iterations. Use `break` when only one case should match.
+
+---
 
 ## PowerShell `ConvertFrom-Json` auto-parses ISO 8601 into `DateTime`
 

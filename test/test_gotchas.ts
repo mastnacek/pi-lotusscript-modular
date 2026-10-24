@@ -58,6 +58,10 @@ fs.writeFileSync(
     "",
     "The assembler writes these markers.",
     "",
+    // A doubled separator run, as an older sync used to leave behind: the
+    // parser must assign the whole run to the entry below, not to the body above.
+    "---",
+    "",
     "---",
     "",
     "## Můj vlastní nález: `Split` a prázdný řetězec",
@@ -108,6 +112,17 @@ check(
 // 4. operator entry survives with its body
 check("4. operator entry preserved", text.includes("Můj vlastní nález") && text.includes("Vrací pole o jednom prvku"));
 
+// 4b. separator layout is normalised — exactly one `---` between entries, none
+// inside a body, none dangling at the end of the preamble
+const separatorLines = text.split(/\r?\n/).filter((l) => /^-{3,}$/.test(l.trim())).length;
+check("4b. one separator before every entry", separatorLines === items.length);
+check(
+  "4c. no separator inside a body",
+  !items.some((g) => g.body.split(/\r?\n/).some((l) => /^-{3,}$/.test(l.trim())))
+);
+check("4d. no doubled separator run", !/\n-{3,}\n\s*\n-{3,}\n/.test(text));
+check("4e. preamble is closed by exactly one separator", text.split("## ")[0]?.trimEnd().endsWith("---") === true);
+
 // 5. idempotent
 const mtime = fs.statSync(store).mtimeMs;
 const contentBefore = fs.readFileSync(store, "utf-8");
@@ -119,14 +134,18 @@ check(
 );
 
 // 6. missing registry is seeded from the bundled catalogue
+const seedText = fs.readFileSync(path.resolve("src/slices/gotchas/gotchas.md"), "utf-8");
 fs.rmSync(store, { force: true });
 const seededPath = getEffectiveGotchasPath();
 const seeded = getAllGotchas();
+const seedHeadings = (seedText.match(/^## /gm) ?? []).length;
 check("6. missing registry seeded from bundled", seededPath === store && seeded.length > 60);
-check("6b. seeded count matches a fresh copy of the seed", !fs.readFileSync(seededPath, "utf-8").includes("Můj vlastní nález"));
+check("6b. seeded copy is the seed, not the operator's file", !fs.readFileSync(seededPath, "utf-8").includes("Můj vlastní nález"));
+// The seed is `---`-delimited; a heading without its separator is swallowed into
+// the previous entry, so parsed count must equal the heading count.
+check(`6c. every seed heading parses as an entry (${seeded.length}/${seedHeadings})`, seeded.length === seedHeadings);
 
 // 7. the seed names only tools that exist
-const seedText = fs.readFileSync(path.resolve("src/slices/gotchas/gotchas.md"), "utf-8");
 check(
   "7. seed has no removed tool or decompile step",
   !seedText.includes("lotusscript_lsp_lsp_diagnostics") && !seedText.includes("Convert-LssToDxl")

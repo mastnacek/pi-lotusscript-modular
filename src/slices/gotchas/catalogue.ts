@@ -58,11 +58,11 @@ const SEPARATOR_LINE = /^\s*-{3,}\s*$/;
 
 interface GotchaBlock {
   title: string;
-  /** Exact source text of the block, including a leading `---` separator when it had one. */
+  /** Exact source text of the block, including its leading `---` separator run. */
   raw: string;
 }
 
-/** Splits a registry file into its preamble plus exact per-entry blocks. */
+/** Splits a registry file into its preamble plus per-entry blocks. */
 function splitBlocks(text: string): { preamble: string; blocks: GotchaBlock[] } {
   const lines = text.split(/\r?\n/);
   const starts: number[] = [];
@@ -82,36 +82,59 @@ function splitBlocks(text: string): { preamble: string; blocks: GotchaBlock[] } 
 
   if (starts.length === 0) return { preamble: text, blocks: [] };
 
-  const blocks: GotchaBlock[] = starts.map((start, idx) => {
-    const end = starts[idx + 1] ?? lines.length;
-    // Pull a separator that sits directly above this heading into the block, so
-    // concatenating preamble + blocks reproduces the file byte for byte.
-    let blockStart = start;
+  // The whole separator run (plus the blank lines around it) belongs to the
+  // entry below it, never to the body above it — otherwise a repeated sync
+  // would let separators accumulate inside entry bodies.
+  const blockStarts = starts.map((start) => {
+    let first = start;
     for (let j = start - 1; j >= 0; j--) {
       const t = (lines[j] ?? "").trim();
-      if (!t) continue;
-      if (SEPARATOR_LINE.test(t)) blockStart = j;
+      if (!t || SEPARATOR_LINE.test(t)) {
+        first = j;
+        continue;
+      }
       break;
     }
-    return {
-      title: (lines[start] ?? "").replace(/^##\s+/, "").trim(),
-      raw: lines.slice(blockStart, end).join("\n"),
-    };
+    return first;
   });
 
-  const preamble = lines.slice(0, starts[0] ?? 0).join("\n");
+  const blocks: GotchaBlock[] = starts.map((start, idx) => ({
+    title: (lines[start] ?? "").replace(/^##\s+/, "").trim(),
+    raw: lines.slice(blockStarts[idx] ?? start, blockStarts[idx + 1] ?? lines.length).join("\n"),
+  }));
+
+  const preamble = lines.slice(0, blockStarts[0] ?? starts[0] ?? 0).join("\n");
   return { preamble, blocks };
 }
 
+/** Drops any leading separator run so a block starts at its `## title`. */
+function withoutLeadingSeparator(raw: string): string {
+  const lines = raw.split(/\r?\n/);
+  const titleIdx = lines.findIndex((l) => l.trimStart().startsWith("## "));
+  const from = titleIdx >= 0 ? titleIdx : 0;
+  return lines.slice(from).join("\n").replace(/\s+$/, "");
+}
+
+/** Preamble without a dangling separator, followed by exactly one blank line. */
 function renderPreamble(preamble: string): string {
-  const trimmed = preamble.replace(/\s+$/, "");
-  return trimmed ? `${trimmed}\n\n` : "";
+  const lines = preamble.split(/\r?\n/);
+  let end = lines.length;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const t = (lines[i] ?? "").trim();
+    if (!t || SEPARATOR_LINE.test(t)) {
+      end = i;
+      continue;
+    }
+    break;
+  }
+  const kept = lines.slice(0, end).join("\n").replace(/\s+$/, "");
+  return kept ? `${kept}\n\n` : "";
 }
 
 /** Body of a block: everything after its `## title` line. */
 function blockBody(block: GotchaBlock): string {
   const lines = block.raw.split(/\r?\n/);
-  const titleIdx = lines.findIndex((l) => l.startsWith("## "));
+  const titleIdx = lines.findIndex((l) => l.trimStart().startsWith("## "));
   return lines
     .slice(titleIdx + 1)
     .join("\n")
@@ -121,9 +144,10 @@ function blockBody(block: GotchaBlock): string {
 /**
  * Brings the user copy up to date without ever touching entries the operator
  * wrote: superseded titles are dropped, bundled entries missing from the copy
- * are appended. Writes only when something actually changed (idempotent), so a
+ * are appended, and the separator layout is normalised to exactly one `---`
+ * between entries. Writes only when the result differs (idempotent), so a
  * package update propagates corrections instead of being pinned to the first
- * seed forever.
+ * seed forever, and a file damaged by an older sync repairs itself.
  */
 function syncGlobalGotchas(targetPath: string): void {
   if (syncedThisProcess) return;
@@ -139,20 +163,19 @@ function syncGlobalGotchas(targetPath: string): void {
     const present = new Set(kept.map((b) => titleKey(b.title)));
     const additions = bundled.blocks.filter((b) => !present.has(titleKey(b.title)));
 
-    if (additions.length === 0 && kept.length === current.blocks.length) return;
-
-    const parts: string[] = [renderPreamble(current.preamble)];
-    for (const block of kept) {
-      parts.push(block.raw.replace(/\s+$/, ""));
-      parts.push("\n---\n\n");
+    const rendered = [
+      ...kept.map((block) => withoutLeadingSeparator(block.raw)),
+      ...additions.map((block) => `## ${block.title}\n\n${blockBody(block)}`),
+    ];
+    // One `---` before every entry (the seed's own layout), so a heading is
+    // always an entry boundary no matter where the file is read from.
+    const head = renderPreamble(current.preamble);
+    const body = rendered.join("\n\n---\n\n");
+    const next = head ? `${head}---\n\n${body}\n` : `${body}\n`;
+    if (next !== currentText) {
+      fs.writeFileSync(targetPath, next, "utf-8");
+      cachedGotchas = null;
     }
-    for (const block of additions) {
-      parts.push(`## ${block.title}\n\n${blockBody(block)}\n`);
-      parts.push("\n---\n\n");
-    }
-    const next = parts.join("").replace(/(?:\n---\n\n)+$/, "\n");
-    if (next !== currentText) fs.writeFileSync(targetPath, next, "utf-8");
-    cachedGotchas = null;
   } catch (err: unknown) {
     console.error(`[LotusScript Modular] Failed to sync global gotchas file: ${err}`);
   }

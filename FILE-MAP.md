@@ -137,8 +137,8 @@ root (`InsightsCapabilities`).
 ### gotchas — trap catalogue
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
-| `gotchas.md` | 1346 | *(data asset)* | The 64 seeded traps, `---`-delimited `##` entries. Parsed at runtime. |
-| `catalogue.ts` | 272 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md` (override: `LOTUSSCRIPT_GOTCHAS_DIR`). Seeds from the bundled file on first use, then keeps it in sync: superseded titles are dropped, bundled entries missing from the copy are appended, operator entries are never touched. `addGotcha` appends only to the global file. Parses `## ` as an entry boundary **only after a `---` separator**, so `## Sub-heading` inside a body stays body text. mtime-cached. |
+| `gotchas.md` | 1352 | *(data asset)* | The 64 seeded traps, each one preceded by a `---` separator (that separator is what makes a heading an entry boundary). Parsed at runtime. |
+| `catalogue.ts` | 295 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md` (override: `LOTUSSCRIPT_GOTCHAS_DIR`). Seeds from the bundled file on first use, then keeps it in sync: superseded titles are dropped, bundled entries missing from the copy are appended, operator entries are never touched. `addGotcha` appends only to the global file. Parses `## ` as an entry boundary **only after a `---` separator**, so `## Sub-heading` inside a body stays body text. mtime-cached. |
 | `review-modal.ts` | 297 | `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
 | `index.ts` | 13 | barrel | Slice exports; no logic. |
 
@@ -216,7 +216,7 @@ non-zero on failure (no log-only assertions).
 | `test/test_drift.ts` | 94 | Drift signals, commented-out code, library-vs-agent, once-per-run latch. |
 | `test/test_trace.ts` | 68 | Trace rendering in both locales, dedupe keys, statusline tail, switch. |
 | `test/test_audit.ts` | 106 | Procedure extraction, duplicate grouping, saved-lines ranking, stable library name, promotion plan. |
-| `test/test_gotchas.ts` | 141 | Registry parsing (sub-heading is body text), supersede + re-seed sync, operator entries preserved, idempotency, seeding, no removed tool names. |
+| `test/test_gotchas.ts` | 160 | Registry parsing (sub-heading is body text), supersede + re-seed sync, operator entries preserved, separator normalization, idempotency, seeding, every seed heading parses, no removed tool names. |
 | `test/phases/phase-scorecard.ts` | 109 | Full-marks clean file, failure rendering, trend, pending LSP semantics, rubric, normalisation, recurring draft. |
 | `test/phases/phase-pipeline.ts` | 201 | KB gate, auto-check on edit + telemetry, `.dxl` tracking, oversized procedure not blocked, read banner, entry-skill pointer, settle nudge + latch. |
 | `test/phases/phase-commands.ts` | 117 | `/ls` menu, absence of modular subcommands, scaffold completions, catalogue ↔ config parity, parse/format, retired-key dropping. |
