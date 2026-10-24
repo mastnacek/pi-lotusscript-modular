@@ -287,6 +287,12 @@ ${diagnostics}`,
       on: "Zapnuto — odkaz na SKILL.md v systémovém promptu i v banneru při čtení .lss",
       off: "Vypnuto — skill se nepřipomíná, agent ho musí najít sám",
     },
+    forceProject: {
+      description:
+        "Považovat složku za Domino projekt i bez nalezeného důkazu (.lss/.dxl) — pro nezvyklé layouty a testování skillu v tomto repu",
+      on: "Zapnuto — skill se nabízí a hlásí i tam, kde scan nic nenašel",
+      off: "Vypnuto — rozhoduje jen bounded scan (výchozí)",
+    },
     skillPrompt: {
       description:
         "Nabídka entry skillu na startu session v Domino projektu: ask = zeptat se, always = načíst bez ptaní, never = nenabízet (volba „neptat se“ se ukládá sem)",

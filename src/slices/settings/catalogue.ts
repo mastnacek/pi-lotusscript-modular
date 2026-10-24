@@ -34,6 +34,7 @@ export const SETTING_SPECS: readonly SettingSpec[] = [
   { key: "showTelemetryPanel", kind: "boolean" },
   { key: "injectProjectSkillHint", kind: "boolean" },
   { key: "skillPrompt", kind: "string" },
+  { key: "forceProject", kind: "boolean" },
 ];
 
 export function findSetting(key: string): SettingSpec | undefined {

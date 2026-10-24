@@ -287,6 +287,12 @@ ${diagnostics}`,
       on: "On — SKILL.md path in the system prompt and in the .lss read banner",
       off: "Off — nothing reminds the agent; it must find the skill on its own",
     },
+    forceProject: {
+      description:
+        "Treat the directory as a Domino project even when the scan finds no evidence (.lss/.dxl) — for unusual layouts and dogfooding the skill in this repo",
+      on: "On — the skill is offered and announced even where the scan found nothing",
+      off: "Off — the bounded scan decides (default)",
+    },
     skillPrompt: {
       description:
         "How the entry skill is offered at session start in a Domino project: ask = prompt, always = load without asking, never = do not offer (the \"don't ask\" answer is stored here)",

@@ -11,6 +11,7 @@ import { registerModelTools } from "../../src/slices/tools/index.js";
 import type { ToolsDeps } from "../../src/slices/tools/deps.js";
 import { scaffoldLotusScriptArtifact } from "../../src/slices/scaffold/index.js";
 import { getGotchasSummary, searchGotchas } from "../../src/slices/gotchas/index.js";
+import { probeLspLane } from "../../src/slices/lsp/index.js";
 import { createTestState, ensureTestDir, mockPi, TEST_DIR, writeLss } from "../helpers.js";
 
 function makeToolsDeps(diagnostics = ""): ToolsDeps {
@@ -179,4 +180,9 @@ export async function phaseTools(): Promise<void> {
   const okGotchas = hits.length > 0 && summary.length > 20;
   console.log("11. gotcha search + summary work:", okGotchas ? "PASS" : "FAIL");
   if (!okGotchas) throw new Error("gotcha registry unresponsive");
+
+  // 12. The lane probe fails closed when the Rust binary is missing.
+  const lane = await probeLspLane(path.join(TEST_DIR, "no-such-domino-mcp.exe"), 500);
+  console.log("12. lane probe reports 'unreachable' for a missing binary:", lane === "unreachable" ? "PASS" : "FAIL");
+  if (lane !== "unreachable") throw new Error(`lane=${lane}`);
 }

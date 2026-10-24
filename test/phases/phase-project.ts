@@ -19,8 +19,10 @@ import {
   wrapSkillMessage,
   discoverSkillResources,
   LotusSkillPromptComponent,
+  withForcedEvidence,
 } from "../../src/slices/project/index.js";
 import { stringsFor } from "../../src/shared/i18n.js";
+import { createTelemetry, hudLines } from "../../src/shared/state-hud.js";
 import { visibleWidth } from "@earendil-works/pi-tui";
 import { buildPromptGuidelines } from "../../src/slices/pipeline/guidelines.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
@@ -278,5 +280,43 @@ export async function phaseProject(): Promise<void> {
     "19. resources_discover advertises only in a Domino project, never on opt-out",
     advertises.skillPaths?.[0] === skillPath && silent.every((r) => r.skillPaths === undefined),
     JSON.stringify({ advertises, silent })
+  );
+
+  // 20. `forceProject` opts an unusual layout in without touching the scan.
+  const forced = withForcedEvidence(noEvidence, true);
+  const stillOff = withForcedEvidence(noEvidence, false);
+  const forcedAdvertises = discoverSkillResources(forced, skillPath, {
+    skillPrompt: "ask",
+    forceProject: true,
+  } as never);
+  assert(
+    "20. forceProject marks the workspace as Domino, off leaves the scan alone",
+    forced.hasLotusScript === true &&
+      stillOff.hasLotusScript === false &&
+      forced.sampleFile === stillOff.sampleFile &&
+      forced.scanned === stillOff.scanned &&
+      forcedAdvertises.skillPaths?.[0] === skillPath,
+    JSON.stringify({ forced, stillOff, forcedAdvertises })
+  );
+
+  // 21. The HUD distinguishes a dead lane from an unused one.
+  const hudView = {
+    score: null,
+    state: "idle",
+    kbQueries: 0,
+    kbRequired: 3,
+    telemetry: { ...createTelemetry(), lastLspOk: null, lspLane: "unreachable" },
+    lastTrace: null,
+    traceTail: "",
+  } as never;
+  const dead = hudLines(hudView, { ...DEFAULT_CONFIG, lang: "en" }).join(" ");
+  const ready = hudLines(
+    { ...(hudView as object), telemetry: { ...createTelemetry(), lastLspOk: null, lspLane: "ready" } } as never,
+    { ...DEFAULT_CONFIG, lang: "en" }
+  ).join(" ");
+  assert(
+    "21. HUD: ⚠ when the lane is unreachable, ✓ when it answered, ? otherwise",
+    dead.includes("LSP ⚠") && ready.includes("LSP ✓"),
+    JSON.stringify({ dead, ready })
   );
 }

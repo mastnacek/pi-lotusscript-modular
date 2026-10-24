@@ -7,7 +7,7 @@
 import lotusscriptModularExtension from "../../index.js";
 import fs from "node:fs";
 import path from "node:path";
-import { ensureTestDir, mockCtx, TEST_DIR, writeLss } from "../helpers.js";
+import { ensureTestDir, MOCK_THEME, mockCtx, mockPi, TEST_DIR, writeLss } from "../helpers.js";
 
 export async function phaseExtension(): Promise<void> {
   ensureTestDir();
@@ -160,4 +160,47 @@ export async function phaseExtension(): Promise<void> {
   );
   console.log("13. the opt-out also stops resource advertising:", afterOptOut?.skillPaths === undefined ? "PASS" : "FAIL");
   if (afterOptOut?.skillPaths !== undefined) throw new Error(`Still advertised: ${JSON.stringify(afterOptOut)}`);
+
+  // 20. The skill checkpoint follows the real answer, not the session start.
+  //     Rendered through the HUD component the extension actually installed.
+  const hudFor = (root: string) => {
+    const ctx: any = mockCtx(true);
+    ctx.cwd = root;
+    const box: { factory: any } = { factory: null };
+    ctx.ui.setWidget = (key: string, factory: any) => {
+      if (key === "lotusscript-hud") box.factory = factory;
+    };
+    const h = mockPi(["session_start", "resources_discover"]);
+    lotusscriptModularExtension(h.pi);
+    return { ctx, box, h };
+  };
+
+  const emptyRoot = path.join(TEST_DIR, "empty-nodomino");
+  fs.mkdirSync(emptyRoot, { recursive: true });
+  const quiet = hudFor(emptyRoot);
+  await quiet.h.handlers.session_start({ reason: "startup" }, quiet.ctx);
+  const quietText = quiet.box.factory ? quiet.box.factory(null, MOCK_THEME).render(200).join("\n") : "";
+  const okQuietTrace = quietText.length > 0 && !/skill/i.test(quietText);
+
+  // A real Domino workspace advertises the skill, and only then is there a checkpoint.
+  // A dedicated root: TEST_DIR carries a persisted "never" from an earlier test.
+  const dominoRoot = path.join(TEST_DIR, "domino-proj");
+  fs.mkdirSync(dominoRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(dominoRoot, "SkillTraceAgent.lss"),
+    ["Option Declare", "", "Sub Initialize", "End Sub", ""].join(String.fromCharCode(10))
+  );
+  const domino = hudFor(dominoRoot);
+  await domino.h.handlers.session_start({ reason: "startup" }, domino.ctx);
+  const resources = domino.h.handlers.resources_discover?.();
+  const dominoText = domino.box.factory ? domino.box.factory(null, MOCK_THEME).render(200).join("\n") : "";
+  const okAdvertisedTrace = Boolean(resources?.skillPaths?.length) && /skill/i.test(dominoText);
+
+  console.log(
+    "20. skill checkpoint appears only when the skill is really offered:",
+    okQuietTrace && okAdvertisedTrace ? "PASS" : "FAIL"
+  );
+  if (!(okQuietTrace && okAdvertisedTrace)) {
+    throw new Error(JSON.stringify({ quietText, dominoText, resources }));
+  }
 }

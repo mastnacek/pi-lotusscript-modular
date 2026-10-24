@@ -9,6 +9,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import type { LspLaneStatus } from "../../shared/types.js";
 
 interface RpcResponse {
   id?: number;
@@ -216,5 +217,29 @@ export async function formatLotusScriptFile(
     });
   } catch {
     return null;
+  }
+}
+
+/**
+ * Probe the compiler lane once per session.
+ *
+ * `LSP ?` in the HUD used to mean both "no check has run yet" and "the lane is
+ * dead", which reads as a bug when nothing has been checked. This asks the MCP
+ * server for its tool list (the cheapest request that proves the Rust binary,
+ * the oracle worker and the handshake all work) and reports the verdict.
+ * Never throws: a missing binary, a crash or a timeout is `unreachable`.
+ */
+export async function probeLspLane(
+  serverScriptPath: string = DEFAULT_MCP_SERVER,
+  timeoutMs = 8000
+): Promise<LspLaneStatus> {
+  if (!fs.existsSync(serverScriptPath)) return "unreachable";
+  try {
+    return await withMcpClient(serverScriptPath, timeoutMs, async (call) => {
+      const res = await call("tools/list", {});
+      return res.error ? "unreachable" : "ready";
+    });
+  } catch {
+    return "unreachable";
   }
 }

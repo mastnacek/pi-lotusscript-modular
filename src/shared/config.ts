@@ -26,6 +26,7 @@ export const DEFAULT_CONFIG: ModularConfig = {
   showTelemetryPanel: true,
   injectProjectSkillHint: true,
   skillPrompt: "ask",
+  forceProject: false,
 };
 
 export const GLOBAL_CONFIG_FILE = path.join(

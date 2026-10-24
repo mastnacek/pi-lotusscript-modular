@@ -46,6 +46,8 @@ export interface ModularConfig {
   injectProjectSkillHint: boolean;
   /** Offer the entry skill at session start: ask (modal), always (load silently), never (do not offer) */
   skillPrompt: SkillPromptMode;
+  /** Treat the workspace as a Domino project even when the bounded scan finds no evidence (unusual layouts, plugin dogfooding) */
+  forceProject: boolean;
 }
 
 /** How the entry skill is offered when the workspace looks like a Domino project. */
@@ -88,6 +90,9 @@ export type HookName =
  * Mutated by the pipeline handlers, read by the panel component on every frame —
  * never persisted, reset at each `session_start`.
  */
+/** Reachability of the compiler lane (notes-sys `domino-mcp.exe`). */
+export type LspLaneStatus = "unknown" | "ready" | "unreachable";
+
 export interface HookTelemetry {
   /** Invocation count per subscribed hook. */
   hookCalls: Record<HookName, number>;
@@ -101,6 +106,8 @@ export interface HookTelemetry {
   checks: number;
   /** Last LSP outcome (null = LSP disabled or not run yet). */
   lastLspOk: boolean | null;
+  /** Reachability of the MCP/compiler lane, probed once per session. */
+  lspLane: LspLaneStatus;
 }
 
 export interface ScorecardItem {

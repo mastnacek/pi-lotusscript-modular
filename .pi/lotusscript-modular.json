@@ -14,5 +14,6 @@
   "enforceGradingRubric": true,
   "injectPreflightGotchas": true,
   "autoDraftRecurringGotchas": true,
-  "showTelemetryPanel": true
+  "showTelemetryPanel": true,
+  "forceProject": true
 }

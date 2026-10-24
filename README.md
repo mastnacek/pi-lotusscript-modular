@@ -52,9 +52,12 @@ Stored in `.pi/lotusscript-modular.json`:
   "autoCheckOnEdit": true,
   "enforceKbPrompt": true,
   "enforceKbGate": true,
-  "injectGotchasSummary": true
+  "injectGotchasSummary": true,
+  "forceProject": false
 }
 ```
+
+`forceProject` is the explicit opt-in for a workspace whose Domino sources sit outside the bounded scan (deeper than two levels, or a plugin repo dogfooding the skill): the scan itself is unchanged, the fingerprint is just marked as evidence. `skillPrompt: never` still wins.
 
 ---
 
@@ -65,7 +68,7 @@ Stored in `.pi/lotusscript-modular.json`:
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
 - `lotusscript_library_audit`: Read-only duplicate-procedure audit across a folder of `.lss` files, ranked by saved lines, with an optional promotion plan.
 
-LSP checking is toggled with `/ls lsp on|off` or the `enableLsp` setting — there is no tool for it.
+LSP checking is toggled with `/ls lsp on|off` or the `enableLsp` setting — there is no tool for it. With `enableLsp` on, the lane (`notes-sys` `domino-mcp.exe`, override `LOTUSSCRIPT_MCP_SERVER`) is probed once per session, so the HUD can show `LSP ✓` / `LSP ⚠` instead of `LSP ?` before the first check.
 
 ---
 

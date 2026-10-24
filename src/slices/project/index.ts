@@ -12,6 +12,7 @@
 export {
   detectLotusScriptProject,
   createProjectDetector,
+  withForcedEvidence,
   MAX_DEPTH,
   MAX_ENTRIES,
   BUDGET_MS,

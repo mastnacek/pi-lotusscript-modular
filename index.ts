@@ -60,6 +60,7 @@ import {
   checkLotusScriptDiagnostics,
   explainLotusScriptCodes,
   formatLotusScriptFile,
+  probeLspLane,
 } from "./src/slices/lsp/index.js";
 import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
@@ -78,6 +79,7 @@ import {
   readEntrySkillBody,
   skillChoiceOutcome,
   skillPromptDecision,
+  withForcedEvidence,
   wrapSkillMessage,
 } from "./src/slices/project/index.js";
 
@@ -143,7 +145,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     projectSkillGuideline: () =>
       state.skillLoadedThisSession
         ? null // the body was already injected — a second pointer is noise
-        : buildProjectSkillGuideline(projectDetector.detect(state.activeCwd), getEntrySkillPath()),
+        : buildProjectSkillGuideline(projectFingerprint(), getEntrySkillPath()),
     readSkillNotice: () => (hasEntrySkill() ? buildReadSkillNotice(getEntrySkillPath()) : null),
     checkLotusScriptDiagnostics,
     explainLotusScriptCodes,
@@ -172,6 +174,10 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   };
 
   /** Queue the entry skill for the next run and tell the operator what happened. */
+  /** Scan + the operator's `forceProject` override — every consumer sees this. */
+  const projectFingerprint = () =>
+    withForcedEvidence(projectDetector.detect(state.activeCwd), state.config.forceProject);
+
   const loadEntrySkill = (ctx: ExtensionContext): void => {
     const strings = stringsFor(state.config.lang);
     const skillPath = getEntrySkillPath();
@@ -182,6 +188,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     }
     state.pendingSkillLoad = wrapSkillMessage(body, skillPath);
     state.skillLoadedThisSession = true;
+    trace({ kind: "skill", detail: "lotusscript-modular" });
     ctx.ui?.notify?.(strings.skillModal.loaded(skillPath), "info");
   };
 
@@ -195,12 +202,20 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     // stale `lotusscript: …` badge would otherwise linger and never update.
     ctx.ui?.setStatus?.("lotusscript", undefined);
     state.setRunState("idle");
-    trace({ kind: "skill", detail: "lotusscript-modular" });
+
+    // Lane reachability, once per session: without it the HUD cannot tell
+    // "nothing checked yet" from "the compiler lane is dead".
+    if (state.config.enableLsp) {
+      void probeLspLane().then((lane) => {
+        state.telemetry.lspLane = lane;
+        state.renderHud();
+      });
+    }
 
     // Entry-skill consent: the operator decides per project (like the shell
     // profile asking about a uv venv), and "never" is remembered in the
     // project config instead of being re-asked every session.
-    const fingerprint = projectDetector.detect(state.activeCwd);
+    const fingerprint = projectFingerprint();
     const decision = skillPromptDecision(fingerprint, state.config);
     const strings = stringsFor(state.config.lang);
 
@@ -235,11 +250,14 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // a persisted "never" are already in effect.
   track(pi.on("resources_discover", () => {
     state.countHook("resources_discover");
-    return discoverSkillResources(
-      projectDetector.detect(state.activeCwd),
+    const resources = discoverSkillResources(
+      projectFingerprint(),
       hasEntrySkill() ? getEntrySkillPath() : null,
       state.config
     );
+    // Advertised = offered in this project's skill list: that is a checkpoint.
+    if (resources.skillPaths?.length) trace({ kind: "skill", detail: "lotusscript-modular" });
+    return resources;
   }));
 
   track(pi.on("turn_end", () => {

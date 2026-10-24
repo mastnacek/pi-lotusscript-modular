@@ -18,7 +18,7 @@
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { HookTelemetry, ModularConfig } from "./types.js";
+import type { HookTelemetry, LspLaneStatus, ModularConfig } from "./types.js";
 import { stringsFor } from "./i18n.js";
 
 export const HUD_WIDGET_KEY = "lotusscript-hud";
@@ -68,6 +68,7 @@ export function createTelemetry(): HookTelemetry {
     kbSettleNudges: 0,
     checks: 0,
     lastLspOk: null,
+    lspLane: "unknown",
   };
 }
 
@@ -83,9 +84,16 @@ function fitLineToWidth(line: string, maxWidth: number): string {
   return truncateToWidth(line, maxWidth, "…");
 }
 
-/** ✓ when the last check was clean, ⚠ when it failed, ? when never run. */
-function lspMark(lastLspOk: boolean | null): string {
-  return lastLspOk === null ? "?" : lastLspOk ? "✓" : "⚠";
+/**
+ * ✓ when the last check was clean or the lane answered the session probe,
+ * ⚠ when a check failed or the lane is unreachable, ? only while nothing is
+ * known yet. A real check verdict always wins over the probe.
+ */
+function lspMark(lastLspOk: boolean | null, lane: LspLaneStatus = "unknown"): string {
+  if (lastLspOk !== null) return lastLspOk ? "✓" : "⚠";
+  if (lane === "ready") return "✓";
+  if (lane === "unreachable") return "⚠";
+  return "?";
 }
 
 /**
@@ -108,7 +116,7 @@ export function hudLines(view: HudView, config: ModularConfig): string[] {
   const kb = `${view.kbQueries}/${view.kbRequired}`;
 
   const lines = [
-    s.head(score, stateWord, lspMark(t.lastLspOk), kb),
+    s.head(score, stateWord, lspMark(t.lastLspOk, t.lspLane), kb),
     s.hooks(
       totalHookCalls(t),
       t.hookCalls.tool_call,

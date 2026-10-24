@@ -159,3 +159,20 @@ export function createProjectDetector(): ProjectDetector {
     },
   };
 }
+
+/**
+ * Apply the operator's `forceProject` override to a scan result.
+ *
+ * The bounded scan is deliberately shallow, so an unusual layout (or this
+ * plugin's own repo, where the only `.lss` sits three levels down) looks empty.
+ * `forceProject` is the explicit opt-in that says "treat it as a Domino
+ * project anyway" — nothing about the scan itself changes, so a normal
+ * repository still pays only for the probe it already did.
+ */
+export function withForcedEvidence(
+  fingerprint: ProjectFingerprint,
+  force: boolean
+): ProjectFingerprint {
+  if (!force || fingerprint.hasLotusScript) return fingerprint;
+  return { ...fingerprint, hasLotusScript: true };
+}
