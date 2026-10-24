@@ -13,7 +13,7 @@ rule — the 9.0.1 compiler is the only arbiter.
 ```lotusscript
 Option Public
 Option Declare
-' %Include "lsconst.lss"  — viz varování níže, do scaffoldu nepatří
+' %Include "lsconst.lss"  — see the warning below; it does not belong in the scaffold
 
 '**********************************************************************
 ' NÁZEV: nazev-souboru.lss
@@ -38,24 +38,24 @@ End Sub
 
 ---
 
-### `%Include "lsconst.lss"` — ano, ale ne ve scaffoldu
+### `%Include "lsconst.lss"` — yes, but not in the scaffold
 
-Blok výše ukazuje `%Include`, protože ho potřebují `MB_*` / `PICKLIST_*`
-konstanty (gotcha #36). **Scaffold ho záměrně nevygeneruje**:
-`src/slices/scaffold/template.lss` deklaruje `LSI_THREAD_*` sám a `lsconst.lss`
-tahá `LSPRVAL.LSS`, který tytéž konstanty definuje znovu → `Name previously
-declared` (gotcha #37).
+The block above shows `%Include` because the `MB_*` / `PICKLIST_*` constants
+need it (gotcha #36). **The scaffold deliberately does not generate it**:
+`src/slices/scaffold/template.lss` declares `LSI_THREAD_*` itself, and
+`lsconst.lss` pulls in `LSPRVAL.LSS`, which declares the same constants again →
+`Name previously declared` (gotcha #37).
 
-Rozhodni se podle cíle souboru:
+Decide by where the file is going:
 
-| Cíl | `%Include "lsconst.lss"` | `Const LSI_THREAD_*` |
+| Destination | `%Include "lsconst.lss"` | `Const LSI_THREAD_*` |
 |---|---|---|
-| Samostatný `.lss` mimo Designer | ne | nech (template je má) |
-| Vložení do Script Library / elementu | ano, až při vkládání | **smaž celý blok** |
+| Standalone `.lss` outside Designer | no | keep (the template has them) |
+| Paste into a Script Library / design element | yes, add it when pasting | **delete the whole block** |
 
-Bezpečný postup: nech soubor bez `%Include` (scaffold default) a při vkládání do
-Designeru přidej `%Include` jen tehdy, když kód `MB_*`/`PICKLIST_*` skutečně
-používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
+Safe procedure: leave the file without `%Include` (the scaffold default) and,
+when pasting into Designer, add `%Include` only if the code really uses
+`MB_*`/`PICKLIST_*` — and delete `Const LSI_THREAD_*` at that moment.
 
 This is the only place where the `%Include` / `LSI_THREAD_*` rule is stated;
 other files link here. The scaffold can apply the deletion for you:

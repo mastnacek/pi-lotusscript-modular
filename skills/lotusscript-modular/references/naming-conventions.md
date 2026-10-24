@@ -1,96 +1,99 @@
 # Naming Conventions for Design Elements (aliases)
 
-Závazná konvence pojmenování design elementů (agentů, pohledů, formulářů,
-knihoven, polí). Zdroj pravdy pro scaffold (`lotusscript_scaffold`) i pro
-ruční tvorbu elementů. Vyžaduje-li uživatel jinak, platí jeho slovo — ale
-nové elementy vznikají takhle.
+Binding naming convention for design elements (agents, views, forms, libraries,
+fields). Source of truth for the scaffold (`lotusscript_scaffold`) and for manual
+element creation. If the user requires something else, their word wins — but new
+elements are created this way.
 
 ---
 
-## 1. Proč aliasy s prefixem typu
+## 1. Why aliases carry a type prefix
 
-1. **Stroji čitelný typ.** Analýza vazeb (ln-graph, `mapa-databazi.md` §9)
-   brala krátké aliasy pohledů (`kopsp`, `csp`, `ci`, `czap`) jako názvy
-   databází — 487 falešných hran v grafu. Prefix (`lu_`, `ag_`) umožní
-   rozpoznat typ elementu z aliasu regexem i v `views.csv`/`forms.csv`.
-2. **Bez diakritiky a mezer.** Display názvy nesou háčky, mezery a závorky
-   (`(dleOkruhuOsoby)`, `"1 - Lidské zdroje\1 - Dle vedoucího"`). Alias je
-   ASCII, lowercase, podtržítka — bezpečný ve formulích, `@DbLookup`,
-   `GetView`, skriptech i v URL.
-3. **Stabilita.** Display název se smí přejmenovat (čitelnost pro uživatele);
-   alias zůstává stejný, takže se nerozbijí volání z formulí a agentů.
-4. **Název ≠ alias.** Display název popisuje účel česky čitelně; alias je
-   strojový identifikátor. Obojí má smysl.
+1. **Machine-readable type.** Link analysis (ln-graph, `mapa-databazi.md` §9)
+   read short view aliases (`kopsp`, `csp`, `ci`, `czap`) as database names —
+   487 false edges in the graph. A prefix (`lu_`, `ag_`) makes the element type
+   recognisable from the alias by regex, even in `views.csv` / `forms.csv`.
+2. **No diacritics, no spaces.** Display names carry accents, spaces and
+   parentheses (`(dleOkruhuOsoby)`, `"1 - Lidské zdroje\1 - Dle vedoucího"`).
+   An alias is ASCII, lowercase, underscores — safe in formulas, `@DbLookup`,
+   `GetView`, scripts and URLs.
+3. **Stability.** The display name may be renamed (readability for users); the
+   alias stays the same, so calls from formulas and agents keep working.
+4. **Name ≠ alias.** The display name describes the purpose readably (Czech);
+   the alias is the machine identifier. Both have their place.
 
 ---
 
-## 2. Skladba aliasu
+## 2. Alias composition
 
+```text
+<prefix>_<domain>_<object/purpose>_<target/action>
 ```
-<prefix>_<doména>_<objekt/účel>_<cíl/akce>
-```
 
-- **prefix** — typ elementu (tabulka níže)
-- **segmenty** — lowercase ASCII, oddělené `_`, zkrácené na 2–6 znaků,
-  celý alias ideálně ≤ 32 znaků
-- pořadí: obecné → specifické (doména před objektem)
+- **prefix** — element type (table below)
+- **segments** — lowercase ASCII, separated by `_`, shortened to 2–6 characters,
+  the whole alias ideally ≤ 32 characters
+- order: general → specific (domain before object)
 
-### Prefixy
+### Prefixes
 
-| Prefix | Element | Příklad |
+| Prefix | Element | Example |
 | --- | --- | --- |
-| `ag_` | Agent (všechny) | `ag_ak_pr_ifx_save` |
-| `lu_` | Lookup pohled (čtení přes `@DbLookup`/`GetView`) | `lu_bl_dle_okruhu` |
-| `vw_` | Ostatní pohledy (non-lookup) | `vw_bl_nepotvrzene` |
-| `frm_` | Formulář | `frm_memo_bl` |
+| `ag_` | Agent (all) | `ag_ak_pr_ifx_save` |
+| `lu_` | Lookup view (read via `@DbLookup`/`GetView`) | `lu_bl_dle_okruhu` |
+| `vw_` | Other views (non-lookup) | `vw_bl_nepotvrzene` |
+| `frm_` | Form | `frm_memo_bl` |
 | `sfm_` | Subform | `sfm_hlavicka` |
 | `fld_` | Shared field | `fld_datum_schvaleni` |
 | `lib_` | Script Library | `lib_vebaapi` |
-| `btn_` | (v kódu) tlačítko / akce | `btn_aktualizace_prac_ifx` |
+| `btn_` | (in code) button / action | `btn_aktualizace_prac_ifx` |
 | `outl_` | Outline | `outl_hlavni` |
 
-### Segmentové zkratky (doména / objekt / akce / cíl)
+### Segment abbreviations (domain / object / action / target)
 
-| Zkratka | Význam | Zkratka | Význam |
+| Abbreviation | Meaning | Abbreviation | Meaning |
 | --- | --- | --- | --- |
-| `bl` | bezpečnostní listy | `lz` | lidské zdroje |
-| `ak` | aktualizace | `pr` | pracovníků |
-| `nep` | nepotvrzené | `prehled` | přehled (celé) |
-| `ifx` | Informix (VebaCore API) | `save` | varianta PostSave |
-| `cis` | číselník | `mail` | e-mail/notifikace |
+| `bl` | bezpečnostní listy (safety data sheets) | `lz` | lidské zdroje (HR) |
+| `ak` | aktualizace (update) | `pr` | pracovníků (of employees) |
+| `nep` | nepotvrzené (unconfirmed) | `prehled` | přehled (overview, whole word) |
+| `ifx` | Informix (VebaCore API) | `save` | PostSave variant |
+| `cis` | číselník (code list) | `mail` | e-mail / notification |
 
-### Pravidla
+### Rules
 
-1. **Každý agent a pohled má alias.** Vzniká element → vzniká alias.
-2. **Display name** = čitelný český název (`Aktualizace pracovníků okruhů (save)`).
-   **Alias** = konvence výše. Do kódu/formulí patří VŽDY alias.
-3. Varianty téhož agenta sdílejí základ, liší se posledním segmentem:
-   `ag_ak_pr_ifx` (ruční) → `ag_ak_pr_ifx_save` (PostSave varianta).
-4. Párové agenty (do/z): stejný základ, směr v závěru — `…_do_ifx` / `…_z_ifx`.
-5. Při přejmenování display názvu alias NEMĚNIT — jen dokumentovat v hlavičce.
+1. **Every agent and view has an alias.** Element created → alias created.
+2. **Display name** = a readable Czech name
+   (`Aktualizace pracovníků okruhů (save)`). **Alias** = the convention above.
+   Code and formulas ALWAYS use the alias.
+3. Variants of the same agent share the base and differ in the last segment:
+   `ag_ak_pr_ifx` (manual) → `ag_ak_pr_ifx_save` (PostSave variant).
+4. Paired agents (in/out): same base, direction at the end — `…_do_ifx` /
+   `…_z_ifx`.
+5. When the display name is renamed, the alias does NOT change — just document
+   it in the header.
 
 ---
 
-## 3. Soubory na disku (vývoj mimo Designer)
+## 3. Files on disk (development outside Designer)
 
-| Element | Příklad souboru |
+| Element | File example |
 | --- | --- |
-| Agent | `<Název>.lss` (scaffold zapisuje přesně tohle) |
-| Tlačítko/akce | `button_<Název>.lss` |
-| Knihovna | `lib_<Název>.lss` |
+| Agent | `<Název>.lss` (the scaffold writes exactly this) |
+| Button / action | `button_<Název>.lss` |
+| Library | `lib_<Název>.lss` |
 
-Jediné pravidlo, které drží kód a disk pohromadě: **název souboru = jméno
-elementu v Designeru**. Scaffold (`lotusscript_scaffold`, `/ls scaffold`) proto
-pojmenovává agenta bez prefixu — `agent_` v názvu souboru by znamenalo element
-pojmenovaný `agent_X`, což konvence nepřipouští. Alias (`ag_…`) nese typ, ne
-název souboru. Knihovny si prefix `lib_` drží, protože ten je součástí jména
-elementu.
+One rule keeps code and disk together: **the file name equals the Designer
+element name**. The scaffold (`lotusscript_scaffold`, `/ls scaffold`) therefore
+names an agent without a prefix — an `agent_` prefix in the file name would mean
+an element named `agent_X`, which the convention does not allow. The alias
+(`ag_…`) carries the type, not the file name. Libraries keep the `lib_` prefix
+because it is part of the element name.
 
 ---
 
-## 4. Hlavička elementu (dokumentační standard)
+## 4. Element header (documentation standard)
 
-Každý agent/knihovna začíná hlavičkou s aliasem a účelem:
+Every agent/library starts with a header carrying the alias and the purpose:
 
 ```lotusscript
 ' ========================================================================
@@ -103,7 +106,7 @@ Každý agent/knihovna začíná hlavičkou s aliasem a účelem:
 ' ========================================================================
 ```
 
-Pohled ve DXL nese alias v atributu:
+A view in DXL carries the alias in the attribute:
 
 ```xml
 <view name='(dleOkruhuOsoby)' alias='lu_bl_dle_okruhu' … />
@@ -111,14 +114,14 @@ Pohled ve DXL nese alias v atributu:
 
 ---
 
-## 5. Odvození aliasu nástrojem
+## 5. Deriving the alias with the tool
 
-Scaffold (`lotusscript_scaffold`) odvozuje alias automaticky:
+The scaffold (`lotusscript_scaffold`) derives the alias automatically:
 
-1. display název → ASCII (ě→e, š→s, č→c, …), lowercase
-2. vše kromě `a-z0-9` → `_`, opakovaná `_` → jedna, trim `_`
-3. segmenty se zkrátí a spojí pod prefixem typu (`ag_`, `lib_`)
-4. délka cap 40 znaků
+1. display name → ASCII (ě→e, š→s, č→c, …), lowercase
+2. everything except `a-z0-9` → `_`, repeated `_` → one, trim `_`
+3. segments are shortened and joined under the type prefix (`ag_`, `lib_`)
+4. length cap 40 characters
 
-Ruční úprava aliasu po scaffoldu je legální — jen musí zůstat ve tvaru
-`<prefix>_<segmenty>` a musí se propsat do hlavičky souboru i do Designeru.
+Editing the alias by hand after scaffolding is legal — it only has to keep the
+`<prefix>_<segments>` shape and be carried into the file header and Designer.
