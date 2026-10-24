@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 14:01:41",
+  "lastUpdated": "2026-10-24 14:12:10",
   "records": [
     {
       "id": "SPAI-001",
@@ -288,6 +288,69 @@
       "project": "pi-lotusscript-modular",
       "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
       "file": "2026-10-24-SPAI-019-phase-7-verify-linkgotcha-checker-script-grep-remn.md"
+    },
+    {
+      "id": "SPAI-020",
+      "title": "lotusscript_scaffold: add parameter target: \"designer\" so the scaffold for a Designer paste skips the Const LSI_THREAD_* block; then the %Include/LSI rule can leave the prose and live in the tool. Blocked-by/related: coding-conventions.md §1",
+      "type": "Todo",
+      "status": "todo",
+      "symbol": ".",
+      "timestamp": "2026-10-24 14:12:10",
+      "tags": [
+        "skill",
+        "scaffold"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-020-lotusscript-scaffold-add-parameter-target-designer.md"
+    },
+    {
+      "id": "SPAI-021",
+      "title": "Attach gotcha trigger regexes to lotusscript_check results: after a diagnostic, match its error text against trigger patterns in the gotcha catalogue and surface the matching entries directly in the tool result",
+      "type": "Todo",
+      "status": "todo",
+      "symbol": ".",
+      "timestamp": "2026-10-24 14:12:10",
+      "tags": [
+        "gotchas",
+        "check"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-021-attach-gotcha-trigger-regexes-to-lotusscript-check.md"
+    },
+    {
+      "id": "SPAI-022",
+      "title": "Language policy violation: naming-conventions — translate naming-conventions.md and coding-conventions.md sections 1, 4, 5 (plus Czech code samples/comments where they are instructions) to English; keep ' Účel:' markers and Czech examples as data",
+      "type": "Todo",
+      "status": "todo",
+      "symbol": ".",
+      "timestamp": "2026-10-24 14:12:10",
+      "tags": [
+        "skill",
+        "i18n"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-022-language-policy-violation-naming-conventions-tra.md"
+    },
+    {
+      "id": "SPAI-023",
+      "title": "Stale docs after the skill refactor: README.md L76/81/82 and FILE-MAP.md L46/54/57 still list workflow.md, lotus-class-index.md and the '64-entry index'; history prose remains in src/slices/pipeline/guidelines.ts:60 and src/slices/scorecard/compute.ts:143",
+      "type": "Todo",
+      "status": "todo",
+      "symbol": ".",
+      "timestamp": "2026-10-24 14:12:10",
+      "tags": [
+        "docs"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-023-stale-docs-after-the-skill-refactor-readmemd-l7681.md"
     }
   ]
 }
