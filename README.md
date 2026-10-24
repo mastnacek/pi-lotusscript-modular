@@ -15,7 +15,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Deterministic Scorecard & Definition of Done:** Every check emits a computed scorecard (LSP errors, KB consultation) with trend history — the model never self-reports.
 - **Code Scaffolding:** `/ls scaffold` and `lotusscript_scaffold` generate compliant whole-file skeletons (standalone agent, script library) rendered from the shipped versioned `template.lss` with `On Error GoTo ErrorHandler` handlers, derive the convention alias (`ag_…`), and emit a ready-to-follow Designer registration notice (name, alias, description, paste steps).
 - **Naming Conventions Reference:** Typed alias grammar (`ag_`, `lu_`, `frm_`, `fld_`, …) in the bundled reference docs so every new element is machine-recognizable in the design graph.
-- **Bundled Skill (operator-consented):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) ships inside the package and routes to on-demand reference docs (`references/`: workflow, coding conventions, naming, 64-gotcha index, scaffolding, DXL/ODP, formula language). In a Domino workspace the plugin offers it at session start with a static lotus modal (`skillPrompt`: `ask` / `always` / `never`); consent injects the skill body as instructions for the first run, and "don't ask in this project" is remembered in `.pi/lotusscript-modular.json`. The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
+- **Bundled Skill (operator-consented):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) ships inside the package and routes to on-demand reference docs (`references/`: coding conventions, naming, gotcha index and KB recipes, scaffolding, object model, DXL/ODP, formula language, plugin internals). In a Domino workspace the plugin offers it at session start with a static lotus modal (`skillPrompt`: `ask` / `always` / `never`); consent injects the skill body as instructions for the first run, and "don't ask in this project" is remembered in `.pi/lotusscript-modular.json`. The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
 - **Domino Project Detection:** A bounded scan (2 directory levels, dependency/VCS/plugin folders skipped, first evidence file wins) decides whether the workspace holds `.lss` / `.dxl` / `.fl` / `.ls` sources. Evidence drives two things: the consent modal, and the `resources_discover` answer — so the skill is **listed only in Domino projects** (never globally), and nothing is loaded without consent. When nothing is loaded, a one-line pointer stays in the system prompt plus an entry-skill line in every `.lss` read banner (`injectProjectSkillHint`).
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection (IBM 9.0.1 reference, Guirard performance book, community articles) before writing or modifying Notes 9.0.1 LotusScript code.
 - **Single HUD:** every live fact is rendered in one width-safe panel above the editor (`showTelemetryPanel`) — score and run state, the last LSP verdict, KB progress (`n/minKbSearchesPerRun`), hook counters, gate blocks and settle nudges, and the trace icon tail with the last checkpoint. The plugin writes **nothing** to the footer/status line: the HUD above the editor is the only surface that displays its state (a footer entry renders as `<key>: <value>` — eldritch-footer's full preset printed exactly `lotusscript: 🪷 LS 4/4 ✓` — which is the same fact in a second, worse place). Trace checkpoints never post a chat toast; long `/ls` output (audit table, gotcha bodies, raw diagnostics) prints a headline plus the tool that returns the full text. Subagent sessions are excluded via the recursion guard.
@@ -71,19 +71,19 @@ LSP checking is toggled with `/ls lsp on|off` or the `enableLsp` setting — the
 
 ## Bundled Skill & Reference Docs
 
-`skills/lotusscript-modular/` — the session skill (`SKILL.md` router) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
+`skills/lotusscript-modular/` — the session skill (`SKILL.md` router) plus the on-demand reference docs it routes to. The router gives the operating contract (Always rules + task→reference table); the references carry the detail:
 
-- `workflow.md` — whole-file lifecycle (edit → check → Designer paste), CLI/tool reference, language policy detail
-- `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
+- `coding-conventions.md` — Domino 9.0.1 coding standards, editing an existing `.lss`, Designer paste, error handling, forbidden names, top traps
 - `libraries-and-versioning.md` — script libraries, `Use` rules, `VERZE`/`CHANGELOG` headers, deployment order, error 151
 - `reuse-ladder.md` — check whether the element already exists before writing code
 - `domino-search-and-access.md` — ODP/DXL export search, ACL/visibility/deploy reachability
-- `object-model.md` + `lotus-class-index.md` — verifying Notes classes and members
-- `gotchas-index.md` — 64-entry one-liner index + recording protocol
+- `object-model.md` — verifying Notes classes and members against the `ls_classes.json` dataset
+- `gotchas-index.md` — KB layers and search recipes, gotcha recording protocol
 - `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation
 - `naming-conventions.md` — element naming/alias convention (`ag_`, `lu_`, `frm_`, …) and why
 - `dxl-and-odp.md` — DXL design-element editing rules (forms, views, ODP)
 - `formula-language.md` — `@formula` best practices
+- `plugin-internals.md` — architecture map, CLI/tool table, scorecard/DoD, self-improvement loop, language policy, template sources (for modifying the plugin, not for writing LotusScript)
 
 **How it is advertised:** the package declares no `skills` entry. The plugin answers pi's `resources_discover` hook with this one path, and only when the bounded project scan finds Domino evidence — so an unrelated repository is never offered a LotusScript manual. Session start offers it through a consent modal (`skillPrompt`: `ask` / `always` / `never`); "don't ask in this project" is remembered in `.pi/lotusscript-modular.json`.
 

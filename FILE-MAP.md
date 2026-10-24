@@ -42,19 +42,18 @@ offer a LotusScript manual in every repository.
 
 | File | Lines | Purpose |
 | --- | ---: | --- |
-| `SKILL.md` | 226 | Frontmatter (`name: lotusscript-modular`) + the operating manual: context-detection table, whole-file contract, check tool, scaffold fast path, Definition of Done, self-improvement loop, architecture map, language policy. |
-| `references/workflow.md` | 81 | Whole-file lifecycle: edit → check → Designer paste, and the tool/command table. |
-| `references/coding-conventions.md` | 200 | Domino 9.0.1 coding conventions — comment style, header shape, naming prefixes, error handling. |
-| `references/scaffolding.md` | 111 | Scaffold reference: skeleton types, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, template-source rules. |
+| `SKILL.md` | 35 | Frontmatter (`name: lotusscript-modular`) + the router: whole-file contract, six Always rules, and the task→reference table. |
+| `references/coding-conventions.md` | 256 | Domino 9.0.1 coding conventions — header shape, `%Include`/`LSI_THREAD_*` rule, editing an existing `.lss`, Designer paste, comments, constants, error handling, top traps. |
+| `references/plugin-internals.md` | 156 | Plugin documentation: architecture map, CLI/tool table, scorecard/DoD, self-improvement loop, language policy, template sources. |
+| `references/scaffolding.md` | 97 | Scaffold reference: skeleton types, `/ls scaffold` grammar, `lotusscript_scaffold` parameter table, per-skeleton guarantees, alias derivation. |
 | `references/libraries-and-versioning.md` | 157 | Script libraries, `Use` rules, `VERZE`/`CHANGELOG` policy, deployment order, `Recompile All`, error 151. |
-| `references/naming-conventions.md` | 116 | Alias grammar and the type→prefix table (`ag_`, `lib_`, `frm_`, …). |
+| `references/naming-conventions.md` | 123 | Alias grammar and the type→prefix table (`ag_`, `lib_`, `frm_`, …). |
 | `references/reuse-ladder.md` | 85 | "Does this already exist?" ladder: doclink → button → agent → new code, and what to refuse. |
-| `references/domino-search-and-access.md` | 92 | Searching an ODP/DXL export, ACL/visibility/deploy reachability, real-database pitfalls. |
-| `references/object-model.md` | 77 | Notes class/member verification, back-end vs UI classes, dataset queries. |
-| `references/lotus-class-index.md` | 103 | Class index into the `ls-classmap` JSON dataset (signatures). |
-| `references/dxl-and-odp.md` | 62 | DXL/ODP design-element reference (forms, views, agents, ODP). |
-| `references/formula-language.md` | 150 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, formula/DXL escaping. |
-| `references/gotchas-index.md` | 106 | 64-entry one-liner index of the bundled gotchas + the `lotus-notes` KB layer table and search recipes. |
+| `references/domino-search-and-access.md` | 91 | Searching an ODP/DXL export, ACL/visibility/deploy reachability, real-database pitfalls. |
+| `references/object-model.md` | 91 | Notes class/member verification against `ls_classes.json` (`{nodes, links}`, `isUI`), back-end vs UI classes, dataset queries. |
+| `references/dxl-and-odp.md` | 59 | DXL/ODP design-element reference (forms, views, agents, ODP). |
+| `references/formula-language.md` | 149 | Formula-language best practices (Guirard ch. 4): `@Db*` cache modes, `[FailSilent]`, field types, lists-not-loops, formula/DXL escaping. |
+| `references/gotchas-index.md` | 44 | `lotus-notes` KB layer table + search recipes and the gotcha recording protocol; the full list comes from `lotusscript_gotchas`, the common traps sit in `coding-conventions.md`. |
 
 ---
 
