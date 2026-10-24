@@ -2,7 +2,7 @@
 
 Domino applications are old and dense: the thing being asked for usually already
 exists somewhere. Run this ladder **before** writing code, and only then open
-`workflow.md` / `coding-conventions.md`.
+`coding-conventions.md`.
 
 Prime directive: the application probably already does this — find that element
 and reuse it. New code is the last resort and needs a justification.

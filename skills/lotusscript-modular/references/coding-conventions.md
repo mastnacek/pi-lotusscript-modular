@@ -59,6 +59,36 @@ používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
 
 ---
 
+## Editing an existing .lss
+
+1. **Module scope is flat.** Before modifying a procedure, scan the file's
+   `(Declarations)` section (globals, `Type`, `Class`, `Const`) — it lives at
+   the top of the same `.lss` file.
+2. **Adding a procedure:** insert it into the same file with an anchored edit,
+   following the coding conventions (`coding-conventions.md`). A `' Účel: ...`
+   comment above the declaration is the house style, not a lint rule.
+3. **Deleting a procedure:** remove it from the same file; nothing else needs
+   syncing.
+4. **Changing global state or types:** edit the declarations section and check
+   every procedure in the file that references the modified symbol.
+
+---
+
+## Pasting into Domino Designer 9.0.1
+
+- Tell the user to open the agent / script library in Domino Designer.
+- Copy the entire contents of the `.lss` file.
+- Paste into the Programmer's Pane (agent: into the script editor; library:
+  into the library body).
+- Save and recompile: **Ctrl+Shift+F9**.
+- When pasting into any Designer element, delete the scaffold's
+  `Const LSI_THREAD_*` block first — `LSPRVAL.LSS` is auto-included there and
+  the symbols would collide (rule and `%Include` table: section
+  `%Include "lsconst.lss"` above; gotcha #37). Deploy order for libraries:
+  `libraries-and-versioning.md` §4.
+
+---
+
 ## 2. Comments
 
 ### Rules
