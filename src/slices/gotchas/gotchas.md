@@ -1115,7 +1115,7 @@ IBM syntax (Language Reference):
 `MessageBox message [ , [ buttons + icon + default + mode ] [ , boxTitle ] ]`
 `MsgBox` se pouzivat smi.
 
-Pozor na past s LSP: `lotusscript_lsp_lsp_diagnostics` na takhle postavenem
+Pozor na past s LSP: `lotusscript_check` na takhle postavenem
 kodu vraci "No diagnostics" — tuto tridu chyby nedetekuje. Jedinou jistotou
 je vlozeni do Designeru a Ctrl+Shift+F9.
 
@@ -1154,7 +1154,7 @@ Obecniji pravidlo pro jednoradkove `If ... Then`: bezpecne jsou jen
 prikazove/prirazove formy (`If x > 0 Then y = 1`). Method call s vice
 parametry rad radsi rozloz do `Then` / `End If` na vlastni radky.
 
-Poznamka: `lotusscript_lsp_lsp_diagnostics` ani tuto tridu chyby nehlasi -
+Poznamka: `lotusscript_check` ani tuto tridu chyby nehlasi -
 hlasi "No diagnostics". Jedinou jistotou je Designer + Ctrl+Shift+F9.
 
 
@@ -1184,7 +1184,7 @@ smerem zbytecne zdrzuje.
 Typicky vzorec z veteranstvi: `Dim db As NotesDatabase` misto
 `db$`; `$` se v modernim LotusScriptu skoro nepouziva, u procedur vubec ne.
 
-Past na kontrolu: LSP (`lotusscript_lsp_lsp_diagnostics`) hlasi
+Past na kontrolu: LSP (`lotusscript_check`) hlasi
 "No diagnostics" i na takhle neprelozitelny kod.
 
 DULEZITE - kaskada chyb: Designer hlasi PRVNI chybu a zastavi se. V jednom
@@ -1194,14 +1194,14 @@ selhal na `Call Messagebox(...)` (radek X) a po oprave na `db.Open ""`
 chyby v kodu, ale tri vady, ktere tam byly od zacatku. Po kazde oprave
 pocitej s tim, ze dalsi chyba je ve frontce.
 
-Jak najit dalsi chyby bez Designeru (staticky):
-1. agregovany vystup prevest na DXL (Convert-LssToDxl) a projít jednotlive
-   `<code>` sekce;
-2. v kazde sekci porovnat `Dim ... Then$` vs `End If` (POZOR: `ElseIf ... Then`
+Jak najit dalsi chyby bez Designeru (staticky, nad celym `.lss`):
+1. porovnat `Dim ... Then$` vs `End If` (POZOR: `ElseIf ... Then`
    se NEPOCITA jako If, jinak vyjde falesna nesrovnalost);
-3. vyhledat vsechny `[A-Za-z0-9_]\$ *As ` - tohle padne presne na chybu
+2. vyhledat vsechny `[A-Za-z0-9_]\$ *As ` - tohle padne presne na chybu
    vyse;
-4. porovnat pouzite promenne s deklarovanymi v teze procedure (Option Declare).
+3. porovnat pouzite promenne s deklarovanymi v teze procedure (Option Declare);
+4. spustit `lotusscript_check` nad celym souborem - 9.0.1 oracle hlasi prvni
+   chybu a kazda oprava odhali dalsi.
 
 
 ---
