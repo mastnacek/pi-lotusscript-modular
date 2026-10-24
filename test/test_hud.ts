@@ -66,12 +66,13 @@ const clean = view({
 const cleanSegs = hudSegments(clean, cs);
 const colors = new Set(cleanSegs.flat().map((s) => s.color));
 check("segments: a clean run uses success + accent + muted accents", colors.has("success") && colors.has("accent"), [...colors]);
-check("segments: LSP verdict is green on success", cleanSegs[0]!.some((s) => s.text === "✓" && s.color === "success"));
+check("segments: LSP verdict is green on success", cleanSegs[0]!.some((s) => s.text === "🌸" && s.color === "success"));
 check("segments: score bar is green when the score is full", cleanSegs[0]!.some((s) => s.text.startsWith("▰▰▰▰") && s.color === "success"));
 
 const failed = view({ state: "error", telemetry: { ...createTelemetry(), lastLspOk: false, kbGateBlocks: 1 } });
 const failedSegs = hudSegments(failed, cs);
-check("segments: LSP verdict is red on failure", failedSegs[0]!.some((s) => s.text === "⚠" && s.color === "error"));
+check("segments: LSP verdict is red on failure", failedSegs[0]!.some((s) => s.text === "🥀" && s.color === "error"));
+check("segments: the KB segment carries the botanical marker", cleanSegs[0]!.some((s) => s.text === "🌿 " && s.color === "muted"));
 check("segments: a blocked gate turns the bolt red", failedSegs[2]!.some((s) => s.text === "⚡ " && s.color === "error"));
 check("segments: a blocked gate counts in red", failedSegs[2]!.some((s) => s.text === "1 blokováno" && s.color === "error"));
 

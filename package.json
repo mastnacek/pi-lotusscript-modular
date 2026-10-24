@@ -21,7 +21,7 @@
   "author": "mastnacek",
   "license": "MIT",
   "scripts": {
-    "test": "npx tsx test/test_i18n.ts && npx tsx test/test_hud.ts && npx tsx test/test_lsp_explain.ts && npx tsx test/test_lsp_check_classify.ts && npx tsx test/test_workflow.ts && npx tsx test/test_versioning.ts && npx tsx test/test_drift.ts && npx tsx test/test_trace.ts && npx tsx test/test_audit.ts && npx tsx test/test_gotchas.ts"
+    "test": "npx tsx test/test_i18n.ts && npx tsx test/test_hud.ts && npx tsx test/test_lsp_explain.ts && npx tsx test/test_lsp_check_classify.ts && npx tsx test/test_check_card.ts && npx tsx test/test_workflow.ts && npx tsx test/test_versioning.ts && npx tsx test/test_drift.ts && npx tsx test/test_trace.ts && npx tsx test/test_audit.ts && npx tsx test/test_gotchas.ts"
   },
   "pi": {
     "extensions": [

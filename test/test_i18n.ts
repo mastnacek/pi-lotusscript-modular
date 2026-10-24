@@ -101,7 +101,7 @@ const hudView: HudView = {
 };
 const csLines = hudLines(hudView, { ...DEFAULT_CONFIG, lang: "cs" });
 check("hud cs renders the state word", csLines[0]!.includes("nečinný"));
-check("hud cs renders the LSP marker", csLines[0]!.includes("LSP ?"));
+check("hud cs renders the LSP marker", csLines[0]!.includes("LSP 🌱"));
 check("hud cs renders hooks line", csLines[1]!.includes("haky"));
 check("hud cs renders the KB gate line", csLines[2]!.includes("brány"));
 

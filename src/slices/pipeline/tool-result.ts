@@ -151,7 +151,7 @@ async function autoFormatEditedFile(
   if (formatted === null || formatted === before) return "";
   fs.writeFileSync(resolved, formatted, "utf8");
   state.notesMutatedThisRun = true;
-  return `\n✨ LSP auto-format applied to ${path.basename(resolved)} (ASCII-only file)`;
+  return `\n🍃 LSP auto-format applied to ${path.basename(resolved)} (ASCII-only file)`;
 }
 
 /** Runs the whole-file check and assembles the scorecard/LSP notice block. */
@@ -182,7 +182,7 @@ async function checkAndReport(
     if (lspResult.ok) {
       state.setRunState("clean");
     } else {
-      lspNotice = `\n⚠️ LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
+      lspNotice = `\n🥀 LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
       state.setRunState("error");
     }
   } else {

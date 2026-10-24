@@ -14,7 +14,10 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 import type { ToolsDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
+import { stringsFor } from "../../shared/i18n.js";
+import { LOTUS } from "../../shared/lotus-icons.js";
 import { formatDiagnosticGotchas, matchDiagnosticGotchas } from "./diagnostic-gotchas.js";
+import { CheckCardComponent, parseCheckCardData } from "./check-card.js";
 
 export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps: ToolsDeps): void {
   // NOTE: state.config is a live getter — session_start's syncConfig() replaces
@@ -29,7 +32,10 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
     }),
   });
 
-  pi.registerTool<typeof CheckParams, { ok: boolean; checkedPath?: string }>({
+  pi.registerTool<
+    typeof CheckParams,
+    { ok: boolean; checkedPath?: string; skipped?: boolean; errorCount?: number; warningCount?: number }
+  >({
     name: "lotusscript_check",
     label: "Check LotusScript File",
     description:
@@ -44,13 +50,13 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
         // The oracle refused the file by name (e.g. a .dxl design export or a
         // .form). Nothing was compiled — say so instead of "clean".
         report =
-          `Checked: ${params.path}\nLSP Diagnostics: skipped — not a Domino script. ` +
+          `Checked: ${params.path}\nLSP Diagnostics: ${LOTUS.skipped} skipped — not a Domino script. ` +
           "The oracle compiles .lss/.lsa scripts and .fl/.formula sources only; " +
           `${lspResult.diagnostics}`;
       } else if (lspResult.ok) {
-        report = `Checked: ${params.path}\nLSP Diagnostics: 0 errors (clean)`;
+        report = `Checked: ${params.path}\nLSP Diagnostics: ${LOTUS.clean} 0 errors (clean)`;
       } else {
-        report = `Checked: ${params.path}\nLSP Diagnostics:\n${lspResult.diagnostics}`;
+        report = `Checked: ${params.path}\nLSP Diagnostics: ${LOTUS.error}\n${lspResult.diagnostics}`;
         // SPAI-021: surface the catalogue entries that describe this very error
         // text, so the search step is already done when the agent reads it.
         try {
@@ -73,8 +79,31 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
 
       return {
         content: [{ type: "text", text: report }],
-        details: { ok: lspResult.ok, checkedPath: params.path, skipped: lspResult.skipped === true },
+        details: {
+          ok: lspResult.ok,
+          checkedPath: params.path,
+          skipped: lspResult.skipped === true,
+          errorCount: lspResult.errorCount,
+          warningCount: lspResult.warningCount,
+        },
       };
     },
+    /**
+     * Transcript rendering: the bordered check card (lotus family, theme
+     * colours, width-clipped). Rendering only — the stored `content` text is
+     * unchanged, so non-TUI modes and the model see the same report as before.
+     */
+    renderResult: (result, _options, theme) =>
+      new CheckCardComponent(
+        parseCheckCardData(
+          result.content
+            ?.filter((c) => c.type === "text")
+            .map((c) => (c as { text?: string }).text ?? "")
+            .join("\n") ?? "",
+          result.details as { ok?: boolean; checkedPath?: string; skipped?: boolean; errorCount?: number }
+        ),
+        theme,
+        stringsFor(state.config.lang)
+      ),
   });
 }

@@ -34,7 +34,7 @@ export async function lsScaffold(state: PluginState, parts: LsParts, ctx: Extens
     });
     const localizedNotice = normalizeLocale(state.config.lang) === "cs" ? res.noticeCs : res.noticeEn;
     const notice = localizedNotice ? `\n\n${localizedNotice}` : "";
-    ctx.ui.notify(`✓ ${res.message}${notice}`, "info");
+    ctx.ui.notify(`🌱 ${res.message}${notice}`, "info");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     ctx.ui.notify(s.scaffoldCmd.error(msg), "error");

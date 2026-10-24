@@ -210,6 +210,14 @@ export interface Strings {
     lastLabel: string;
   };
 
+  /** The bordered check card rendered for `lotusscript_check` results. */
+  card: {
+    title: string;
+    clean: string;
+    skipped: string;
+    errors: (n: number) => string;
+  };
+
   completions: {
     subStatus: string;
     subGlobal: string;

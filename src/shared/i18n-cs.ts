@@ -64,12 +64,12 @@ export const STRINGS_CS: Strings = {
 
   check: {
     usage: (p) => `Použití: /ls check <soubor.lss>${p ? ` (soubor nenalezen: ${p})` : ""}`,
-    clean: (name) => `✓ ${name}: celý soubor zkontrolován, 0 chyb`,
-    errors: (diagnostics) => `⚠ Chyby překladače:
+    clean: (name) => `🌸 ${name}: celý soubor zkontrolován, 0 chyb`,
+    errors: (diagnostics) => `🥀 Chyby překladače:
 ${diagnostics}`,
     lspDisabled: "LSP kontrola je vypnutá (/ls lsp on) — nebylo co ověřit.",
-    compactClean: (name, score) => `✓ ${name}: 0 chyb${score}`,
-    compactErrors: (name, count) => `⚠ ${name}: ${count} chyb v překladači`,
+    compactClean: (name, score) => `🌸 ${name}: 0 chyb${score}`,
+    compactErrors: (name, count) => `🥀 ${name}: ${count} chyb v překladači`,
     toolHint: (p) => `   plný výpis: lotusscript_check(path: "${p}")`,
   },
 
@@ -170,6 +170,13 @@ ${diagnostics}`,
     blocked: "blokováno",
     nudges: "settle-nudge",
     lastLabel: "naposled",
+  },
+
+  card: {
+    title: "Kontrola LotusScriptu",
+    clean: "0 chyb — čistý překlad",
+    skipped: "vynecháno — není Domino skript",
+    errors: (n) => (n === 1 ? "1 chyba překladače" : n < 5 ? `${n} chyby překladače` : `${n} chyb překladače`),
   },
 
   completions: {

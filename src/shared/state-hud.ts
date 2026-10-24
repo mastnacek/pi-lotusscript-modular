@@ -5,7 +5,7 @@
  * clipped. The status line keeps only a glyph badge, so no number is rendered
  * twice:
  *
- *   🪷 LS ▰▰▱▱ 2/4 · ⠹ kontroluji… · LSP ⠋ · KB ▰▰▱ 2/3
+ *   🪷 LS ▰▰▱▱ 2/4 · ⠹ kontroluji… · LSP 🌸 · 🌿 KB ▰▰▱ 2/3
  *   🔧 haky 47: volání 12 · výsledky 9 · dokončení 2
  *   ⚡ brány: 0 blokováno · 1 settle-nudge
  *   🧩📄📝🔍🔖 naposled: versioning · ag_x.lss ⚠
@@ -28,6 +28,7 @@ import type { Component } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { HookTelemetry, LspLaneStatus, ModularConfig } from "./types.js";
 import { stringsFor } from "./i18n.js";
+import { LOTUS } from "./lotus-icons.js";
 
 export const HUD_WIDGET_KEY = "lotusscript-hud";
 
@@ -124,22 +125,22 @@ export function bar(filled: number, total: number, cells = 5): string {
 }
 
 /**
- * ✓ when the last check was clean or the lane answered the session probe,
- * ⚠ when a check failed or the lane is unreachable, ? only while nothing is
+ * Botanical verdict for the LSP cell: 🌸 clean (or the lane answered the
+ * session probe), 🥀 a failed check or unreachable lane, 🌱 while nothing is
  * known yet. A real check verdict always wins over the probe.
  */
 function lspMark(lastLspOk: boolean | null, lane: LspLaneStatus = "unknown"): string {
-  if (lastLspOk !== null) return lastLspOk ? "✓" : "⚠";
-  if (lane === "ready") return "✓";
-  if (lane === "unreachable") return "⚠";
-  return "?";
+  if (lastLspOk !== null) return lastLspOk ? LOTUS.clean : LOTUS.error;
+  if (lane === "ready") return LOTUS.clean;
+  if (lane === "unreachable") return LOTUS.error;
+  return LOTUS.checking;
 }
 
 /** Colour of the LSP verdict, matching the glyph. */
 function lspColor(lastLspOk: boolean | null, lane: LspLaneStatus): HudColor {
   const mark = lspMark(lastLspOk, lane);
-  if (mark === "✓") return "success";
-  if (mark === "⚠") return "error";
+  if (mark === LOTUS.clean) return "success";
+  if (mark === LOTUS.error) return "error";
   return "muted";
 }
 
@@ -192,6 +193,7 @@ export function hudSegments(view: HudView, config: ModularConfig, frame = 0): Hu
     { text: `${s.lsp} `, color: "muted" },
     { text: checking ? spinner : lspMark(t.lastLspOk, t.lspLane), color: checking ? "accent" : lspColor(t.lastLspOk, t.lspLane) },
     { text: " · ", color: "dim" },
+    { text: `${LOTUS.kb} `, color: "muted" },
     { text: `${s.kb} `, color: "muted" },
     ...(view.kbRequired > 0
       ? [

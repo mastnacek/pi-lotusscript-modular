@@ -315,8 +315,8 @@ export async function phaseProject(): Promise<void> {
     { ...DEFAULT_CONFIG, lang: "en" }
   ).join(" ");
   assert(
-    "21. HUD: ⚠ when the lane is unreachable, ✓ when it answered, ? otherwise",
-    dead.includes("LSP ⚠") && ready.includes("LSP ✓"),
+    "21. HUD: 🥀 when the lane is unreachable, 🌸 when it answered",
+    dead.includes("LSP 🥀") && ready.includes("LSP 🌸"),
     JSON.stringify({ dead, ready })
   );
 }

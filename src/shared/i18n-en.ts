@@ -64,12 +64,12 @@ export const STRINGS_EN: Strings = {
 
   check: {
     usage: (p) => `Usage: /ls check <file.lss>${p ? ` (file not found: ${p})` : ""}`,
-    clean: (name) => `✓ ${name}: whole file checked, 0 errors`,
-    errors: (diagnostics) => `⚠ Compiler errors:
+    clean: (name) => `🌸 ${name}: whole file checked, 0 errors`,
+    errors: (diagnostics) => `🥀 Compiler errors:
 ${diagnostics}`,
     lspDisabled: "LSP checking is off (/ls lsp on) — nothing to verify.",
-    compactClean: (name, score) => `✓ ${name}: 0 errors${score}`,
-    compactErrors: (name, count) => `⚠ ${name}: ${count} compiler error(s)`,
+    compactClean: (name, score) => `🌸 ${name}: 0 errors${score}`,
+    compactErrors: (name, count) => `🥀 ${name}: ${count} compiler error(s)`,
     toolHint: (p) => `   full output: lotusscript_check(path: "${p}")`,
   },
 
@@ -170,6 +170,13 @@ ${diagnostics}`,
     blocked: "blocked",
     nudges: "settle-nudge",
     lastLabel: "last",
+  },
+
+  card: {
+    title: "LotusScript check",
+    clean: "0 errors — clean compile",
+    skipped: "skipped — not a Domino script",
+    errors: (n) => (n === 1 ? "1 compiler error" : `${n} compiler errors`),
   },
 
   completions: {
