@@ -4,6 +4,10 @@
  *
  * The gotchas slice arrives via CommandsDeps (slice isolation, VSA);
  * user-facing text resolves through the i18n string table (pi-plugin-dev §10).
+ *
+ * Output policy: the toast lists the matching titles and names the tool that
+ * returns the full bodies. Three full gotcha bodies in a transient toast is
+ * ~1 400 characters of wrapped text the operator cannot scroll back to.
  */
 
 import type { ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
@@ -45,10 +49,15 @@ export async function lsGotchas(state: PluginState, parts: LsParts, ctx: Extensi
   const hits = deps.searchGotchas(query, 3);
   if (hits.length === 0) {
     ctx.ui.notify(s.gotchasCmd.noneFound(query), "warning");
-  } else {
-    const formatted = hits
-      .map((h, i) => `=== [${i + 1}] ${h.title} ===\n${h.body.slice(0, 450)}...`)
-      .join("\n\n");
-    ctx.ui.notify(formatted, "info");
+    return;
   }
+
+  ctx.ui.notify(
+    [
+      s.gotchasCmd.found(hits.length, query),
+      ...hits.map((h) => `  • ${h.title}`),
+      s.gotchasCmd.toolHint(query),
+    ].join("\n"),
+    "info"
+  );
 }

@@ -181,7 +181,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Instant-failure guard (KB edit gate) | `src/slices/guards/` |
 | `/ls` command switch (ls-config, ls-inspect, ls-check, ls-gotchas, ls-audit) | `src/slices/commands/` |
 | Model tools (check/gotchas/scaffold/library-audit) | `src/slices/tools/` |
-| Session state kernel (config, score history, banners, telemetry) | `src/shared/state.ts` + `state-insights.ts` + `state-telemetry.ts` |
+| Session state kernel (config, score history, banners) + the single HUD | `src/shared/state.ts` + `state-insights.ts` + `state-hud.ts` |
 | Bounded project detection + entry-skill consent (the only skill advertisement) | `src/slices/project/` |
 | Duplicated-procedure audit (`lotusscript_library_audit`, `/ls audit`) | `src/slices/audit/` |
 | Version header nudge (`VERZE`/`CHANGELOG`) | `src/slices/versioning/` |
@@ -204,7 +204,7 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Tool-result content (`event.content`) | **English** | It is model input, not UI |
 | Block reasons / instant-failure text | **English** | Read by the model to correct course |
 | Scorecard and DoD rubric | **English** | Injected into tool results |
-| `/ls` notifications, modals, statusline | **Czech** | Rendered by the extension; no translator sees them |
+| `/ls` notifications, modals, HUD lines | **Czech** | Rendered by the extension; no translator sees them |
 | Setting descriptions, autocompletions | **Czech** | User-facing only |
 
 Two things stay Czech **inside** English agent text, because they are data

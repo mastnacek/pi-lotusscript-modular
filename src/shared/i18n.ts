@@ -85,6 +85,18 @@ export interface Strings {
     clean: (name: string) => string;
     errors: (diagnostics: string) => string;
     lspDisabled: string;
+    /** Compact toast: a table/toast is not a report — long output goes to the tool. */
+    compactClean: (name: string, score: string) => string;
+    compactErrors: (name: string, count: number) => string;
+    toolHint: (path: string) => string;
+  };
+
+  /** `/ls audit` — compact toast + tool pointer for the full table. */
+  auditCmd: {
+    notFound: (dir: string) => string;
+    none: (files: number) => string;
+    summary: (groups: number, saved: number) => string;
+    toolHint: (dir: string) => string;
   };
 
   scaffoldCmd: {
@@ -104,6 +116,9 @@ export interface Strings {
     saved: (title: string) => string;
     notSaved: string;
     noneFound: (query: string) => string;
+    /** Compact hit list — bodies belong to the tool result, not a toast. */
+    found: (count: number, query: string) => string;
+    toolHint: (query: string) => string;
   };
 
   gotchaModal: {
@@ -161,17 +176,25 @@ export interface Strings {
     rejected: string;
   };
 
-  telemetry: {
+  /**
+   * The single HUD above the editor (`setWidget`). Every live fact the plugin
+   * knows is rendered here and nowhere else; the status line carries one
+   * glyph-only badge so the same number is never shown twice.
+   */
+  hud: {
+    /** Run-state words for the first line. */
+    stateIdle: string;
+    stateChecking: string;
+    stateClean: string;
+    stateError: string;
+    /** Line 1: score · run state · LSP verdict · KB progress. */
+    head: (score: string, state: string, lsp: string, kb: string) => string;
+    /** Line 2: raw hook counters (diagnostics for the plugin itself). */
     hooks: (total: number, calls: number, results: number, settled: number) => string;
-    reads: (kb: number) => string;
-    gates: (kb: number, checks: number, kbNudges: number) => string;
-    suffix: (lsp: string) => string;
-  };
-
-  statusline: {
-    checking: (badge: string) => string;
-    clean: (badge: string) => string;
-    error: (badge: string) => string;
+    /** Line 3: KB gate blocks and settle nudges. */
+    gates: (blocked: number, nudges: number) => string;
+    /** Line 4: trace icon tail + the last checkpoint (`detail`/`warn` pre-formatted). */
+    last: (label: string, detail: string, warn: string) => string;
   };
 
   completions: {

@@ -18,7 +18,7 @@ import {
 } from "../src/shared/i18n.js";
 import { SETTING_SPECS } from "../src/slices/settings/catalogue.js";
 import { completeLsArguments } from "../src/slices/settings/complete.js";
-import { createTelemetry, telemetryLines } from "../src/shared/state-telemetry.js";
+import { createTelemetry, hudLines, type HudView } from "../src/shared/state-hud.js";
 
 let failures = 0;
 
@@ -89,15 +89,35 @@ for (const spec of SETTING_SPECS) {
   }
 }
 
-// 3a. Telemetry render: cs (default) keeps the historical Czech markers.
-const csLines = telemetryLines(createTelemetry(), { ...DEFAULT_CONFIG, lang: "cs" });
-check("telemetry cs renders hooks line", csLines[0]!.includes("haky"));
-check("telemetry cs renders the LSP marker", csLines[3]!.includes("LSP ?"));
+// 3a. HUD render: cs (default) keeps the historical Czech markers.
+const hudView: HudView = {
+  telemetry: createTelemetry(),
+  state: "idle",
+  score: null,
+  kbQueries: 0,
+  kbRequired: 3,
+  traceTail: "",
+  lastTrace: null,
+};
+const csLines = hudLines(hudView, { ...DEFAULT_CONFIG, lang: "cs" });
+check("hud cs renders the state word", csLines[0]!.includes("nečinný"));
+check("hud cs renders the LSP marker", csLines[0]!.includes("LSP ?"));
+check("hud cs renders hooks line", csLines[1]!.includes("haky"));
+check("hud cs renders the KB gate line", csLines[2]!.includes("brány"));
 
-// 3b. Telemetry render: en (non-default locale — regression must be visible).
-const enLines = telemetryLines(createTelemetry(), { ...DEFAULT_CONFIG, lang: "en" });
-check("telemetry en renders hooks line", enLines[0]!.includes("hooks"));
-check("telemetry en renders the LSP marker", enLines[3]!.includes("LSP ?"));
+// 3b. HUD render: en (non-default locale — regression must be visible).
+const enLines = hudLines(hudView, { ...DEFAULT_CONFIG, lang: "en" });
+check("hud en renders the state word", enLines[0]!.includes("idle"));
+check("hud en renders hooks line", enLines[1]!.includes("hooks"));
+check("hud en renders the KB gate line", enLines[2]!.includes("gates"));
+
+// 3c. The trace row appears only once a checkpoint fired, and names it.
+const traced = hudLines(
+  { ...hudView, traceTail: " 🧩", lastTrace: { label: "verzování", detail: "a.lss", ok: false } },
+  { ...DEFAULT_CONFIG, lang: "cs" }
+);
+check("hud adds the trace row with the last checkpoint", traced.length === 4 && traced[3]!.includes("naposled") && traced[3]!.includes("verzování") && traced[3]!.includes("⚠"));
+check("hud has no trace row before the first checkpoint", csLines.length === 3);
 
 // 3c. Completion descriptions follow the locale.
 const csComp = completeLsArguments("", { ...DEFAULT_CONFIG, lang: "cs" });

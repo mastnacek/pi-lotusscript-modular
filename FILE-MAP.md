@@ -21,8 +21,8 @@ the repo and does not exist on disk — there is no build step.
 ## 1. Repo-level files
 
 | File | Lines | Purpose |
-|---|---:|---|
-| `index.ts` | 310 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice onto `ExtensionAPI`, hands the kernel its three slice capabilities (`getGotchasSummary`, `searchGotchas`, `computeScorecard`), holds the subagent-recursion guard (`PI_SUBAGENT`/`PI_CHILD_SESSION` early return), and counts every hook invocation for the telemetry panel. |
+| --- | ---: | --- |
+| `index.ts` | 310 | Composition root. The single entry point (`pi.extensions: ["./index.ts"]`). Wires every slice onto `ExtensionAPI`, hands the kernel its slice capabilities (`getGotchasSummary`, `searchGotchas`, `computeScorecard`, `traceTail`), holds the subagent-recursion guard (`PI_SUBAGENT`/`PI_CHILD_SESSION` early return), and counts every hook invocation for the HUD. |
 | `package.json` | — | Manifest. `"type": "module"`; core packages in `peerDependencies: {"*": "*"}` (never `dependencies`); `files: [index.ts, src, skills, README.md, LICENSE, package.json]`; `test` runs the seven tsx suites. |
 | `tsconfig.json` | — | TypeScript config used by `npx tsc --noEmit` (no emit, no `dist`). |
 | `AGENTS.md` | 62 | Repo-local agent instructions (whole-file-only hard rules, VSA layout, UX contracts). |
@@ -41,7 +41,7 @@ the code in §3–§6 is what actually executes. Advertised **only** through
 offer a LotusScript manual in every repository.
 
 | File | Lines | Purpose |
-|---|---:|---|
+| --- | ---: | --- |
 | `SKILL.md` | 226 | Frontmatter (`name: lotusscript-modular`) + the operating manual: context-detection table, whole-file contract, check tool, scaffold fast path, Definition of Done, self-improvement loop, architecture map, language policy. |
 | `references/workflow.md` | 81 | Whole-file lifecycle: edit → check → Designer paste, and the tool/command table. |
 | `references/coding-conventions.md` | 200 | Domino 9.0.1 coding conventions — comment style, header shape, naming prefixes, error handling. |
@@ -65,22 +65,22 @@ helper needs from a slice arrives as a capability object from the composition
 root (`InsightsCapabilities`).
 
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `types.ts` | 160 | `ModularConfig`, `SkillPromptMode`, `SkillPromptChoice`, `ProjectEvidenceKind`, `ProjectFingerprint`, `HookName`, `HookTelemetry`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (21 catalogue settings); `ProjectFingerprint` is the bounded project scan result. |
 | `config.ts` | 116 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`, `checkProcedureLimits`, `maxProcedureLines`, `enforceCzechComments`) so a stale file cannot revive removed behaviour. |
 | `paths.ts` | 38 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `isFormulaSource`, `isLooseScript` | Extension predicates for one whole file — no folder/part resolution exists. |
 | `i18n.ts` | 239 | `LOCALES`, `Locale`, `DEFAULT_LOCALE`, `SettingCopy`, `Strings`, `normalizeLocale`, `stringsFor` | The string-table contract. Every key resolves from a locale row; parity is enforced by `test_i18n.ts`. |
 | `i18n-cs.ts` / `i18n-en.ts` | 311 each | `STRINGS_CS`, `STRINGS_EN` | The two complete locale tables (user-facing text only). |
-| `state.ts` | 305 | `PluginState`, `createPluginState` | Session kernel: config, cwd, scorecard history, pre-flight banner cache, diagnostics history, version/drift/trace bookkeeping, KB flags, banner + statusline rendering. `createPluginState(capabilities)` takes the slice capabilities the kernel may not import. |
+| `state.ts` | 330 | `PluginState`, `PluginCapabilities`, `createPluginState` | Session kernel: config, cwd, scorecard history, pre-flight banner cache, diagnostics history, version/drift/trace bookkeeping, KB flags, banner + HUD/statusline rendering. The status line is a glyph-only badge; every number lives in `state-hud.ts`. `createPluginState(capabilities)` takes the slice capabilities the kernel may not import. |
 | `state-insights.ts` | 160 | `InsightsCapabilities`, `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Scorecard building/recording, file-token collection and the pre-flight gotcha banner. Pure over `deps` — gotchas and scorecard arrive as injected functions. |
-| `state-telemetry.ts` | 112 | `TELEMETRY_WIDGET_KEY`, `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel` | In-TUI telemetry panel; width-safe (`visibleWidth`/`truncateToWidth`), localized through the string table. |
+| `state-hud.ts` | 186 | `HUD_WIDGET_KEY`, `HudState`, `HudTrace`, `HudView`, `createTelemetry`, `totalHookCalls`, `hudLines`, `LotusHudComponent`, `renderHud` | **The single HUD** above the editor: score + run state, last LSP verdict, KB progress, hook counters, gates/nudges, trace tail + last checkpoint. Pure `hudLines(view, config)` for testing; width-safe (`visibleWidth`/`truncateToWidth`), localized through the string table. |
 
 ---
 
 ## 4. `src/slices/project/` — bounded detection + entry-skill consent
 
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `detect.ts` | 161 | `MAX_DEPTH`, `MAX_ENTRIES`, `BUDGET_MS`, `DetectOptions`, `detectLotusScriptProject`, `ProjectDetector`, `createProjectDetector` | Shallowest-first BFS for the first evidence file (`.lss`/`.lsa`/`.dxl`/`.fl`/`.ls`). Skips `.git`, `node_modules`, `bin`, `obj`, `dist`, `target`, caches and hidden directories; stops at the first hit; reports `truncated` when a cap ended the scan. Memoizes one scan per session root. **Never a repository walk.** |
 | `resources.ts` | 45 | `SkillResources`, `discoverSkillResources` | **The only advertisement of the skill.** Answers `resources_discover`: `{ skillPaths: [SKILL.md] }` in a Domino project, `{}` otherwise and on `skillPrompt: never`. |
 | `policy.ts` | 60 | `SkillPromptDecision`, `skillPromptDecision`, `SkillChoiceOutcome`, `skillChoiceOutcome`, `wrapSkillMessage` | Pure consent policy: evidence + `skillPrompt` → `ask`/`load`/`skip`; modal answer → load + optional persisted `never`. |
@@ -96,7 +96,7 @@ root (`InsightsCapabilities`).
 ## 5. `src/slices/pipeline/` — event translation
 
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `tool-call.ts` | 48 | `handleToolCall` | KB edit gate + KB-search telemetry. Reads pass through untouched. |
 | `tool-result.ts` | 242 | `handleToolResult` | Read banner for `.lss`; on edit: whole-file auto-check (LSP → scorecard → recurring gotchas), versioning/drift nudges, telemetry. Sets `lastCheckedFile`. |
 | `settled.ts` | 70 | `SettledDeps`, `handleAgentSettled` | At settle: final whole-file check of `lastCheckedFile`, scorecard, and the debrief for unmet DoD items. Writes and deletes nothing. |
@@ -115,7 +115,7 @@ root (`InsightsCapabilities`).
 
 ### commands — `/ls`
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 98 | `RegisteredLsCommand`, `createLsCommand` | Dispatcher: `status` / `config` / `lsp` / `lang` / `scaffold` / `score` / `check` / `gotchas` / `audit` / `help`, direct setting access, `--global`. |
 | `ls-config.ts` | 151 | `LsParts`, `lsStatus`, `lsLang`, `lsLsp`, `lsDirectSetting`, `lsConfig`, `lsHelp` | Config menu + help, current value annotated in the picker. |
 | `ls-inspect.ts` | 71 | `lsScaffold`, `lsScore` | Scaffold execution and scorecard/trend rendering. |
@@ -126,7 +126,7 @@ root (`InsightsCapabilities`).
 
 ### tools — model tools
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 28 | `registerModelTools` | Registers the four tools (check / scaffold / gotchas / library-audit). |
 | `compile-tool.ts` | 58 | `registerCompileTools` | `lotusscript_check` — whole-file 9.0.1 compiler-oracle check (+ `lsp_explain` help pages). Kept under the historical file name. |
 | `scaffold-tool.ts` | 71 | `registerScaffoldTool` | `lotusscript_scaffold`; `StringEnum(["agent","library"])`; `date` pins the header date for a reproducible scaffold. |
@@ -136,7 +136,7 @@ root (`InsightsCapabilities`).
 
 ### gotchas — trap catalogue
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `gotchas.md` | 1352 | *(data asset)* | The 64 seeded traps, each one preceded by a `---` separator (that separator is what makes a heading an entry boundary). Parsed at runtime. |
 | `catalogue.ts` | 295 | `getEffectiveGotchasPath`, `getAllGotchas`, `searchGotchas`, `getGotchasSummary`, `addGotcha` | **User-owned global copy** at `~/.pi/lotusscript/gotchas.md` (override: `LOTUSSCRIPT_GOTCHAS_DIR`). Seeds from the bundled file on first use, then keeps it in sync: superseded titles are dropped, bundled entries missing from the copy are appended, operator entries are never touched. `addGotcha` appends only to the global file. Parses `## ` as an entry boundary **only after a `---` separator**, so `## Sub-heading` inside a body stays body text. mtime-cached. |
 | `review-modal.ts` | 297 | `GotchaReviewComponent`, `promptGotchaReview` | TUI approval modal for a newly drafted gotcha. |
@@ -144,20 +144,20 @@ root (`InsightsCapabilities`).
 
 ### scorecard — deterministic evaluation
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `compute.ts` | 237 | `computeScorecard`, `trendLabel`, `formatScorecard`, `buildGradingRubric`, `normalizeDiagnostics`, `findRecurringSignatures`, `buildRecurringGotchaDraft` | Two weighted items only (`lsp-clean`, `kb-consulted`, `+2` each) plus rubric and recurring-draft helpers. `normalizeDiagnostics` masks line **and column** numbers. |
 | `index.ts` | 8 | barrel | Slice exports; no logic. |
 
 ### lsp — domino oracle
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `lsp-check.ts` | 264 | `checkLotusScriptDiagnostics` | Whole-file diagnostics through the notes-sys `domino-mcp.exe` MCP lane; parses the Rust output (`Checked … as a whole script`, `✔ Clean: no compiler diagnostics`) and classifies oracle failures as harness problems, never as code verdicts. |
 | `mcp-client.ts` | 220 | `DEFAULT_MCP_SERVER`, `mcpServerCommand`, `extractLspErrorCodes` (module-internal use), `explainLotusScriptCodes`, `formatLotusScriptFile` | Automation lane: `lsp_explain`, `lsp_format`. `mcpServerCommand` runs a `.js` path under Node and any other path (the Rust exe) directly. The slice barrel exports only `checkLotusScriptDiagnostics`, `explainLotusScriptCodes`, `formatLotusScriptFile`. |
 | `index.ts` | 5 | barrel | Slice exports; no logic. |
 
 ### scaffold — code generation
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 147 | `ScaffoldTargetType`, `ScaffoldResult`, `scaffoldLotusScriptArtifact` | Whole-file scaffold driver: template → substitution → alias → Designer notice. Refuses to overwrite. |
 | `templates.ts` | 169 | `ScaffoldOptions`, `formatCurrentDate`, `fillTemplate`, `agentTemplate`, `libraryTemplate` | Built-in fallbacks for the shipped template. |
 | `template-source.ts` | 24 | `getBundledTemplatePath` | Resolves the shipped `template.lss` next to the source (works from the git checkout and a package install). |
@@ -166,39 +166,39 @@ root (`InsightsCapabilities`).
 
 ### settings — catalogue + completions
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `catalogue.ts` | 85 | `SettingKind`, `SettingSpec`, `SETTING_SPECS`, `findSetting`, `settingCopy`, `parseValue`, `formatValue` | Declarative catalogue of every `ModularConfig` setting (retired keys removed). All prose lives in the i18n table. |
 | `complete.ts` | 278 | `completeLsArguments` | Multi-level autocompletion with the trailing-space contract. |
 | `index.ts` | 8 | barrel | Slice exports; no logic. |
 
 ### guards
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 36 | `GuardBlock`, `guardKbBeforeEdit` | Hard-gates `.lss`/`.dxl` edits behind a `kb_search` on `lotus-notes`. No plugin-generated files exist to protect. |
 
 ### audit — duplication → library
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 258 | `ProcFact`, `DupGroup`, `AuditReport`, `extractProcedures`, `findDuplicates`, `auditProject`, `renderAudit`, `AuditResultLite`, `auditForCommand`, `suggestLibraryName`, `renderPlan`, `auditForTool` | Read-only scan of `.lss` files: identical procedure bodies across files, ranked by saved lines (`lines × (files−1)`), plus a promotion plan. |
 
 ### versioning — `VERZE`/`CHANGELOG`
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 62 | `observeVersionHeader`, `checkVersioning` | Per-file baseline and once-per-file-per-run nudge. |
 | `header.ts` | 102 | `VersionBlock`, `extractVersionBlock`, `VersioningVerdict`, `evaluateVersioning`, `suggestNextVersion` | Pure header parsing/verdict logic. |
 | `messages.ts` | 49 | `VERSIONING_REFERENCE`, `missingNotice`, `unchangedNotice` | Paste-ready English notices. |
 
 ### drift — library re-implementation
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 68 | `checkDrift` | Once per file per run: warn when an agent re-implements what a sibling `lib_` file already owns. |
 | `signals.ts` | 80 | `DriftSignal`, `DRIFT_SIGNALS`, `DriftHit`, `findDrift`, `isLibraryFile` | Signal table (HTTP COM, MSXML fallback, endpoint literal, local error report, `notes://` builder) and the detector. |
 
 ### trace — visible skill trace
 | File | Lines | Exports | Purpose |
-|---|---:|---|---|
+| --- | ---: | --- | --- |
 | `index.ts` | 35 | `TraceSink`, `emitTrace` | Emits a checkpoint to the UI (`notify`), deduped per session; never enters model context. |
-| `vocab.ts` | 107 | `TraceKind`, `TraceEvent`, `traceLine`, `traceKey`, `traceTag`, `traceTail` | Locale-aware rendering, dedupe keys, statusline tail. `traceTail` is the **single owner** of the icon ordering: the composition root injects it into the kernel as the `traceTail` capability (`PluginCapabilities`), so `state.ts` never imports this slice (VSA). |
+| `vocab.ts` | 107 | `TraceKind`, `TraceEvent`, `traceLine`, `traceKey`, `traceLabel`, `traceTag`, `traceTail` | Locale-aware rendering, dedupe keys, HUD trace row. `traceTail` is the **single owner** of the icon ordering: the composition root injects it into the kernel as the `traceTail` capability (`PluginCapabilities`), so `state.ts` never imports this slice (VSA). `traceLabel` localizes the checkpoint label at emit time (`emitTrace`), so the kernel only renders the pre-built `HudTrace`. |
 
 ---
 
@@ -208,17 +208,17 @@ root (`InsightsCapabilities`).
 non-zero on failure (no log-only assertions).
 
 | File | Lines | Covers |
-|---|---:|---|
+| --- | ---: | --- |
 | `test/helpers.ts` | 123 | Temp workspace, `SAMPLE_LSS` fixture, `writeLss`, `mockCtx`, `mockPi`, `MOCK_THEME`, `createTestState` (a `PluginState` wired like the composition root). |
-| `test/test_i18n.ts` | 134 | Deep locale parity, catalogue copy, telemetry/completion rendering in both locales, `normalizeLocale`, help parity, Czech-free model surface. |
+| `test/test_i18n.ts` | 145 | Deep locale parity, catalogue copy, HUD/completion rendering in both locales, `normalizeLocale`, help parity, Czech-free model surface. |
 | `test/test_workflow.ts` | 35 | Phase runner + cleanup. |
 | `test/test_versioning.ts` | 102 | `VERZE`/`CHANGELOG` detection, bump suggestions, paste-ready notices. |
 | `test/test_drift.ts` | 94 | Drift signals, commented-out code, library-vs-agent, once-per-run latch. |
-| `test/test_trace.ts` | 68 | Trace rendering in both locales, dedupe keys, statusline tail, switch. |
+| `test/test_trace.ts` | 76 | Trace rendering in both locales, dedupe keys, HUD tail, one-surface rule (no toast on emit), last-checkpoint state, switch. |
 | `test/test_audit.ts` | 106 | Procedure extraction, duplicate grouping, saved-lines ranking, stable library name, promotion plan. |
 | `test/test_gotchas.ts` | 160 | Registry parsing (sub-heading is body text), supersede + re-seed sync, operator entries preserved, separator normalization, idempotency, seeding, every seed heading parses, no removed tool names. |
 | `test/phases/phase-scorecard.ts` | 109 | Full-marks clean file, failure rendering, trend, pending LSP semantics, rubric, normalisation, recurring draft. |
-| `test/phases/phase-pipeline.ts` | 201 | KB gate, auto-check on edit + telemetry, `.dxl` tracking, oversized procedure not blocked, read banner, entry-skill pointer, settle nudge + latch. |
+| `test/phases/phase-pipeline.ts` | 201 | KB gate, auto-check on edit + HUD counters, `.dxl` tracking, oversized procedure not blocked, read banner, entry-skill pointer, settle nudge + latch. |
 | `test/phases/phase-commands.ts` | 117 | `/ls` menu, absence of modular subcommands, scaffold completions, catalogue ↔ config parity, parse/format, retired-key dropping. |
 | `test/phases/phase-tools.ts` | 147 | `lotusscript_check` + `lotusscript_scaffold` + `lotusscript_gotchas` registration and execution, pinned date, overwrite refusal. |
 | `test/phases/phase-project.ts` | 282 | Detection (root/nested/formula/DXL/loose `.ls`, skip list, caps, caching), path protocol, bundled skill presence, hint builders, consent policy + typo fallback, modal width safety, `resources_discover` matrix. |

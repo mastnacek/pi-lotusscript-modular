@@ -9,6 +9,10 @@ import path from "node:path";
 import { DEFAULT_CONFIG, loadConfig } from "../../src/shared/config.js";
 import { completeLsArguments } from "../../src/slices/settings/complete.js";
 import { stringsFor } from "../../src/shared/i18n.js";
+import { lsAudit } from "../../src/slices/commands/ls-audit.js";
+import { auditForCommand } from "../../src/slices/audit/index.js";
+import type { CommandsDeps } from "../../src/slices/commands/deps.js";
+import { createTestState, mockCtx } from "../helpers.js";
 import { SETTING_SPECS, findSetting, parseValue, formatValue } from "../../src/slices/settings/catalogue.js";
 import { ensureTestDir, TEST_DIR } from "../helpers.js";
 
@@ -146,4 +150,26 @@ export async function phaseCommands(): Promise<void> {
     (completeLsArguments("--global ", cfg) ?? []).some((s) => s.label === "status");
   console.log("12. --global completes before and after the trailing space:", okGlobal ? "PASS" : "FAIL");
   if (!okGlobal) throw new Error("--global stranded the picker");
+
+  // 13. `/ls audit` prints a headline + tool pointer, never the table: a toast
+  //     cannot be scrolled and wraps a markdown table into noise.
+  const auditDir = path.join(TEST_DIR, "audit_compact");
+  fs.mkdirSync(auditDir, { recursive: true });
+  const dupBody = (name: string) =>
+    `Sub ${name}\n    Dim i As Integer\n    Dim total As Long\n    For i = 1 To 10\n        total = total + i\n    Next\n    Print total\nEnd Sub\n`;
+  fs.writeFileSync(path.join(auditDir, "a.lss"), dupBody("VebaDataPole"), "utf-8");
+  fs.writeFileSync(path.join(auditDir, "b.lss"), dupBody("VebaDataPole"), "utf-8");
+
+  const auditCtx = mockCtx(true);
+  await lsAudit(createTestState(), ["audit", auditDir], auditCtx, {
+    auditLibraries: (dir: string, lang: string) => auditForCommand(dir, lang),
+  } as unknown as CommandsDeps);
+  const auditText = (auditCtx.notices[0]?.text ?? "") as string;
+  const okCompact =
+    auditText.includes("skupin duplicit") &&
+    auditText.includes("lotusscript_library_audit") &&
+    !auditText.includes("|---") &&
+    !auditText.includes("| Procedura");
+  console.log("13. /ls audit prints a headline + tool pointer, not the table:", okCompact ? "PASS" : "FAIL");
+  if (!okCompact) throw new Error(`Audit toast: ${JSON.stringify(auditText)}`);
 }

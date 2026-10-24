@@ -16,7 +16,7 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
-- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts`, `state.ts` + `state-insights.ts`/`state-telemetry.ts` (no slice imports)
+- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts`, `state.ts` + `state-insights.ts`/`state-hud.ts` (no slice imports)
 - `src/slices/project/`   bounded project detection → entry-skill hint AND the lotus consent modal (`skillPrompt`); `resources.ts` is the only skill advertisement
 - `src/slices/pipeline/`  event translation: tool_call, tool_result, settled, before_settle, guidelines, read-banner, recurring-gotcha
 - `src/slices/guards/`    KB edit gate for `.lss`/`.dxl`
@@ -55,6 +55,16 @@ is ever wanted again, do not re-grow a second copy in `src/`.
   a `skills` entry for it to `settings.json` `packages[]` or to this package's `pi` manifest: a
   package-level skill entry is unconditional, so it offers a LotusScript manual in every repository
   and collides with the discovery answer (`name "lotusscript-modular" collision`).
+
+## UX: one surface per fact (the HUD)
+
+Every live fact is rendered in ONE place: the HUD widget above the editor
+(`src/shared/state-hud.ts`). The status line carries a glyph-only badge
+(`🪷 LS 4/4 ✓`) and no counters; `emitTrace` updates the HUD instead of posting a
+chat toast; `/ls` handlers print a headline plus the tool that returns the full
+text instead of pushing tables or diagnostics into a transient toast. Before
+adding output, decide which single surface owns it — adding a second place for a
+number that already exists is a bug, not a feature.
 
 ## UX: Lazy Menus & i18n
 - **Lazy menus** = `/ls` argument completions via `completeLsArguments(prefix, config)`.

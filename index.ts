@@ -121,11 +121,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     auditLibraries: (dir, lang) => auditForCommand(dir, lang),
   };
 
-  // Visible skill trace: user-facing only (ui.notify), never model context.
-  const traceSink = {
-    notify: (text: string) => state.latestUiContext?.ui?.notify?.(text, "info"),
-  };
-  const trace = (event: TraceEvent) => emitTrace(state, traceSink, event);
+  // Visible skill trace: rendered in the HUD only (never model context, never a
+  // toast — one surface per fact).
+  const trace = (event: TraceEvent) => emitTrace(state, event);
 
   const settledDeps: SettledDeps = {
     checkLotusScriptDiagnostics,

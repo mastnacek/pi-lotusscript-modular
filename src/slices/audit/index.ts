@@ -200,6 +200,8 @@ export interface AuditResultLite {
   markdown: string;
   duplicates: number;
   files: number;
+  /** Lines removable by promoting the duplicates — the compact toast's headline. */
+  savedLines: number;
 }
 
 export function auditForCommand(dir: string, lang: string): AuditResultLite {
@@ -208,6 +210,7 @@ export function auditForCommand(dir: string, lang: string): AuditResultLite {
     markdown: renderAudit(report, lang),
     duplicates: report.groups.length,
     files: report.filesScanned,
+    savedLines: report.savedLines,
   };
 }
 
@@ -254,5 +257,10 @@ export function renderPlan(report: AuditReport, lang = "cs"): string {
 export function auditForTool(dir: string, lang: string, plan: boolean): AuditResultLite {
   const report = auditProject(dir);
   const markdown = plan ? `${renderAudit(report, lang)}\n\n${renderPlan(report, lang)}` : renderAudit(report, lang);
-  return { markdown, duplicates: report.groups.length, files: report.filesScanned };
+  return {
+    markdown,
+    duplicates: report.groups.length,
+    files: report.filesScanned,
+    savedLines: report.savedLines,
+  };
 }

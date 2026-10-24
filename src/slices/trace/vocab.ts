@@ -82,7 +82,18 @@ function labelsFor(lang: string): Record<TraceKind, string> {
   return LABELS[lang] ?? LABELS.cs;
 }
 
-/** The chat-visible line for one checkpoint. */
+/**
+ * Localized label for one kind. Injected into the kernel as a capability so the
+ * HUD can name the last checkpoint without importing this slice (VSA).
+ * Unknown kinds fall back to their raw name: the vocabulary is closed, so this
+ * only matters for a stale session entry replayed after a downgrade.
+ */
+export function traceLabel(kind: string, lang = "cs"): string {
+  const labels = labelsFor(lang) as Record<string, string>;
+  return labels[kind] ?? kind;
+}
+
+/** The chat-visible line for one checkpoint — kept for the HUD `last:` row and tests. */
 export function traceLine(event: TraceEvent, lang = "cs"): string {
   const mark = event.ok === false ? "⚠️ " : "";
   const detail = event.detail ? ` · ${event.detail}` : "";

@@ -38,6 +38,7 @@ export interface AuditResultLite {
   markdown: string;
   duplicates: number;
   files: number;
+  savedLines: number;
 }
 
 export interface ScaffoldOptionsLite {

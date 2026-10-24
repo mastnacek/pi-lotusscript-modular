@@ -68,6 +68,16 @@ export const STRINGS_EN: Strings = {
     errors: (diagnostics) => `⚠ Compiler errors:
 ${diagnostics}`,
     lspDisabled: "LSP checking is off (/ls lsp on) — nothing to verify.",
+    compactClean: (name, score) => `✓ ${name}: 0 errors${score}`,
+    compactErrors: (name, count) => `⚠ ${name}: ${count} compiler error(s)`,
+    toolHint: (p) => `   full output: lotusscript_check(path: "${p}")`,
+  },
+
+  auditCmd: {
+    notFound: (dir) => `📚 Folder not found: ${dir}`,
+    none: (files) => `📚 ${files} files · no duplicates`,
+    summary: (groups, saved) => `📚 ${groups} duplicate groups · ~${saved} lines to move`,
+    toolHint: (dir) => `   full table: lotusscript_library_audit(dir: "${dir}")`,
   },
 
   scaffoldCmd: {
@@ -87,6 +97,8 @@ ${diagnostics}`,
     saved: (title) => `✓ Gotcha saved to the registry: ${title}`,
     notSaved: "Gotcha was not saved (cancelled by the user).",
     noneFound: (query) => `No gotchas found for: "${query}"`,
+    found: (count, query) => `💡 ${count} gotchas for "${query}":`,
+    toolHint: (query) => `   full text: lotusscript_gotchas(query: "${query}")`,
   },
 
   gotchaModal: {
@@ -142,19 +154,16 @@ ${diagnostics}`,
     rejected: "Gotcha was not saved (rejected by the user).",
   },
 
-  telemetry: {
+  hud: {
+    stateIdle: "idle",
+    stateChecking: "checking…",
+    stateClean: "clean",
+    stateError: "LSP error",
+    head: (score, state, lsp, kb) => `🪷 LS ${score} · ${state} · LSP ${lsp} · KB ${kb}`,
     hooks: (total, calls, results, settled) =>
-      `🪷 LS hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
-    reads: (kb) => `   KB queries ${kb}`,
-    gates: (kb, checks, kbNudges) =>
-      `   gates: KB ${kb} · checks ${checks} · settle-nudges ${kbNudges}`,
-    suffix: (lsp) => `📏 LSP ${lsp}`,
-  },
-
-  statusline: {
-    checking: (badge) => `🪷 LS${badge}: checking...`,
-    clean: (badge) => `🪷 LS${badge}: clean ✓`,
-    error: (badge) => `🪷 LS${badge}: LSP error ⚠`,
+      `🔧 hooks ${total}: calls ${calls} · results ${results} · settled ${settled}`,
+    gates: (blocked, nudges) => `⚡ gates: ${blocked} blocked · ${nudges} settle-nudge`,
+    last: (label, detail, warn) => `   last: ${label}${detail}${warn}`,
   },
 
   completions: {

@@ -1,28 +1,29 @@
 /**
- * Trace slice — emit the visible skill trace.
+ * Trace slice — record the visible skill trace.
  *
  * Design constraints, in order of importance:
- * 1. **Never in model context.** Uses `ctx.ui.notify`, not `pi.sendMessage`:
+ * 1. **One surface.** A checkpoint updates the HUD (icon tail + `last:` line)
+ *    and nothing else. It is never a toast: the same information in two places
+ *    is noise, and a toast per checkpoint drowned the chat during long work.
+ * 2. **Never in model context.** No `pi.sendMessage`, no tool-result text:
  *    the trace informs the operator, it must not cost tokens or steer the model.
- * 2. **Gentle.** One line per checkpoint per session (`traceEmitted`), and the
- *    whole thing is switchable with `showSkillTrace`.
- * 3. **Structural.** Lines are built from the fixed vocabulary in `vocab.ts`,
- *    so the same event always looks the same.
- * 4. **Persistent tail.** Each emitted kind also lands in the statusline as an
- *    icon, so the last state is visible without scrolling.
+ * 3. **Gentle.** One update per checkpoint per session (`traceEmitted`), and
+ *    the whole thing is switchable with `showSkillTrace`.
+ * 4. **Structural.** The last-checkpoint line is built from the fixed
+ *    vocabulary in `vocab.ts`, so the same event always looks the same.
  */
 
 import type { PluginState } from "../../shared/state.js";
-import { traceKey, traceLine, traceTag, type TraceEvent } from "./vocab.js";
+import { traceKey, traceLabel, traceTag, type TraceEvent } from "./vocab.js";
 
 export * from "./vocab.js";
 
-export interface TraceSink {
-  notify(text: string): void;
-}
-
-/** Emit one checkpoint. No-op when disabled, already shown, or UI-less. */
-export function emitTrace(state: PluginState, sink: TraceSink, event: TraceEvent): void {
+/**
+ * Record one checkpoint. No-op when disabled, already shown, or UI-less.
+ * The HUD is the only destination; `state.lastTrace` carries the localized
+ * label so the kernel never has to know the vocabulary.
+ */
+export function emitTrace(state: PluginState, event: TraceEvent): void {
   if (!state.config.showSkillTrace) return;
 
   const key = traceKey(event);
@@ -30,9 +31,15 @@ export function emitTrace(state: PluginState, sink: TraceSink, event: TraceEvent
   state.traceEmitted.add(key);
 
   state.traceTags.push(traceTag(event));
-  sink.notify(traceLine(event, state.config.lang));
-  // Re-render in the state the statusline already had: a checkpoint must add
-  // its icon to the tail, never claim a clean check that did not happen (or
+  state.lastTrace = {
+    label: traceLabel(event.kind, state.config.lang),
+    detail: event.detail,
+    ok: event.ok,
+  };
+
+  // Re-render in the state the status line already had: a checkpoint must add
+  // its icon to the HUD, never claim a clean check that did not happen (or
   // erase an LSP error the operator is looking at).
   state.renderStatusline(state.statuslineState);
+  state.renderHud();
 }

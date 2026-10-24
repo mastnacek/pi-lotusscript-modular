@@ -20,12 +20,14 @@ import type {
   ModularConfig,
 } from "./types.js";
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
-import { stringsFor } from "./i18n.js";
 import { createStateInsights, type InsightsCapabilities } from "./state-insights.js";
 import {
   createTelemetry,
-  renderTelemetryPanel as renderTelemetryPanelWidget,
-} from "./state-telemetry.js";
+  renderHud as renderHudWidget,
+  type HudState,
+  type HudTrace,
+  type HudView,
+} from "./state-hud.js";
 
 export interface PluginState {
   // --- lifecycle plumbing ---
@@ -85,13 +87,19 @@ export interface PluginState {
   recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined;
   collectFileTokens(filePath: string): string[];
   buildGotchasBanner(filePath: string): string;
-  renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
+  renderStatusline(state: HudState): void;
   /** The state the statusline currently shows (so a trace never overwrites it). */
-  readonly statuslineState: "idle" | "checking" | "clean" | "error";
-  /** Count a hook invocation and refresh the telemetry panel. */
+  readonly statuslineState: HudState;
+  /**
+   * The last trace checkpoint, already localized by the trace slice at emit
+   * time (`emitTrace` calls `traceLabel` itself). The kernel only renders it,
+   * so it needs no vocabulary capability.
+   */
+  lastTrace: HudTrace | null;
+  /** Count a hook invocation and refresh the HUD. */
   countHook(name: HookName): void;
-  /** Re-apply the telemetry widget (config toggles, manual refresh). */
-  renderTelemetryPanel(): void;
+  /** Re-apply the HUD widget (config toggles, manual refresh). */
+  renderHud(): void;
   syncConfig(cwd: string): void;
   updateConfig(newConfig: ModularConfig, isGlobal?: boolean, cwd?: string): void;
 }
@@ -102,7 +110,7 @@ export interface PluginState {
  * slice, the statusline that renders them lives in the kernel.
  */
 export interface PluginCapabilities extends InsightsCapabilities {
-  /** Stable, de-duplicated icon sequence for the statusline suffix. */
+  /** Stable, de-duplicated icon sequence for the HUD trace row. */
   traceTail?(tags: readonly string[]): string;
 }
 
@@ -151,48 +159,43 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     preflightBannerCache,
   });
 
-  let lastStatuslineState: "idle" | "checking" | "clean" | "error" = "idle";
+  let lastStatuslineState: HudState = "idle";
+  let lastTrace: HudTrace | null = null;
 
-  function renderStatusline(state: "idle" | "checking" | "clean" | "error" = "idle"): void {
+  /**
+   * Status line: ONE glyph-only badge. Every number, state word and counter
+   * lives in the HUD above the editor, so nothing is displayed twice and
+   * nothing here needs translating.
+   */
+  function renderStatusline(state: HudState = "idle"): void {
     lastStatuslineState = state;
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
-    const sl = stringsFor(config.lang).statusline;
-    const scoreBadge = latestScorecard ? ` [${latestScorecard.score}/${latestScorecard.max}]` : "";
-
-    if (state === "checking") {
-      latestUiContext.ui.setStatus(
-        "lotusscript",
-        theme.fg("warning", sl.checking(scoreBadge))
-      );
-      return;
-    }
-
-    if (state === "clean") {
-      latestUiContext.ui.setStatus(
-        "lotusscript",
-        theme.fg("success", sl.clean(scoreBadge))
-      );
-      return;
-    }
-
-    if (state === "error") {
-      latestUiContext.ui.setStatus(
-        "lotusscript",
-        theme.fg("error", sl.error(scoreBadge))
-      );
-      return;
-    }
-
-    // Default / idle state — the trace tail shows which checkpoints have fired.
-    const icon = theme.fg("accent", `🪷 LS${scoreBadge}`);
-    const flags = theme.fg("dim", ` (LSP:${config.enableLsp ? "on" : "off"})`);
-    latestUiContext.ui.setStatus("lotusscript", icon + flags + traceTailText());
+    const score = latestScorecard ? ` ${latestScorecard.score}/${latestScorecard.max}` : "";
+    const mark = { idle: "", checking: " …", clean: " ✓", error: " ⚠" }[state];
+    const color = { idle: "accent", checking: "warning", clean: "success", error: "error" } as const;
+    latestUiContext.ui.setStatus(
+      "lotusscript",
+      theme.fg(color[state], `🪷 LS${score}${mark}`)
+    );
   }
 
   /** Icon sequence of the checkpoints already shown (ordering owned by the slice). */
   function traceTailText(): string {
     return capabilities.traceTail ? capabilities.traceTail(traceTags) : "";
+  }
+
+  /** Immutable snapshot the HUD renders from (pure line builder downstream). */
+  function hudView(): HudView {
+    return {
+      telemetry,
+      state: lastStatuslineState,
+      score: latestScorecard ? { score: latestScorecard.score, max: latestScorecard.max } : null,
+      kbQueries: kbQueriesThisRun.length,
+      kbRequired: config.minKbSearchesPerRun,
+      traceTail: traceTailText(),
+      lastTrace,
+    };
   }
 
   function syncConfig(cwd: string): void {
@@ -204,18 +207,18 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
 
   function countHook(name: HookName): void {
     telemetry.hookCalls[name]++;
-    renderTelemetryPanel();
+    renderHud();
   }
 
-  function renderTelemetryPanel(): void {
-    renderTelemetryPanelWidget(latestUiContext, () => telemetry, () => config);
+  function renderHud(): void {
+    renderHudWidget(latestUiContext, hudView, () => config);
   }
 
   function updateConfig(newConfig: ModularConfig, isGlobal = false, cwd?: string): void {
     config = newConfig;
     saveConfig(cwd || activeCwd, config, isGlobal);
     renderStatusline("idle");
-    renderTelemetryPanel(); // showTelemetryPanel may have been toggled
+    renderHud(); // showTelemetryPanel may have been toggled
   }
 
   return {
@@ -235,6 +238,12 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     },
     get statuslineState() {
       return lastStatuslineState;
+    },
+    get lastTrace() {
+      return lastTrace;
+    },
+    set lastTrace(t: HudTrace | null) {
+      lastTrace = t;
     },
     get latestUiContext() {
       return latestUiContext;
@@ -314,7 +323,7 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     buildGotchasBanner: insights.buildGotchasBanner,
     renderStatusline,
     countHook,
-    renderTelemetryPanel,
+    renderHud,
     syncConfig,
     updateConfig,
   };

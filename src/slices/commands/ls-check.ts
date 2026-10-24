@@ -5,6 +5,11 @@
  * Cross-slice capabilities (lsp / scorecard) arrive via CommandsDeps —
  * slices never import each other (VSA). User-facing text resolves through the
  * i18n string table (pi-plugin-dev §10).
+ *
+ * Output policy: the score lives in the HUD and the status badge, the compiler
+ * diagnostics belong to `lotusscript_check` (which returns them in full). The
+ * toast therefore states the verdict and how to get the detail — a wall of
+ * diagnostics in a transient toast is unreadable and vanishes.
  */
 
 import path from "node:path";
@@ -32,21 +37,32 @@ export async function lsCheck(state: PluginState, parts: LsParts, ctx: Extension
     lspRes = await deps.checkLotusScriptDiagnostics(target);
   }
 
-  const out: string[] = [];
-  if (!config.enableLsp) {
-    out.push(s.check.lspDisabled);
-  } else if (lspRes && lspRes.ok) {
-    out.push(s.check.clean(path.basename(target)));
-  } else if (lspRes) {
-    out.push(s.check.errors(lspRes.diagnostics));
-  }
-
+  // Grade regardless of the LSP toggle: the scorecard knows when the LSP item
+  // is not measured and marks it pending instead of failed.
+  let scoreText = "";
   if (config.enableScorecard) {
     const sc = state.buildScorecard(target, { lsp: lspRes });
-    const previous = state.recordScorecard(target, sc);
-    out.push("", deps.formatScorecard(sc, previous));
+    state.recordScorecard(target, sc);
+    scoreText = s.settled.score(sc.score, sc.max);
   }
 
-  state.renderStatusline(lspRes && !lspRes.ok ? "error" : "clean");
-  ctx.ui.notify(out.join("\n"), lspRes && !lspRes.ok ? "warning" : "info");
+  const name = path.basename(target);
+
+  if (!config.enableLsp) {
+    ctx.ui.notify(`${s.check.lspDisabled}${scoreText}`, "warning");
+    state.renderStatusline("clean");
+    return;
+  }
+
+  if (lspRes?.ok) {
+    ctx.ui.notify(s.check.compactClean(name, scoreText), "info");
+    state.renderStatusline("clean");
+    return;
+  }
+
+  ctx.ui.notify(
+    [s.check.compactErrors(name, lspRes?.errorCount ?? 1), s.check.toolHint(target)].join("\n"),
+    "warning"
+  );
+  state.renderStatusline("error");
 }

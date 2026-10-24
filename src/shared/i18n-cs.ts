@@ -68,6 +68,16 @@ export const STRINGS_CS: Strings = {
     errors: (diagnostics) => `⚠ Chyby překladače:
 ${diagnostics}`,
     lspDisabled: "LSP kontrola je vypnutá (/ls lsp on) — nebylo co ověřit.",
+    compactClean: (name, score) => `✓ ${name}: 0 chyb${score}`,
+    compactErrors: (name, count) => `⚠ ${name}: ${count} chyb v překladači`,
+    toolHint: (p) => `   plný výpis: lotusscript_check(path: "${p}")`,
+  },
+
+  auditCmd: {
+    notFound: (dir) => `📚 Adresář nenalezen: ${dir}`,
+    none: (files) => `📚 ${files} souborů · žádné duplicity`,
+    summary: (groups, saved) => `📚 ${groups} skupin duplicit · ~${saved} řádků k přesunu`,
+    toolHint: (dir) => `   plná tabulka: lotusscript_library_audit(dir: "${dir}")`,
   },
 
   scaffoldCmd: {
@@ -87,6 +97,8 @@ ${diagnostics}`,
     saved: (title) => `✓ Gotcha uložena do báze: ${title}`,
     notSaved: "Gotcha nebyla uložena (zrušeno uživatelem).",
     noneFound: (query) => `Žádné gotchas nenalezeny pro výraz: "${query}"`,
+    found: (count, query) => `💡 ${count} gotchas pro "${query}":`,
+    toolHint: (query) => `   plné znění: lotusscript_gotchas(query: "${query}")`,
   },
 
   gotchaModal: {
@@ -142,19 +154,16 @@ ${diagnostics}`,
     rejected: "Gotcha nebyla uložena (zamítnuto uživatelem).",
   },
 
-  telemetry: {
+  hud: {
+    stateIdle: "nečinný",
+    stateChecking: "kontroluji…",
+    stateClean: "čistý",
+    stateError: "LSP chyba",
+    head: (score, state, lsp, kb) => `🪷 LS ${score} · ${state} · LSP ${lsp} · KB ${kb}`,
     hooks: (total, calls, results, settled) =>
-      `🪷 LS haky ${total}: volání ${calls} · výsledky ${results} · dokončení ${settled}`,
-    reads: (kb) => `   KB dotazy ${kb}`,
-    gates: (kb, checks, kbNudges) =>
-      `   brány: KB ${kb} · kontroly ${checks} · settle-nudges ${kbNudges}`,
-    suffix: (lsp) => `📏 LSP ${lsp}`,
-  },
-
-  statusline: {
-    checking: (badge) => `🪷 LS${badge}: kontroluji...`,
-    clean: (badge) => `🪷 LS${badge}: zkontrolováno ✓`,
-    error: (badge) => `🪷 LS${badge}: LSP chyba ⚠`,
+      `🔧 haky ${total}: volání ${calls} · výsledky ${results} · dokončení ${settled}`,
+    gates: (blocked, nudges) => `⚡ brány: ${blocked} blokováno · ${nudges} settle-nudge`,
+    last: (label, detail, warn) => `   naposled: ${label}${detail}${warn}`,
   },
 
   completions: {
