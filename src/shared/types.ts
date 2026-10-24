@@ -142,6 +142,9 @@ export interface ScorecardInput {
 
 export interface LspCheckResult {
   ok: boolean;
+  /** True when the oracle refused the file by name (e.g. a .dxl/.form on the
+   *  check lane): nothing was compiled, so this is not a code verdict. */
+  skipped?: boolean;
   diagnostics: string;
   errorCount: number;
   warningCount: number;

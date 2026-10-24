@@ -40,7 +40,14 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
       const lspResult = await deps.checkLotusScriptDiagnostics(params.path);
 
       let report: string;
-      if (lspResult.ok) {
+      if (lspResult.ok && lspResult.skipped) {
+        // The oracle refused the file by name (e.g. a .dxl design export or a
+        // .form). Nothing was compiled — say so instead of "clean".
+        report =
+          `Checked: ${params.path}\nLSP Diagnostics: skipped — not a Domino script. ` +
+          "The oracle compiles .lss/.lsa scripts and .fl/.formula sources only; " +
+          `${lspResult.diagnostics}`;
+      } else if (lspResult.ok) {
         report = `Checked: ${params.path}\nLSP Diagnostics: 0 errors (clean)`;
       } else {
         report = `Checked: ${params.path}\nLSP Diagnostics:\n${lspResult.diagnostics}`;
@@ -66,7 +73,7 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
 
       return {
         content: [{ type: "text", text: report }],
-        details: { ok: lspResult.ok, checkedPath: params.path },
+        details: { ok: lspResult.ok, checkedPath: params.path, skipped: lspResult.skipped === true },
       };
     },
   });

@@ -20,6 +20,7 @@ LotusScript work read `SKILL.md` and the task reference it routes to.
 | Visible skill trace (chat checkpoints, never model context) | `src/slices/trace/` |
 | Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
 | LSP diagnostics — MCP lane to notes-sys `domino-mcp.exe` (whole-file check + explain/format) | `src/slices/lsp/` |
+| LSP refusal handling — `domino-mcp.exe` rejects files outside its compiler lanes by name (`.dxl`, `.form`, …): `Error: X is not a Domino script (expected .lss, .lsa, .fl or .formula)`. The check lane classifies that as *skipped* (`ok: true`, `skipped: true`, 0 errors), never as a compilation failure; the pipeline auto-check never even submits `.dxl` (design export, not a script) | `classifyDiagnostics` in `src/slices/lsp/lsp-check.ts` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |

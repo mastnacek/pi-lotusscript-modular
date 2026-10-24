@@ -1,4 +1,4 @@
-export { checkLotusScriptDiagnostics } from "./lsp-check.js";
+export { checkLotusScriptDiagnostics, classifyDiagnostics } from "./lsp-check.js";
 export {
   explainLotusScriptCodes,
   extractLspErrorCodes,
