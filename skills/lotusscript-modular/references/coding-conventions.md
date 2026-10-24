@@ -238,4 +238,19 @@ Catch:
 
 ## 8. Top traps
 
+| # | Trap (catalogue title) | Rule |
+|---|---|---|
+| 1 | `Shell` is a built-in function — cannot be used as a variable name (also `Dir`, `StrRight`…) | Built-ins are reserved — rename your var/function (`Unexpected: Identifier`) |
+| 3 | `Const` — syntax has no `As dataType` | Use the type suffix `%` `$` `&` — `Const X As Integer = 5` does not compile |
+| 7 | `doc.Created` / `LastModified` / `LastAccessed` return Variant, not NotesDateTime | Assign to a Variant, then `Format$` |
+| 9 | Workflow applications — always store date **and** time | Date fields MUST include time — date-only fields break sorting/workflow |
+| 10 | `CDate` does not exist — LotusScript uses `CDat` | Write `CDat(...)` |
+| 11 | `Split()` returns a Variant, not `String()` — "Illegal reference to array" | Assign to a Variant, not to a typed array |
+| 21 | `Format$(date, mask)` is locale-dependent | Dates may render per server/user locale — prefer explicit patterns |
+| 25 | `Chr` vs `UChr` — Unicode characters | `Chr(&H010D)` → Illegal function call; use `UChr` for >255 codepoints |
+| 37 | `LSI_THREAD_*` are already defined — "Name previously declared" | Delete `Const LSI_THREAD_*` when pasting into Designer (section 1) |
+| 43 | Logical operators `And` / `Or` do NOT short-circuit | Both operands always evaluate (error 91) — split into branches |
+| 45 | `GetAllDocumentsByKey` returns an empty collection on no match — never `Nothing` | Test `Count = 0`, not `Is Nothing` |
+| 64 | `Dim` has procedure scope | Declare variables in the header of the SAME sub/function where they are used, else "Variable not declared" |
+
 Full list: `gotchas-index.md` or `lotusscript_gotchas(action: "search", query: "...")`.
