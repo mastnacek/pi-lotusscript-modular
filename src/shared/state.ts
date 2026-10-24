@@ -24,6 +24,7 @@ import { createStateInsights, type InsightsCapabilities } from "./state-insights
 import {
   createTelemetry,
   renderHud as renderHudWidget,
+  stopHudAnimation,
   type HudState,
   type HudTrace,
   type HudView,
@@ -117,6 +118,9 @@ export interface PluginCapabilities extends InsightsCapabilities {
 
 export function createPluginState(capabilities: PluginCapabilities): PluginState {
   const unsubscribers: Array<() => void> = [];
+  // The HUD spinner owns a repaint timer; draining it on session_shutdown keeps
+  // a decorative animation from outliving the session that started it.
+  unsubscribers.push(stopHudAnimation);
 
   const track = (result: unknown): void => {
     if (typeof result === "function") unsubscribers.push(result as () => void);

@@ -180,6 +180,12 @@ export interface Strings {
    * The single HUD above the editor (`setWidget`). Every live fact the plugin
    * knows is rendered here and nowhere else; the status line carries one
    * glyph-only badge so the same number is never shown twice.
+   *
+   * These are FRAGMENTS, not whole lines: the panel draws progress bars and
+   * per-segment theme colours, so prose lives here while presentation (icons,
+   * bars, order) lives in `state-hud.ts`. Composed result:
+   *
+   *   🪷 LS ▰▰▱▱ 2/4 · clean · LSP ✓ · KB ▰▰▱ 2/3
    */
   hud: {
     /** Run-state words for the first line. */
@@ -187,14 +193,21 @@ export interface Strings {
     stateChecking: string;
     stateClean: string;
     stateError: string;
-    /** Line 1: score · run state · LSP verdict · KB progress. */
-    head: (score: string, state: string, lsp: string, kb: string) => string;
+    /** Line 1 labels. */
+    ls: string;
+    lsp: string;
+    kb: string;
     /** Line 2: raw hook counters (diagnostics for the plugin itself). */
-    hooks: (total: number, calls: number, results: number, settled: number) => string;
+    hooks: string;
+    hookCalls: string;
+    hookResults: string;
+    hookSettled: string;
     /** Line 3: KB gate blocks and settle nudges. */
-    gates: (blocked: number, nudges: number) => string;
-    /** Line 4: trace icon tail + the last checkpoint (`detail`/`warn` pre-formatted). */
-    last: (label: string, detail: string, warn: string) => string;
+    gates: string;
+    blocked: string;
+    nudges: string;
+    /** Line 4: label before the last checkpoint. */
+    lastLabel: string;
   };
 
   completions: {

@@ -68,6 +68,22 @@ text instead of pushing tables or diagnostics into a transient toast. Before
 adding output, decide which single surface owns it — adding a second place for a
 number that already exists is a bug, not a feature.
 
+Panel shape (four lines, colour-coded per segment, progress bars, braille spinner
+in the LSP cell while a check compiles):
+
+```
+🪷 LS ▰▰▱▱ 2/4 · ⠹ kontroluji… · LSP ⠋ · KB ▰▰▱ 2/3
+🔧 haky 47: volání 12 · výsledky 9 · dokončení 2
+⚡ brány: 0 blokováno · 1 settle-nudge
+🧩📄📝 naposled: kontrolní běh · ag_x.lss
+```
+
+`hudSegments()` is the ONE layout owner (pure, colour-tagged, i18n fragments);
+`LotusHudComponent` only paints tags with the live theme and clips each line.
+Bars round down (a half-met requirement never reads as met), colours come from
+theme roles — never raw ANSI — and the repaint timer runs **only** while a check
+is in flight (`stopHudAnimation()` is drained on `session_shutdown`).
+
 ## UX: Lazy Menus & i18n
 - **Lazy menus** = `/ls` argument completions via `completeLsArguments(prefix, config)`.
 - **Completion contract (critical):** `getArgumentCompletions(prefix)` receives the entire argument text after `/ls `, and `item.value` replaces the whole prefix (`value` = full argument string with trailing space for non-terminals, `label` = leaf token).
