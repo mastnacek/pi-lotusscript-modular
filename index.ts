@@ -37,6 +37,7 @@ import { MUTATING_TOOL_NAMES } from "./src/slices/pipeline/mutating-tools.js";
 import {
   buildGradingRubric,
   buildRecurringGotchaDraft,
+  computeScorecard,
   findRecurringSignatures,
   normalizeDiagnostics,
 } from "./src/slices/scorecard/index.js";
@@ -87,7 +88,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     return;
   }
 
-  const state = createPluginState();
+  // Kernel capabilities: the only place slices are handed to `src/shared`
+  // (VSA — the kernel itself imports no slice).
+  const state = createPluginState({ getGotchasSummary, searchGotchas, computeScorecard });
   const { track } = state;
 
   // One bounded project scan per session root, memoized by the slice; the

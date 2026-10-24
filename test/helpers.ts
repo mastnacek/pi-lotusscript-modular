@@ -6,6 +6,9 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { getGotchasSummary, searchGotchas } from "../src/slices/gotchas/index.js";
+import { computeScorecard } from "../src/slices/scorecard/index.js";
+import { createPluginState, type PluginState } from "../src/shared/state.js";
 
 /** Single temp workspace shared by all phases; recreated by the runner. */
 export const TEST_DIR = path.resolve("./temp_ls_test");
@@ -59,6 +62,11 @@ export function writeLss(name: string, body: string = SAMPLE_LSS): string {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, body, "utf-8");
   return file;
+}
+
+/** A PluginState wired the way the composition root wires it (real slices). */
+export function createTestState(): PluginState {
+  return createPluginState({ getGotchasSummary, searchGotchas, computeScorecard });
 }
 
 /** Minimal Theme stub for TUI component rendering tests. */

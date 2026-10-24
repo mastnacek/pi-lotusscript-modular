@@ -35,7 +35,7 @@ akci/sloupec", "změň popisek", "doplň hide-when", "uprav view", or hands over
 
 ---
 
-## 3. DXL Agents and Modular Folders
+## 3. DXL Agents
 
 Agents exported as `.dxl` (`<agent>` with `<code event="initialize">` etc.) are
 edited as DXL. Nothing is extracted or compiled out of a `.dxl` any more: the

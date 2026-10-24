@@ -16,7 +16,7 @@ import os from "node:os";
 import path from "node:path";
 import { checkDrift } from "../src/slices/drift/index.js";
 import { findDrift, isLibraryFile } from "../src/slices/drift/signals.js";
-import { createPluginState } from "../src/shared/state.js";
+import { createTestState } from "./helpers.js";
 
 let failures = 0;
 
@@ -68,7 +68,7 @@ const agentPath = path.join(dir, "ag_test.lss");
 const body = 'Option Public\nSub Initialize\n\tSet h = CreateObject("WinHttp.WinHttpRequest.5.1")\nEnd Sub\n';
 fs.writeFileSync(agentPath, body);
 
-const state = createPluginState();
+const state = createTestState();
 state.beginRun();
 check("4. no library in folder -> silent (first occurrence allowed)", checkDrift(state, agentPath) === null);
 

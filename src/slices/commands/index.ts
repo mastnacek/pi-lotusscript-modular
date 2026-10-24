@@ -1,7 +1,7 @@
 /**
  * Unified `/ls` command with lazy menus. This module is pure dispatch: the
- * subcommand handlers live in sibling files (ls-config, ls-inspect,
- * ls-compile, ls-gotchas) so each stays under the per-file line limit.
+ * subcommand handlers live in sibling files (ls-config, ls-inspect, ls-check,
+ * ls-gotchas, ls-audit) so each stays under the per-file line limit.
  * Cross-slice capabilities arrive via CommandsDeps, wired by the composition
  * root (slice isolation, VSA).
  */

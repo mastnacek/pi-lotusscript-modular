@@ -16,12 +16,21 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 
 ## Layout (VSA — Vertical Slice Architecture)
 - `index.ts`              composition root — Pi adapter only, no domain computation
-- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts` (no slice imports)
+- `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts`, `state.ts` + `state-insights.ts`/`state-telemetry.ts` (no slice imports)
+- `src/slices/project/`   bounded project detection → entry-skill hint AND the lotus consent modal (`skillPrompt`); `resources.ts` is the only skill advertisement
+- `src/slices/pipeline/`  event translation: tool_call, tool_result, settled, before_settle, guidelines, read-banner, recurring-gotcha
+- `src/slices/guards/`    KB edit gate for `.lss`/`.dxl`
 - `src/slices/lsp/`       MCP client for notes-sys `domino-mcp.exe` (whole-file diagnostics, explain, format)
-- `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search & append
+- `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search, seed-sync & append
+- `src/slices/scaffold/`  whole-file templates, alias derivation, `template.lss`
+- `src/slices/scorecard/` deterministic scorecard, rubric, recurring-diagnostic drafts
 - `src/slices/settings/`  catalogue + lazy menu completions for `/ls`
-- `src/slices/project/`   bounded project detection → entry-skill hint AND the lotus consent modal (`skillPrompt`)
 - `src/slices/commands/`  `/ls` dispatch — sibling-slice capabilities arrive via `deps.ts` (`CommandsDeps`), wired in the composition root
+- `src/slices/tools/`     model tools — `ToolsDeps`, wired in the composition root
+- `src/slices/audit/`     duplicated-procedure audit + library-promotion plan
+- `src/slices/versioning/` `VERZE`/`CHANGELOG` header nudge
+- `src/slices/drift/`     library-drift nudge
+- `src/slices/trace/`     visible skill trace in the chat (never model context)
 - `skills/`               bundled skill (`skills/lotusscript-modular/SKILL.md`)
 - `test/`                 test suites
 

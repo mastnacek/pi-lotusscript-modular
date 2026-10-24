@@ -39,7 +39,7 @@ export function registerGotchasTool(pi: ExtensionAPI, state: PluginState, deps: 
   >({
     name: "lotusscript_gotchas",
     label: "Search or Add LotusScript Gotchas",
-    description: "Search 40+ canonical LotusScript / Domino 9.0.1 gotchas, or propose adding a newly discovered gotcha to the shared registry (~/.pi/lotusscript/gotchas.md) with interactive user modal approval.",
+    description: "Search the canonical LotusScript / Domino 9.0.1 gotcha registry (64 seeded entries plus your own additions), or propose adding a newly discovered gotcha to the shared registry (~/.pi/lotusscript/gotchas.md) with interactive user modal approval.",
     parameters: GotchasParams,
     async execute(
       _toolCallId,

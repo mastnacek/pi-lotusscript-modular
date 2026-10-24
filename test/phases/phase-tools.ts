@@ -5,14 +5,13 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { createPluginState } from "../../src/shared/state.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import { stringsFor } from "../../src/shared/i18n.js";
 import { registerModelTools } from "../../src/slices/tools/index.js";
 import type { ToolsDeps } from "../../src/slices/tools/deps.js";
 import { scaffoldLotusScriptArtifact } from "../../src/slices/scaffold/index.js";
 import { getGotchasSummary, searchGotchas } from "../../src/slices/gotchas/index.js";
-import { ensureTestDir, mockPi, TEST_DIR, writeLss } from "../helpers.js";
+import { createTestState, ensureTestDir, mockPi, TEST_DIR, writeLss } from "../helpers.js";
 
 function makeToolsDeps(diagnostics = ""): ToolsDeps {
   return {
@@ -38,7 +37,7 @@ export async function phaseTools(): Promise<void> {
 
   // 1. lotusscript_check is registered with a whole-file description.
   const checkHarness = mockPi([], "lotusscript_check");
-  const state = createPluginState();
+  const state = createTestState();
   state.config = { ...DEFAULT_CONFIG };
   registerModelTools(checkHarness.pi, state, makeToolsDeps());
   const tool = checkHarness.tool;

@@ -13,7 +13,7 @@
  */
 
 import { emitTrace, traceKey, traceLine, traceTail, traceTag, type TraceKind } from "../src/slices/trace/index.js";
-import { createPluginState } from "../src/shared/state.js";
+import { createTestState } from "./helpers.js";
 
 let failures = 0;
 function check(label: string, ok: boolean): void {
@@ -49,7 +49,7 @@ check("4b. stable order", traceTail([traceTag({ kind: "check" }), traceTag({ kin
 check("4c. no duplicates", traceTail(["🧩", "🧩"]) === " 🧩");
 
 // 5. emit: dedupe + switch
-const state = createPluginState();
+const state = createTestState();
 const shown: string[] = [];
 const sink = { notify: (t: string) => shown.push(t) };
 

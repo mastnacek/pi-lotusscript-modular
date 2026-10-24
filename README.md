@@ -18,7 +18,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 - **Bundled Skill (operator-consented):** The skill `lotusscript-modular` (`skills/lotusscript-modular/SKILL.md`) ships inside the package and routes to on-demand reference docs (`references/`: workflow, coding conventions, naming, 64-gotcha index, scaffolding, DXL/ODP, formula language). In a Domino workspace the plugin offers it at session start with a static lotus modal (`skillPrompt`: `ask` / `always` / `never`); consent injects the skill body as instructions for the first run, and "don't ask in this project" is remembered in `.pi/lotusscript-modular.json`. The extension tools provide the runtime enforcement (guards, scorecard, gotcha store).
 - **Domino Project Detection:** A bounded scan (2 directory levels, dependency/VCS/plugin folders skipped, first evidence file wins) decides whether the workspace holds `.lss` / `.dxl` / `.fl` / `.ls` sources. Evidence drives two things: the consent modal, and the `resources_discover` answer — so the skill is **listed only in Domino projects** (never globally), and nothing is loaded without consent. When nothing is loaded, a one-line pointer stays in the system prompt plus an entry-skill line in every `.lss` read banner (`injectProjectSkillHint`).
 - **Mandatory Knowledge Base Reminder:** Enforces consulting the `lotus-notes` MCP collection (IBM 9.0.1 reference, Guirard performance book, community articles) before writing or modifying Notes 9.0.1 LotusScript code.
-- **In-TUI Telemetry Panel:** Live counters above the editor (`showTelemetryPanel`): hook usage, KB-gate blocks, whole-file checks, and code length (procedure count, longest vs limit, LSP outcome). Subagent sessions are excluded via the recursion guard.
+- **In-TUI Telemetry Panel:** Live counters above the editor (`showTelemetryPanel`): hook usage, KB searches, KB-gate blocks, whole-file checks, KB settle nudges and the last LSP outcome. Subagent sessions are excluded via the recursion guard.
 - **Hard KB Edit Gate:** The KB rule is ENFORCED — `edit`/`write` calls on `.lss`/`.dxl` files are rejected (`block: true`) until `kb_search` (collection `lotus-notes`) has been called this session. Gate re-arms on every new session; disable with `"enforceKbGate": false`.
 
 ---
@@ -37,6 +37,8 @@ Type `/ls ` and press Tab to see interactive autocomplete suggestions:
 - `/ls check <soubor.lss>` — Zkontrolovat celý .lss překladačem 9.0.1
 - `/ls score [soubor.lss]` — Zobrazit scorecard a trend hodnocení souboru
 - `/ls gotchas [dotaz]` — Prohledat centrální bázi 64 LotusScript gotchas
+- `/ls audit [slozka]` — Najít procedury duplikované mezi .lss soubory a navrhnout je do skriptové knihovny
+- `/ls help` — Přehled příkazů
 
 ---
 
@@ -60,32 +62,51 @@ Stored in `.pi/lotusscript-modular.json`:
 
 - `lotusscript_check`: Whole-file 9.0.1 compiler diagnostics for a `.lss`/`.lsa` (checked exactly as it is) + error-code help pages.
 - `lotusscript_scaffold`: Generates compliant whole-file code skeletons (agent, library) with StringEnum-typed parameters.
-- `lotusscript_lsp_toggle`: Programmatically toggle LSP check on/off.
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
+- `lotusscript_library_audit`: Read-only duplicate-procedure audit across a folder of `.lss` files, ranked by saved lines, with an optional promotion plan.
+
+LSP checking is toggled with `/ls lsp on|off` or the `enableLsp` setting — there is no tool for it.
 
 ---
 
 ## Bundled Skill & Reference Docs
 
-`skills/lotusscript-modular/` — the session skill (`SKILL.md` router, auto-loaded by pi from the conventional `skills/` directory) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
+`skills/lotusscript-modular/` — the session skill (`SKILL.md` router) plus the on-demand reference docs it routes to. The router gives the core contract and Definition of Done; the references carry the detail:
 
 - `workflow.md` — whole-file lifecycle (edit → check → Designer paste), CLI/tool reference, language policy detail
 - `coding-conventions.md` — Domino 9.0.1 coding standards, error handling, forbidden names
+- `libraries-and-versioning.md` — script libraries, `Use` rules, `VERZE`/`CHANGELOG` headers, deployment order, error 151
+- `reuse-ladder.md` — check whether the element already exists before writing code
+- `domino-search-and-access.md` — ODP/DXL export search, ACL/visibility/deploy reachability
+- `object-model.md` + `lotus-class-index.md` — verifying Notes classes and members
 - `gotchas-index.md` — 64-entry one-liner index + recording protocol
 - `scaffolding.md` — scaffold command/tool usage, guarantees and alias derivation
 - `naming-conventions.md` — element naming/alias convention (`ag_`, `lu_`, `frm_`, …) and why
 - `dxl-and-odp.md` — DXL design-element editing rules (forms, views, ODP)
+- `formula-language.md` — `@formula` best practices
+
+**How it is advertised:** the package declares no `skills` entry. The plugin answers pi's `resources_discover` hook with this one path, and only when the bounded project scan finds Domino evidence — so an unrelated repository is never offered a LotusScript manual. Session start offers it through a consent modal (`skillPrompt`: `ask` / `always` / `never`); "don't ask in this project" is remembered in `.pi/lotusscript-modular.json`.
 
 ---
 
 ## VSA Architecture
 
 - `index.ts` — Composition root: wires slices and Pi hooks.
-- `src/shared/` — Kernel types, config, and path utilities.
-- `src/slices/lsp/` — LotusScript LSP client diagnostics.
-- `src/slices/gotchas/` — Central 64-gotcha registry, search, and dynamic append.
+- `src/shared/` — Kernel: types, config, paths, i18n (cs/en), session state, telemetry, insights.
+- `src/slices/project/` — Bounded project detection + entry-skill consent (the only skill advertisement).
+- `src/slices/pipeline/` — Event translation: tool_call, tool_result, settled, before_settle, guidelines.
+- `src/slices/guards/` — KB edit gate.
+- `src/slices/lsp/` — domino LSP/MCP lane: whole-file diagnostics, explain, format.
+- `src/slices/gotchas/` — Central 64-gotcha registry, search, sync and dynamic append.
 - `src/slices/scaffold/` — LotusScript code templates and scaffold engine.
+- `src/slices/scorecard/` — Deterministic scorecard, rubric, recurring-diagnostic drafts.
 - `src/slices/settings/` — Setting specs catalogue and lazy menu completion engine.
+- `src/slices/commands/` — `/ls` dispatch (`status`, `config`, `lsp`, `lang`, `scaffold`, `score`, `check`, `gotchas`, `audit`, `help`).
+- `src/slices/tools/` — Model tools (`lotusscript_check`, `_scaffold`, `_gotchas`, `_library_audit`).
+- `src/slices/audit/` — Duplicated-procedure audit and library-promotion plan.
+- `src/slices/versioning/` — `VERZE`/`CHANGELOG` header nudge.
+- `src/slices/drift/` — Library-drift nudge.
+- `src/slices/trace/` — Visible skill trace in the chat.
 
 ---
 

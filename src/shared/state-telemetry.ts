@@ -1,7 +1,7 @@
 /**
- * Telemetry panel — in-TUI tracking of hook usage, file reads, KB-gated tool
- * usage and code length. Sibling of state-insights / state-procedure-limits:
- * kernel-side UI owned by PluginState, same pattern as renderStatusline.
+ * Telemetry panel — in-TUI tracking of hook usage, KB searches, KB-gate blocks
+ * and whole-file checks. Sibling of state-insights: kernel-side UI owned by
+ * PluginState, same pattern as renderStatusline.
  *
  * Rendered via ctx.ui.setWidget with a Component factory (not a baked
  * string[]) so the panel follows the real render width; every line is

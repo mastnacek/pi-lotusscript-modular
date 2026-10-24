@@ -113,9 +113,8 @@ Library or any Designer element, because `LSPRVAL.LSS` is auto-included there.
 ## Definition of Done, Scorecard & Evaluation
 
 The extension grades every check deterministically. **The model never
-self-reports a score** — the facts (procedure length, comments, LSP
-diagnostics, KB consultation) are computed by the plugin and injected as a
-feedback signal.
+self-reports a score** — the facts (LSP diagnostics, KB consultation) are
+computed by the plugin and injected as a feedback signal.
 
 **Definition of Done (per `.lss` file you touch):**
 
@@ -126,9 +125,12 @@ feedback signal.
    `versioningCheck` slice nudges once per file per run with a paste-ready template;
    bump policy and wording: `references/libraries-and-versioning.md` §3.
 
-Weights: `+2` per satisfied DoD item, `-5` per remaining LSP error. There is no
-line-length rule and no comment lint: the plugin grades what the 9.0.1 compiler
-says plus whether you actually consulted the knowledge base.
+The scorecard has exactly two graded items, `+2` each: LSP clean (`0 errors`)
+and KB consulted (`minKbSearchesPerRun` reached). There is no line-length rule
+and no comment lint — the plugin grades what the 9.0.1 compiler says plus
+whether you actually consulted the knowledge base. DoD items 3 and 4 (gotcha
+capture, version/changelog) are surfaced as nudges and debrief text, not as
+scorecard weight.
 
 Instant failure condition: creating a modular folder (`manifest.json`,
 `main.lss`, `sub_*.lss`, `*_compiled.lss`) — the modular workflow is gone and
@@ -145,8 +147,8 @@ Manual inspection: `/ls score <soubor.lss>` (scorecard + trend).
    Guirard chapters; error → exact text) plus a quality bar (On Error
    coverage, object state, NoCache discipline). KB calls are plural by rule:
    at least `minKbSearchesPerRun` (default 3) per run, one per layer. The
-   scorecard grades the per-run query count as DoD item 5 (`(1/3)` progress
-   label).
+   scorecard grades the per-run query count as DoD 2 with a `(1/3)` progress
+   label.
 3. **No forced restructuring:** reading a script returns the file as it is.
    `bash` / `grep` inspection is allowed; prefer `read` with offset/limit only
    to keep the context window small.
@@ -177,15 +179,20 @@ approves → stored in `gotchas.md` → surfaced pre-flight next session.**
 | Composition root (pure wiring) | `index.ts` |
 | Event translation (tool_call/tool_result/settled/before_settle) | `src/slices/pipeline/` |
 | Instant-failure guard (KB edit gate) | `src/slices/guards/` |
-| `/ls` command switch (ls-config, ls-inspect, ls-check, ls-gotchas) | `src/slices/commands/` |
-| Model tools (check/gotchas/scaffold) | `src/slices/tools/` |
-| Session state kernel (config, score history, banners, limit gate) | `src/shared/state.ts` |
+| `/ls` command switch (ls-config, ls-inspect, ls-check, ls-gotchas, ls-audit) | `src/slices/commands/` |
+| Model tools (check/gotchas/scaffold/library-audit) | `src/slices/tools/` |
+| Session state kernel (config, score history, banners, telemetry) | `src/shared/state.ts` + `state-insights.ts` + `state-telemetry.ts` |
+| Bounded project detection + entry-skill consent (the only skill advertisement) | `src/slices/project/` |
+| Duplicated-procedure audit (`lotusscript_library_audit`, `/ls audit`) | `src/slices/audit/` |
+| Version header nudge (`VERZE`/`CHANGELOG`) | `src/slices/versioning/` |
+| Library-drift nudge (agent re-implements a `lib_` routine) | `src/slices/drift/` |
+| Visible skill trace (chat checkpoints, never model context) | `src/slices/trace/` |
 | Code templates (scaffolds) | `src/slices/scaffold/template.lss` (shipped, versioned with the plugin); `templates.ts` holds the built-in fallbacks |
 | LSP diagnostics — MCP lane to notes-sys `domino-mcp.exe` (whole-file check + explain/format) | `src/slices/lsp/` |
 | Gotcha catalogue + review modal | `src/slices/gotchas/` |
 | Scorecard, rubric, recurring drafts | `src/slices/scorecard/` |
 | `/ls` completions + settings catalogue | `src/slices/settings/` |
-| Tests (one file per phase under the per-file line limit) | `test/test_workflow.ts` + `test/phases/` |
+| Tests (one file per phase under the per-file line limit) | `test/test_workflow.ts` + `test/phases/`, plus `test_i18n` / `test_versioning` / `test_drift` / `test_trace` / `test_audit` / `test_gotchas` |
 
 ## Language Policy (hard rule)
 
@@ -214,5 +221,6 @@ modal labels, or extension-emitted tool-result content — so those must be
 authored in the correct language at the source. Runtime translation of static
 strings would only add cost, latency and a failure mode.
 
-Regression guard: test 60 asserts every agent-facing surface is Czech-free
-(with the two exceptions above), and test 61 proves that guard is not vacuous.
+Regression guard: `test/test_i18n.ts` asserts every agent-facing surface is
+Czech-free (with the two exceptions above), and its negative case proves the
+guard is not vacuous.

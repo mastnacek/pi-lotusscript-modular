@@ -71,8 +71,8 @@ Formula work → read `references/formula-language.md` first.
 | 38 | `Option ...` in (Declarations) | Compile error — Option statements belong in (Options) |
 | 39 | `ComputeWithForm` on existing docs | Recalculates ALL computed form fields — may overwrite data |
 | 40 | Changing "owner" field for permissions | Insufficient when ACL/roles key on other fields — check all auth fields |
-| 41 | Comment `' Účel:` above procedure declaration | Moves into `01_declarations.lss` on decompile — put the comment **inside the procedure body** |
-| 42 | Comment above declarations | Gets moved into `01_declarations.lss` on decompile |
+| 41 | Comment `' Účel:` placement | House style (nothing lints it): put it **directly above** the `Sub`/`Function` declaration — inside the body or at `Option` level reads as undescribed |
+| 42 | Splitting a `.lss` into a modular folder | One `.lss` is the whole module — no `manifest.json`, no `main.lss`, no `sub_*.lss`, no `*_compiled.lss`; creating one is an instant failure |
 | 43 | Writing `If x Is Nothing Or x.Count = 0` | `And`/`Or` do **not** short-circuit — both operands always evaluate (error 91); split into branches |
 | 44 | Passing a `List` to a Sub/Function | `Unexpected: List; Expected: Data type` — make work maps globals in (Declarations) |
 | 45 | Testing `GetAllDocumentsByKey` result with `Is Nothing` | No match returns an **empty collection**, never `Nothing` — test `Count = 0` |

@@ -11,11 +11,20 @@ import type {
   GotchaItem,
   LspCheckResult,
   ModularConfig,
+  ScorecardInput,
 } from "./types.js";
-import { getGotchasSummary, searchGotchas } from "../slices/gotchas/index.js";
-import { computeScorecard } from "../slices/scorecard/index.js";
 
-export interface StateInsightsDeps {
+/**
+ * Slice capabilities the kernel is NOT allowed to import (VSA: `src/shared/`
+ * depends on nothing but itself). The composition root supplies them.
+ */
+export interface InsightsCapabilities {
+  getGotchasSummary(limit?: number): string;
+  searchGotchas(query: string, limit?: number): GotchaItem[];
+  computeScorecard(input: ScorecardInput): AgentScorecard;
+}
+
+export interface StateInsightsDeps extends InsightsCapabilities {
   getConfig(): ModularConfig;
   getKbSearchCount(): number;
   renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
@@ -47,7 +56,7 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
     }
   ): AgentScorecard {
     const cfg = config();
-    return computeScorecard({
+    return deps.computeScorecard({
       agent: path.basename(filePath),
       lsp: opts.lsp,
       lspEnabled: cfg.enableLsp,
@@ -105,11 +114,11 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
 
     let banner: string;
     if (!config().injectPreflightGotchas) {
-      banner = `\n\n${getGotchasSummary(8)}`;
+      banner = `\n\n${deps.getGotchasSummary(8)}`;
     } else {
       const found = new Map<string, GotchaItem>();
       for (const token of collectFileTokens(filePath)) {
-        for (const hit of searchGotchas(token, 3)) {
+        for (const hit of deps.searchGotchas(token, 3)) {
           if (`${hit.title}\n${hit.body}`.toLowerCase().includes(token.toLowerCase())) {
             found.set(hit.id, hit);
           }
@@ -118,7 +127,7 @@ export function createStateInsights(deps: StateInsightsDeps): StateInsights {
       }
 
       if (found.size === 0) {
-        banner = `\n\n${getGotchasSummary(8)}`;
+        banner = `\n\n${deps.getGotchasSummary(8)}`;
       } else {
         const lines = [
           "⚠️ PRE-FLIGHT GOTCHA CHECK (matches against this file's own declarations):",

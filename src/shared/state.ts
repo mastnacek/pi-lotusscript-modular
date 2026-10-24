@@ -21,7 +21,7 @@ import type {
 } from "./types.js";
 import { DEFAULT_CONFIG, loadConfig, saveConfig } from "./config.js";
 import { stringsFor } from "./i18n.js";
-import { createStateInsights } from "./state-insights.js";
+import { createStateInsights, type InsightsCapabilities } from "./state-insights.js";
 import {
   createTelemetry,
   renderTelemetryPanel as renderTelemetryPanelWidget,
@@ -94,7 +94,7 @@ export interface PluginState {
   updateConfig(newConfig: ModularConfig, isGlobal?: boolean, cwd?: string): void;
 }
 
-export function createPluginState(): PluginState {
+export function createPluginState(capabilities: InsightsCapabilities): PluginState {
   const unsubscribers: Array<() => void> = [];
 
   const track = (result: unknown): void => {
@@ -125,8 +125,10 @@ export function createPluginState(): PluginState {
   let skillLoadedThisSession = false;
   const telemetry = createTelemetry();
 
-  // Extracted helper groups (scorecards/gotchas banner, procedure-limit gate).
+  // Extracted helper groups (scorecards/gotchas banner). Slice capabilities
+  // arrive from the composition root — the kernel never imports a slice.
   const insights = createStateInsights({
+    ...capabilities,
     getConfig: () => config,
     getKbSearchCount: () => kbQueriesThisRun.length,
     renderStatusline,

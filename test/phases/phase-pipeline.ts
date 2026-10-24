@@ -5,14 +5,13 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { createPluginState } from "../../src/shared/state.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import { guardKbBeforeEdit } from "../../src/slices/guards/index.js";
 import { handleToolResult } from "../../src/slices/pipeline/tool-result.js";
 import { handleAgentBeforeSettle } from "../../src/slices/pipeline/before-settle.js";
 import { MUTATING_TOOL_NAMES } from "../../src/slices/pipeline/mutating-tools.js";
 import type { PipelineDeps } from "../../src/slices/pipeline/deps.js";
-import { ensureTestDir, mockCtx, SAMPLE_LSS, writeLss } from "../helpers.js";
+import { createTestState, ensureTestDir, mockCtx, SAMPLE_LSS, writeLss } from "../helpers.js";
 
 const LONG_PROC = `Option Declare
 
@@ -72,7 +71,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okRelease) throw new Error("gate did not release");
 
   // 3. Auto-check on edit runs the whole-file check and records it.
-  const state = createPluginState();
+  const state = createTestState();
   state.config = { ...DEFAULT_CONFIG, enableLsp: true, enableScorecard: false };
   const file = writeLss("AutoCheck.lss");
   const { deps, checks } = makeDeps();
@@ -86,7 +85,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okTelemetry) throw new Error(`Telemetry wrong: ${JSON.stringify(state.telemetry)}`);
 
   // 5. Auto-check off: mutation is still recorded, nothing is compiled.
-  const state2 = createPluginState();
+  const state2 = createTestState();
   state2.config = { ...DEFAULT_CONFIG, autoCheckOnEdit: false };
   const { deps: deps2, checks: checks2 } = makeDeps();
   const off = await handleToolResult(state2, editEvent(file), mockCtx(), deps2);
@@ -97,7 +96,7 @@ export async function phasePipeline(): Promise<void> {
   // 6. A DXL edit is a mutation but never compiled.
   const dxl = path.join(path.dirname(file), "Form.dxl");
   fs.writeFileSync(dxl, "<form/>", "utf-8");
-  const state3 = createPluginState();
+  const state3 = createTestState();
   state3.config = { ...DEFAULT_CONFIG, enableLsp: true };
   const { deps: deps3, checks: checks3 } = makeDeps();
   const dxlResult = await handleToolResult(state3, editEvent(dxl), mockCtx(), deps3);
@@ -107,7 +106,7 @@ export async function phasePipeline(): Promise<void> {
 
   // 7. An oversized procedure is NOT blocked any more (no length rule); a
   //    missing purpose comment is reported as a warning instead.
-  const state4 = createPluginState();
+  const state4 = createTestState();
   state4.config = { ...DEFAULT_CONFIG, enableLsp: true };
   const huge = writeLss("Huge.lss", LONG_PROC.replace("Sub Huge", "Sub Huge"));
   const { deps: deps4, checks: checks4 } = makeDeps();
@@ -121,7 +120,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okNoCommentLint) throw new Error(`Comment lint still reported: ${gateText}`);
 
   // 8. Reading a .lss injects the whole-file banner; other files do not.
-  const state5 = createPluginState();
+  const state5 = createTestState();
   state5.config = { ...DEFAULT_CONFIG };
   const { deps: deps5 } = makeDeps();
   const readRes = await handleToolResult(
@@ -147,7 +146,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okNoBanner) throw new Error("banner leaked onto a text file");
 
   // 10. Verify-before-done: one verification turn, then latched.
-  const state6 = createPluginState();
+  const state6 = createTestState();
   state6.config = { ...DEFAULT_CONFIG, verifyKbBeforeSettle: true, minKbSearchesPerRun: 3 };
   state6.beginRun();
   state6.notesMutatedThisRun = true;
@@ -162,7 +161,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okLatch) throw new Error("nudge repeated");
 
   // 12. No nudge when nothing mutated, or when the KB minimum is met.
-  const state7 = createPluginState();
+  const state7 = createTestState();
   state7.config = { ...DEFAULT_CONFIG };
   state7.beginRun();
   const noMutation = handleAgentBeforeSettle(state7);
@@ -174,7 +173,7 @@ export async function phasePipeline(): Promise<void> {
   if (!okQuiet) throw new Error("unexpected nudge");
 
   // 13. The entry-skill pointer rides on the read banner and obeys its setting.
-  const state8 = createPluginState();
+  const state8 = createTestState();
   state8.config = { ...DEFAULT_CONFIG };
   const { deps: deps8 } = makeDeps({ readSkillNotice: () => "ENTRY SKILL: /skills/lotusscript-modular/SKILL.md" });
   const withSkill = await handleToolResult(
@@ -187,7 +186,7 @@ export async function phasePipeline(): Promise<void> {
   console.log("13. entry-skill pointer appears in the .lss read banner:", okSkillBanner ? "PASS" : "FAIL");
   if (!okSkillBanner) throw new Error("no skill pointer in banner");
 
-  const state9 = createPluginState();
+  const state9 = createTestState();
   state9.config = { ...DEFAULT_CONFIG, injectProjectSkillHint: false };
   const { deps: deps9 } = makeDeps({ readSkillNotice: () => "ENTRY SKILL: should-not-appear" });
   const offSkill = await handleToolResult(

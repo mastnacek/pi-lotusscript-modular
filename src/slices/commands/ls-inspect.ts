@@ -1,8 +1,8 @@
 /**
- * `/ls` subcommand handlers — scaffold / lint / score (inspection and
- * evaluation side). Split out of commands/index.ts for the per-file limit.
+ * `/ls` subcommand handlers — scaffold / score (inspection and evaluation
+ * side). Split out of commands/index.ts for the per-file limit.
  *
- * Cross-slice capabilities (lsp / linter / scorecard / scaffold) arrive via
+ * Cross-slice capabilities (lsp / scorecard / scaffold / naming) arrive via
  * CommandsDeps — slices never import each other (VSA). User-facing text
  * resolves through the i18n string table (pi-plugin-dev §10).
  */

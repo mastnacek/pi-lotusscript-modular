@@ -2,7 +2,7 @@
  * `/ls` subcommand handler — check (whole-file verification).
  * Split out of commands/index.ts for the per-file line limit.
  *
- * Cross-slice capabilities (lsp / linter / scorecard) arrive via CommandsDeps —
+ * Cross-slice capabilities (lsp / scorecard) arrive via CommandsDeps —
  * slices never import each other (VSA). User-facing text resolves through the
  * i18n string table (pi-plugin-dev §10).
  */
