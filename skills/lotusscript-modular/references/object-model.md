@@ -1,19 +1,25 @@
 # Notes/Domino object model — verify names, never invent them
 
 The Notes back-end classes are large and full of near-misses
-(`GetFirstDocument` vs `GetFirstEntry`, `NotesView` vs `NotesViewEntry`). Two
-local sources make guessing unnecessary:
+(`GetFirstDocument` vs `GetFirstEntry`, `NotesView` vs `NotesViewEntry`). The
+local dataset makes guessing unnecessary:
 
 | Source | Use it for |
 |---|---|
-| `lotus-class-index.md` (this folder) | does the class exist, how many methods/props/events, is it UI-only |
-| `~/.pi/agent/skills/lotus-script/ls_classes.json` | exact member names, signatures, descriptions, per-member `docUrl` (help.hcl-software.com) |
+| `~/.pi/agent/skills/lotus-script/ls_classes.json` | every class (97) with `isUI` / `notSupportedByCOM` flags and `docUrl`; exact member names, signatures, descriptions, per-member `docUrl` (help.hcl-software.com) |
 
 ## 1. Order of consultation
 
-1. **`lotus-class-index.md`** — confirm the class exists and is not
-   `[UI]`-only when the code must run on a server.
-2. **`ls_classes.json`** — pull the exact members before writing the call.
+1. **`ls_classes.json`** — list the classes, confirm the class exists and is not
+   UI-only when the code must run on a server:
+
+   ```bash
+   node -e "const J=require('os').homedir()+'/.pi/agent/skills/lotus-script/ls_classes.json';
+   const d=require(J);console.log(d.nodes.map(n=>n.id).join('\n'))" | grep -i '^NotesView'
+   ```
+
+2. **`ls_classes.json`** — pull the exact members (section 2) before writing the
+   call.
 3. **knowledge base (`lotus-notes`)** — when behaviour matters (does it reload
    the document, is it cached, what happens on a server).
 4. Only then write code.
@@ -23,28 +29,37 @@ exist.
 
 ## 2. Querying the dataset
 
-```bash
-J=~/.pi/agent/skills/lotus-script/ls_classes.json
+The JSON is `{ "nodes": [ … ], "links": [ … ] }` — one node per class, one link
+per inheritance/member relation. Every node carries `id`, `isUI`,
+`notSupportedByCOM`, `docUrl`, `props`, `methods`, `events`.
 
+```bash
 # classes matching a fragment
-jq -r 'keys[]' "$J" | grep -i 'NotesView'
+node -e "const d=require(require('os').homedir()+'/.pi/agent/skills/lotus-script/ls_classes.json');
+console.log(d.nodes.map(n=>n.id).filter(i=>/NotesView/i.test(i)).join('\n'))"
 
 # members of one class, with kinds
-jq -r '."NotesView" | (.methods // {} | keys[] | "M " + .), (.properties // {} | keys[] | "P " + .)' "$J"
+node -e "const d=require(require('os').homedir()+'/.pi/agent/skills/lotus-script/ls_classes.json');
+const c=d.nodes.find(n=>n.id==='NotesView');
+console.log([...c.methods.map(m=>'M '+m.name),...c.props.map(p=>'P '+p.name)].join('\n'))"
 
 # does a member exist anywhere, and where is its doc?
-jq -r 'to_entries[] | .key as $c | (.value.methods // {}) | to_entries[]
-       | select(.key|test("GetAllDocumentsByKey";"i"))
-       | "\($c).\(.key)  \(.value.docUrl // "")"' "$J"
+node -e "const d=require(require('os').homedir()+'/.pi/agent/skills/lotus-script/ls_classes.json');
+for(const n of d.nodes)for(const m of [...n.methods,...n.props])
+if(/GetAllDocumentsByKey/i.test(m.name))console.log(n.id+'.'+m.name+' '+(m.docUrl||''))"
+
+# classes that exist only in the rich client
+node -e "const d=require(require('os').homedir()+'/.pi/agent/skills/lotus-script/ls_classes.json');
+console.log(d.nodes.filter(n=>n.isUI).map(n=>n.id).join(' '))"
 ```
 
 ## 3. Back-end before UI
 
 Prefer `NotesSession`, `NotesDatabase`, `NotesDocument`, `NotesView`,
-`NotesDocumentCollection`, `NotesViewEntry`. UI classes (`NotesUIWorkspace`,
-`NotesUIDocument`, `NotesUIView`) work **only in the rich client** — never in a
-background/server agent, never on the web. A server agent that constructs one
-fails before your first line of logic runs.
+`NotesDocumentCollection`, `NotesViewEntry`. A class flagged `isUI: true` works
+**only in the rich client** — never in a background/server agent, never on the
+web. A server agent that constructs one fails before your first line of logic
+runs, so check the flag before you write the call.
 
 ## 4. Language specifics that bite
 
@@ -61,9 +76,8 @@ fails before your first line of logic runs.
 
 ## 5. Refreshing the dataset
 
-The index and the JSON come from the OpenNTF `ls-classmap` project. When the
-dataset is regenerated, update both files here and keep the header note in
-`lotus-class-index.md` in sync:
+The dataset comes from the OpenNTF `ls-classmap` project; regenerate and
+download it there:
 
 ```
 https://github.com/OpenNTF/ls-classmap
