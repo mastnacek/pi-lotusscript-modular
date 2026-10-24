@@ -43,6 +43,7 @@ For parameterized generation use the tool.
 | `purpose` | — | Fills the header `ÚČEL:` and the `' Účel:` marker |
 | `author` | — | Header `AUTOR` (default "AI Developer") |
 | `date` | — | Pin `YYYY-MM-DD` for a byte-reproducible scaffold |
+| `target` | — | `"file"` (default) = standalone `.lss` with its own `Const LSI_THREAD_*`; `"designer"` = paste-ready variant without that block (see §5) |
 
 Failure modes (returned as errors): target file already exists, empty name.
 The tool never overwrites existing code.
@@ -55,6 +56,22 @@ The tool never overwrites existing code.
 | --- | --- |
 | `agent` | Rendered from the plugin's `src/slices/scaffold/template.lss`: `Option Public` + `Option Declare`, NÁZEV/ÚČEL/AUTOR/VYTVOŘENO/ZÁVISLOSTI header, `VERZE` + `CHANGELOG`, `On Error GoTo` handler with `Exit Sub`, `SendErrorEmail` notifier driven by `ERROR_NOTIFY_EMAIL$` |
 | `library` | Same header, plus `Public Const LIB_VERSION` injected after `Option Declare` |
+
+---
+
+### Designer variant (`target: "designer"`)
+
+Designer auto-includes `LSPRVAL.LSS`, which already declares `LSI_THREAD_*`, so
+the block must not travel with the paste (rule and `%Include` table:
+`coding-conventions.md` §1; gotcha #37). With `target: "designer"` the scaffold
+
+- drops the `Const LSI_THREAD_*` block and its warning comments, and
+- inlines the same indexes where the template used them —
+  `GetThreadInfo(1)`, `(10)`, `(11)`, `(12)` — so the file also stays clean in
+  the whole-file checker, which does not model Designer's auto-include.
+
+Both variants keep `Option Public`/`Option Declare` and the error handler; the
+only difference is where the thread indexes come from.
 
 ---
 

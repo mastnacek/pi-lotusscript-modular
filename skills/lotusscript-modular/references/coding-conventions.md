@@ -58,7 +58,9 @@ Designeru přidej `%Include` jen tehdy, když kód `MB_*`/`PICKLIST_*` skutečn�
 používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
 
 This is the only place where the `%Include` / `LSI_THREAD_*` rule is stated;
-other files link here.
+other files link here. The scaffold can apply the deletion for you:
+`lotusscript_scaffold(..., target: "designer")` renders the variant without the
+block and inlines the `GetThreadInfo` indexes (`scaffolding.md` §4).
 
 ---
 
@@ -83,8 +85,9 @@ other files link here.
 - Copy the entire contents of the `.lss` file.
 - Paste into the Programmer's Pane (agent: into the script editor; library:
   into the library body).
-- Before the paste, remove the `Const LSI_THREAD_*` block from the copied text
-  (rule: section `%Include "lsconst.lss"` above; gotcha #37).
+- Copy the text without the `Const LSI_THREAD_*` block — scaffold it with
+  `target: "designer"` and it is already gone (rule: section
+  `%Include "lsconst.lss"` above; gotcha #37).
 - Save and recompile: **Ctrl+Shift+F9**.
 - Deploy order when libraries are involved: `libraries-and-versioning.md` §4.
 

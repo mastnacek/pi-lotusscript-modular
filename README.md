@@ -61,7 +61,7 @@ Stored in `.pi/lotusscript-modular.json`:
 ## Tools for LLM
 
 - `lotusscript_check`: Whole-file 9.0.1 compiler diagnostics for a `.lss`/`.lsa` (checked exactly as it is) + error-code help pages.
-- `lotusscript_scaffold`: Generates compliant whole-file code skeletons (agent, library) with StringEnum-typed parameters.
+- `lotusscript_scaffold`: Generates compliant whole-file code skeletons (agent, library) with StringEnum-typed parameters; `target: "designer"` renders the paste-ready variant without `Const LSI_THREAD_*`.
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
 - `lotusscript_library_audit`: Read-only duplicate-procedure audit across a folder of `.lss` files, ranked by saved lines, with an optional promotion plan.
 

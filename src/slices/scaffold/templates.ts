@@ -51,6 +51,36 @@ export function fillTemplate(raw: string, options: ScaffoldOptions & { libraryVe
 }
 
 /**
+ * Turns a whole-file scaffold into the variant you paste into Designer.
+ *
+ * Two edits, both required by the same fact — Designer auto-includes
+ * `LSPRVAL.LSS`, which already declares `LSI_THREAD_*`:
+ * 1. the `Const LSI_THREAD_*` block and its warning comments are removed
+ *    (keeping them is `Name previously declared`, gotcha #37);
+ * 2. every `GetThreadInfo(LSI_THREAD_*)` call is inlined with the same
+ *    numeric index, because the whole-file checker does not model Designer's
+ *    auto-include and would report `Variable not declared`.
+ *
+ * Pure: same input, same output.
+ */
+export function toDesignerVariant(raw: string): string {
+  const withoutBlock = raw
+    .replace(/^' GetThreadInfo indexy[\s\S]*?^Const LSI_THREAD_CALLMODULE = 12[^\n]*\n?/m, "")
+    .replace(/\n{3,}/g, "\n\n");
+
+  const inlineIndexes = {
+    LSI_THREAD_PROC: "1",
+    LSI_THREAD_MODULE: "10",
+    LSI_THREAD_CALLPROC: "11",
+    LSI_THREAD_CALLMODULE: "12",
+  } as const;
+  return Object.entries(inlineIndexes).reduce(
+    (out, [name, value]) => out.replaceAll(`GetThreadInfo(${name})`, `GetThreadInfo(${value})`),
+    withoutBlock,
+  );
+}
+
+/**
  * Standalone Agent Skeleton (.lss)
  */
 export function agentTemplate(options: ScaffoldOptions): string {

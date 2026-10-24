@@ -138,10 +138,29 @@ export async function phaseTools(): Promise<void> {
   console.log("9. scaffold refuses to overwrite an existing file:", rejected ? "PASS" : "FAIL");
   if (!rejected) throw new Error("scaffold allowed an overwrite");
 
-  // 10. Gotcha registry still answers searches and summaries.
+  // 10. `target: "designer"` drops the LSI_THREAD block and inlines the indexes.
+  const designer = scaffoldLotusScriptArtifact({
+    type: "agent",
+    name: "DesignerAgent",
+    targetDir: TEST_DIR,
+    date: "2026-11-02",
+    target: "designer",
+  });
+  const designerBody = fs.readFileSync(designer.createdFiles[0]!, "utf-8");
+  const okDesigner =
+    !designerBody.includes("LSI_THREAD") &&
+    !designerBody.includes("%Include") &&
+    designerBody.includes("GetThreadInfo(1)") &&
+    designerBody.includes("GetThreadInfo(10)") &&
+    designerBody.includes("Option Declare") &&
+    agentBody.includes("Const LSI_THREAD_PROC") === true;
+  console.log("10. designer target omits LSI_THREAD_* and keeps the file polymorphic:", okDesigner ? "PASS" : "FAIL");
+  if (!okDesigner) throw new Error(designerBody.slice(0, 900));
+
+  // 11. Gotcha registry still answers searches and summaries.
   const hits = searchGotchas("shell", 3);
   const summary = getGotchasSummary(5);
   const okGotchas = hits.length > 0 && summary.length > 20;
-  console.log("10. gotcha search + summary work:", okGotchas ? "PASS" : "FAIL");
+  console.log("11. gotcha search + summary work:", okGotchas ? "PASS" : "FAIL");
   if (!okGotchas) throw new Error("gotcha registry unresponsive");
 }

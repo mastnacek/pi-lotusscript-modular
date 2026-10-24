@@ -31,6 +31,8 @@ export interface ScaffoldOptionsFull {
   returnType?: string;
   params?: string;
   date?: string;
+  /** `designer` renders the paste-ready variant without `Const LSI_THREAD_*`. */
+  target?: string;
 }
 
 export interface ScaffoldResultFull {

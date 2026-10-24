@@ -4,6 +4,7 @@ import {
   agentTemplate,
   libraryTemplate,
   fillTemplate,
+  toDesignerVariant,
 } from "./templates.js";
 import { getBundledTemplatePath } from "./template-source.js";
 import { suggestAlias, buildDesignerNotice } from "./naming.js";
@@ -13,6 +14,13 @@ export * from "./template-source.js";
 export { suggestAlias, buildDesignerNotice } from "./naming.js";
 
 export type ScaffoldTargetType = "agent" | "library";
+
+/**
+ * Where the scaffolded file is going: `file` keeps the standalone shape (its
+ * own `Const LSI_THREAD_*`), `designer` renders the paste-ready variant that
+ * omits the block Designer already declares (coding-conventions.md §1).
+ */
+export type ScaffoldVariant = "file" | "designer";
 
 export interface ScaffoldResult {
   ok: boolean;
@@ -39,6 +47,8 @@ export function scaffoldLotusScriptArtifact(options: {
   params?: string;
   /** Fixed YYYY-MM-DD for the header; omit to use today. */
   date?: string;
+  /** `designer` strips the `Const LSI_THREAD_*` block for a Designer paste. */
+  target?: ScaffoldVariant;
 }): ScaffoldResult {
   const dir = path.resolve(options.targetDir || process.cwd());
   if (!fs.existsSync(dir)) {
@@ -49,6 +59,14 @@ export function scaffoldLotusScriptArtifact(options: {
   if (!rawName) {
     throw new Error("Scaffold name cannot be empty.");
   }
+
+  const target: ScaffoldVariant = options.target ?? "file";
+  if (target !== "file" && target !== "designer") {
+    throw new Error(`Unknown scaffold target: ${String(options.target)}`);
+  }
+  /** Standalone shape or the paste-ready Designer variant. */
+  const forTarget = (content: string): string =>
+    target === "designer" ? toDesignerVariant(content) : content;
 
   /**
    * Renders from the template shipped inside the plugin, so the scaffold always
@@ -87,7 +105,7 @@ export function scaffoldLotusScriptArtifact(options: {
         author: options.author,
         date: options.date,
       });
-      fs.writeFileSync(targetFile, content, "utf-8");
+      fs.writeFileSync(targetFile, forTarget(content), "utf-8");
       const alias = suggestAlias(rawName, "agent");
       const info = {
         elementType: "Agent (standalone .lss)" as const,
@@ -119,7 +137,7 @@ export function scaffoldLotusScriptArtifact(options: {
         author: options.author,
         date: options.date,
       });
-      fs.writeFileSync(targetFile, content, "utf-8");
+      fs.writeFileSync(targetFile, forTarget(content), "utf-8");
       const alias = suggestAlias(rawName, "library");
       const info = {
         elementType: "Script Library (.lss)" as const,
