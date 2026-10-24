@@ -9,8 +9,6 @@ export const STRINGS_EN: Strings = {
   cmdDescription: "Manage LotusScript whole-file checks, LSP and the Gotchas registry",
   on: "ON",
   off: "OFF",
-  onF: "ON",
-  offF: "OFF",
 
   status: {
     title: "⚙️ [LotusScript Modular — Configuration status]:",
@@ -50,6 +48,8 @@ export const STRINGS_EN: Strings = {
       `Value for '${key}' must be a positive integer (got: '${raw}')`,
     emptyNotAllowed: (key) => `Value for '${key}' must not be empty`,
     unknownKind: (kind) => `Unknown setting type: ${kind}`,
+    invalidChoice: (key, raw, allowed) =>
+      `Invalid value for '${key}': '${raw}'. Allowed: ${allowed}`,
   },
 
   lang: {
@@ -165,6 +165,7 @@ ${diagnostics}`,
     subCheck: "Check a whole .lss file with the 9.0.1 compiler",
     subScore: "Show the agent scorecard and grading trend",
     subGotchas: "Search the LotusScript Gotchas database (64 rules)",
+    subAudit: "Find procedures duplicated across .lss files (library candidates)",
     subConfig: "Show or change settings (get/set, legacy)",
     subHelp: "Show command help",
     configGet: "Print the current setting value",
@@ -306,6 +307,7 @@ ${diagnostics}`,
       "  /ls check <file.lss>            — Check the whole .lss with the 9.0.1 compiler",
       "  /ls score <file.lss>            — Show the file scorecard and trend",
       "  /ls gotchas [query]             — Search the central registry of 64 gotchas",
+      "  /ls audit [folder]                — Find duplicated procedures (library candidates)",
     ],
   },
 };

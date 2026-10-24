@@ -14,7 +14,12 @@ import type { ToolCallEvent, ToolCallEventResult } from "@earendil-works/pi-codi
 import type { PipelineDeps } from "./deps.js";
 import type { PluginState } from "../../shared/state.js";
 
-export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: PipelineDeps): ToolCallEventResult | undefined {
+export function handleToolCall(
+  state: PluginState,
+  event: ToolCallEvent,
+  deps: PipelineDeps,
+  cwd?: string
+): ToolCallEventResult | undefined {
   const rawName = event.toolName || "";
   const base = rawName.includes("__") ? rawName.split("__").pop()! : rawName;
 
@@ -37,7 +42,9 @@ export function handleToolCall(state: PluginState, event: ToolCallEvent, deps: P
 
   // --- KB edit gate (edit/write only) ---
   if ((base === "edit" || base === "write") && input && pathKey) {
-    const guardPath = path.resolve(input[pathKey] as string);
+    // Resolve against the session cwd, not process.cwd(): they can differ
+    // (pi started elsewhere), and the gate must test the file actually written.
+    const guardPath = path.resolve(cwd || process.cwd(), input[pathKey] as string);
     // HARD GATE: .lss/.dxl edits require a lotus-notes KB query first.
     const kbGuard = deps.guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
     if (kbGuard) {

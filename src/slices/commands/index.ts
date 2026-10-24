@@ -94,5 +94,3 @@ export function createLsCommand(state: PluginState, deps: CommandsDeps): Registe
     handler,
   };
 }
-
-export type { AgentScorecard } from "../../shared/types.js";

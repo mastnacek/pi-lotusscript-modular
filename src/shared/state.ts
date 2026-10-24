@@ -86,6 +86,8 @@ export interface PluginState {
   collectFileTokens(filePath: string): string[];
   buildGotchasBanner(filePath: string): string;
   renderStatusline(state: "idle" | "checking" | "clean" | "error"): void;
+  /** The state the statusline currently shows (so a trace never overwrites it). */
+  readonly statuslineState: "idle" | "checking" | "clean" | "error";
   /** Count a hook invocation and refresh the telemetry panel. */
   countHook(name: HookName): void;
   /** Re-apply the telemetry widget (config toggles, manual refresh). */
@@ -94,7 +96,17 @@ export interface PluginState {
   updateConfig(newConfig: ModularConfig, isGlobal?: boolean, cwd?: string): void;
 }
 
-export function createPluginState(capabilities: InsightsCapabilities): PluginState {
+/**
+ * Kernel capabilities. `traceTail` belongs here for the same VSA reason as the
+ * insight functions: the icon vocabulary and its stable order live in the trace
+ * slice, the statusline that renders them lives in the kernel.
+ */
+export interface PluginCapabilities extends InsightsCapabilities {
+  /** Stable, de-duplicated icon sequence for the statusline suffix. */
+  traceTail?(tags: readonly string[]): string;
+}
+
+export function createPluginState(capabilities: PluginCapabilities): PluginState {
   const unsubscribers: Array<() => void> = [];
 
   const track = (result: unknown): void => {
@@ -139,7 +151,10 @@ export function createPluginState(capabilities: InsightsCapabilities): PluginSta
     preflightBannerCache,
   });
 
+  let lastStatuslineState: "idle" | "checking" | "clean" | "error" = "idle";
+
   function renderStatusline(state: "idle" | "checking" | "clean" | "error" = "idle"): void {
+    lastStatuslineState = state;
     if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
     const theme = latestUiContext.ui.theme;
     const sl = stringsFor(config.lang).statusline;
@@ -175,11 +190,9 @@ export function createPluginState(capabilities: InsightsCapabilities): PluginSta
     latestUiContext.ui.setStatus("lotusscript", icon + flags + traceTailText());
   }
 
-  /** Stable icon sequence of the checkpoints already shown (no slice import). */
+  /** Icon sequence of the checkpoints already shown (ordering owned by the slice). */
   function traceTailText(): string {
-    const order = ["🧩", "📄", "📝", "🔍", "🔖", "🧱", "🚧", "🏁"];
-    const present = order.filter((i) => traceTags.includes(i));
-    return present.length > 0 ? " " + present.join("") : "";
+    return capabilities.traceTail ? capabilities.traceTail(traceTags) : "";
   }
 
   function syncConfig(cwd: string): void {
@@ -219,6 +232,9 @@ export function createPluginState(capabilities: InsightsCapabilities): PluginSta
     },
     set activeCwd(cwd: string) {
       activeCwd = cwd;
+    },
+    get statuslineState() {
+      return lastStatuslineState;
     },
     get latestUiContext() {
       return latestUiContext;

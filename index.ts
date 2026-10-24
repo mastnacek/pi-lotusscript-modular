@@ -65,7 +65,7 @@ import { formatScorecard, trendLabel } from "./src/slices/scorecard/index.js";
 import { scaffoldLotusScriptArtifact } from "./src/slices/scaffold/index.js";
 import { checkVersioning, observeVersionHeader } from "./src/slices/versioning/index.js";
 import { checkDrift } from "./src/slices/drift/index.js";
-import { emitTrace, type TraceEvent } from "./src/slices/trace/index.js";
+import { emitTrace, traceTail, type TraceEvent } from "./src/slices/trace/index.js";
 import { auditForCommand, auditForTool } from "./src/slices/audit/index.js";
 import {
   buildProjectSkillGuideline,
@@ -90,7 +90,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   // Kernel capabilities: the only place slices are handed to `src/shared`
   // (VSA — the kernel itself imports no slice).
-  const state = createPluginState({ getGotchasSummary, searchGotchas, computeScorecard });
+  const state = createPluginState({
+    getGotchasSummary,
+    searchGotchas,
+    computeScorecard,
+    traceTail,
+  });
   const { track } = state;
 
   // One bounded project scan per session root, memoized by the slice; the
@@ -285,8 +290,8 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   }));
 
   // 1. Tool Call Interception (protected-file guard + KB edit gate)
-  track(pi.on("tool_call", (event) => {
-    const result = handleToolCall(state, event, pipelineDeps);
+  track(pi.on("tool_call", (event, ctx) => {
+    const result = handleToolCall(state, event, pipelineDeps, ctx.cwd);
     state.countHook("tool_call");
     return result;
   }));
@@ -304,7 +309,9 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   // 4. Custom Tools for the Model
   registerModelTools(pi, state, toolsDeps);
 
-  track(pi.on("session_shutdown", () => {
+  // Not tracked: this is the drainer itself, so storing its unsubscribe would
+  // make it tear down during its own run.
+  pi.on("session_shutdown", () => {
     while (state.unsubscribers.length > 0) state.unsubscribers.pop()?.();
-  }));
+  });
 }

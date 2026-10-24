@@ -8,6 +8,7 @@
  * 4. The statusline tail is stable (fixed order, no duplicates) and empty when
  *    nothing has fired.
  * 5. Emitting respects the switch and de-duplicates per session.
+ * 6. A checkpoint preserves the statusline state instead of claiming "clean".
  *
  * Run: npx tsx test/test_trace.ts
  */
@@ -60,6 +61,14 @@ check("5. emitted once per session", shown.length === 1);
 state.config = { ...state.config, showSkillTrace: false };
 emitTrace(state, sink, { kind: "check", detail: "0 errors" });
 check("5b. switch off silences it", shown.length === 1);
+
+// 6. A checkpoint must not overwrite the state the statusline already shows:
+//    an LSP error the operator is looking at survives a trace line.
+state.config = { ...state.config, showSkillTrace: true };
+state.renderStatusline("error");
+check("6. statusline records the state it rendered", state.statuslineState === "error");
+emitTrace(state, sink, { kind: "drift", detail: "lib_veba" });
+check("6b. a trace checkpoint preserves the error state", state.statuslineState === "error");
 
 if (failures > 0) {
   console.log(`\n${failures} trace test(s) FAILED`);

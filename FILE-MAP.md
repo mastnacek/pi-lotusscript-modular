@@ -68,12 +68,12 @@ root (`InsightsCapabilities`).
 |---|---:|---|---|
 | `types.ts` | 160 | `ModularConfig`, `SkillPromptMode`, `SkillPromptChoice`, `ProjectEvidenceKind`, `ProjectFingerprint`, `HookName`, `HookTelemetry`, `ScorecardItem`, `AgentScorecard`, `ScorecardInput`, `LspCheckResult`, `GotchaItem`, `GotchaReviewResult`, `SettingsCompletion` | All cross-slice type declarations. `ModularConfig` is the single knob set (21 catalogue settings); `ProjectFingerprint` is the bounded project scan result. |
 | `config.ts` | 116 | `DEFAULT_CONFIG`, `GLOBAL_CONFIG_FILE`, `projectConfigPath`, `loadConfig`, `saveConfig` | Config resolution: global `~/.pi/agent/lotusscript-modular.json` merged with project `.pi/lotusscript-modular.json`, project wins. Also **drops retired modular keys** (`autoRecompileOnSave`, `cleanupOnSettled`, `keepTimestampInCompiledName`, `overwriteSourceLss`, `checkProcedureLimits`, `maxProcedureLines`, `enforceCzechComments`) so a stale file cannot revive removed behaviour. |
-| `paths.ts` | 43 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `isFormulaSource`, `isLooseScript`, `sanitizeFileName` | Extension predicates for one whole file — no folder/part resolution exists. |
+| `paths.ts` | 38 | `isLotusScriptSource`, `isDxlSource`, `isLotusScriptOrDxl`, `isFormulaSource`, `isLooseScript` | Extension predicates for one whole file — no folder/part resolution exists. |
 | `i18n.ts` | 239 | `LOCALES`, `Locale`, `DEFAULT_LOCALE`, `SettingCopy`, `Strings`, `normalizeLocale`, `stringsFor` | The string-table contract. Every key resolves from a locale row; parity is enforced by `test_i18n.ts`. |
 | `i18n-cs.ts` / `i18n-en.ts` | 311 each | `STRINGS_CS`, `STRINGS_EN` | The two complete locale tables (user-facing text only). |
 | `state.ts` | 305 | `PluginState`, `createPluginState` | Session kernel: config, cwd, scorecard history, pre-flight banner cache, diagnostics history, version/drift/trace bookkeeping, KB flags, banner + statusline rendering. `createPluginState(capabilities)` takes the slice capabilities the kernel may not import. |
 | `state-insights.ts` | 160 | `InsightsCapabilities`, `StateInsightsDeps`, `StateInsights`, `createStateInsights` | Scorecard building/recording, file-token collection and the pre-flight gotcha banner. Pure over `deps` — gotchas and scorecard arrive as injected functions. |
-| `state-telemetry.ts` | 121 | `TELEMETRY_WIDGET_KEY`, `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel`, `clearTelemetryPanel` | In-TUI telemetry panel; width-safe (`visibleWidth`/`truncateToWidth`), localized through the string table. |
+| `state-telemetry.ts` | 112 | `TELEMETRY_WIDGET_KEY`, `createTelemetry`, `totalHookCalls`, `telemetryLines`, `TelemetryPanelComponent`, `renderTelemetryPanel` | In-TUI telemetry panel; width-safe (`visibleWidth`/`truncateToWidth`), localized through the string table. |
 
 ---
 
@@ -152,7 +152,7 @@ root (`InsightsCapabilities`).
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `lsp-check.ts` | 264 | `checkLotusScriptDiagnostics` | Whole-file diagnostics through the notes-sys `domino-mcp.exe` MCP lane; parses the Rust output (`Checked … as a whole script`, `✔ Clean: no compiler diagnostics`) and classifies oracle failures as harness problems, never as code verdicts. |
-| `mcp-client.ts` | 220 | `DEFAULT_MCP_SERVER`, `mcpServerCommand`, `extractLspErrorCodes`, `explainLotusScriptCodes`, `formatLotusScriptFile` | Automation lane: `lsp_explain`, `lsp_format`. `mcpServerCommand` runs a `.js` path under Node and any other path (the Rust exe) directly. |
+| `mcp-client.ts` | 220 | `DEFAULT_MCP_SERVER`, `mcpServerCommand`, `extractLspErrorCodes` (module-internal use), `explainLotusScriptCodes`, `formatLotusScriptFile` | Automation lane: `lsp_explain`, `lsp_format`. `mcpServerCommand` runs a `.js` path under Node and any other path (the Rust exe) directly. The slice barrel exports only `checkLotusScriptDiagnostics`, `explainLotusScriptCodes`, `formatLotusScriptFile`. |
 | `index.ts` | 5 | barrel | Slice exports; no logic. |
 
 ### scaffold — code generation
@@ -198,7 +198,7 @@ root (`InsightsCapabilities`).
 | File | Lines | Exports | Purpose |
 |---|---:|---|---|
 | `index.ts` | 35 | `TraceSink`, `emitTrace` | Emits a checkpoint to the UI (`notify`), deduped per session; never enters model context. |
-| `vocab.ts` | 107 | `TraceKind`, `TraceEvent`, `traceLine`, `traceKey`, `traceTag`, `traceTail` | Locale-aware rendering, dedupe keys, statusline tail. |
+| `vocab.ts` | 107 | `TraceKind`, `TraceEvent`, `traceLine`, `traceKey`, `traceTag`, `traceTail` | Locale-aware rendering, dedupe keys, statusline tail. `traceTail` is the **single owner** of the icon ordering: the composition root injects it into the kernel as the `traceTail` capability (`PluginCapabilities`), so `state.ts` never imports this slice (VSA). |
 
 ---
 
@@ -237,7 +237,8 @@ non-zero on failure (no log-only assertions).
 
 ## 9. Known gaps
 
-- `naming.ts` **diverges from the project's own naming convention**: no domain segment, 6-char per-segment truncation, and an allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell.
+- `naming.ts` **diverges from the project's own naming convention**: no domain segment, 6-char per-segment truncation, and an allow-list that preserves trailing `save`/`mail`/`ifx`/`z`/`do` tokens — the convention calls that a copy-smell. The **file naming** part of that divergence is resolved: `naming-conventions.md` §3 now documents that an agent file is `<Název>.lss` (file name = Designer element name) and only libraries keep the `lib_` prefix.
+- `DEFAULT_MCP_SERVER` (`mcp-client.ts`) defaults to an absolute path inside this operator's checkout (`D:/01_programovani/LN_REA/notes-sys/...`). Override with `LOTUSSCRIPT_MCP_SERVER`; a portable default would need a discovery step, not a hardcoded fallback.
 - No code-quality lint remains: the plugin reports compiler diagnostics + KB usage only.
 - Plugin/package/skill names still say "modular" while the feature set no longer is — deliberate (SPAI-009 cancelled), not an oversight.
 - `compile-tool.ts` keeps the historical file name although the tool is `lotusscript_check` (renaming it is cosmetic churn).

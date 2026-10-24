@@ -13,7 +13,7 @@ any more (both belonged to the deleted per-procedure file layout).
 ```lotusscript
 Option Public
 Option Declare
-%Include "lsconst.lss"
+' %Include "lsconst.lss"  — viz varování níže, do scaffoldu nepatří
 
 '**********************************************************************
 ' NÁZEV: nazev-souboru.lss
@@ -35,6 +35,27 @@ Option Declare
 Sub Initialize
 End Sub
 ```
+
+---
+
+### `%Include "lsconst.lss"` — ano, ale ne ve scaffoldu
+
+Blok výše ukazuje `%Include`, protože ho potřebují `MB_*` / `PICKLIST_*`
+konstanty (gotcha #36). **Scaffold ho záměrně nevygeneruje**:
+`src/slices/scaffold/template.lss` deklaruje `LSI_THREAD_*` sám a `lsconst.lss`
+tahá `LSPRVAL.LSS`, který tytéž konstanty definuje znovu → `Name previously
+declared` (gotcha #37).
+
+Rozhodni se podle cíle souboru:
+
+| Cíl | `%Include "lsconst.lss"` | `Const LSI_THREAD_*` |
+|---|---|---|
+| Samostatný `.lss` mimo Designer | ne | nech (template je má) |
+| Vložení do Script Library / elementu | ano, až při vkládání | **smaž celý blok** |
+
+Bezpečný postup: nech soubor bez `%Include` (scaffold default) a při vkládání do
+Designeru přidej `%Include` jen tehdy, když kód `MB_*`/`PICKLIST_*` skutečně
+používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
 
 ---
 

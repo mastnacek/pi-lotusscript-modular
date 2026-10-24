@@ -37,7 +37,3 @@ export function isFormulaSource(filePath: string): boolean {
 export function isLooseScript(filePath: string): boolean {
   return LOOSE_SCRIPT_EXT.test(filePath);
 }
-
-export function sanitizeFileName(name: string): string {
-  return name.replace(/[\\/:*?"<>|]/g, "_").trim().replace(/^[. ]+|[. ]+$/g, "");
-}

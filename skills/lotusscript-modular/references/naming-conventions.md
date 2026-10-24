@@ -75,9 +75,16 @@ nové elementy vznikají takhle.
 
 | Element | Příklad souboru |
 | --- | --- |
-| Agent | `agent_<Název>.lss` |
+| Agent | `<Název>.lss` (scaffold zapisuje přesně tohle) |
 | Tlačítko/akce | `button_<Název>.lss` |
 | Knihovna | `lib_<Název>.lss` |
+
+Jediné pravidlo, které drží kód a disk pohromadě: **název souboru = jméno
+elementu v Designeru**. Scaffold (`lotusscript_scaffold`, `/ls scaffold`) proto
+pojmenovává agenta bez prefixu — `agent_` v názvu souboru by znamenalo element
+pojmenovaný `agent_X`, což konvence nepřipouští. Alias (`ag_…`) nese typ, ne
+název souboru. Knihovny si prefix `lib_` drží, protože ten je součástí jména
+elementu.
 
 ---
 

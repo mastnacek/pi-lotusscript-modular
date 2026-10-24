@@ -1,7 +1,7 @@
 import type { ModularConfig } from "../../shared/types.js";
 import { stringsFor, type SettingCopy } from "../../shared/i18n.js";
 
-export type SettingKind = "boolean" | "number" | "string";
+type SettingKind = "boolean" | "number" | "string";
 
 export interface SettingSpec {
   key: keyof ModularConfig;
@@ -40,6 +40,11 @@ export function findSetting(key: string): SettingSpec | undefined {
   return SETTING_SPECS.find((s) => s.key === key);
 }
 
+/** Allowed values for enum-like string settings (validated in parseValue). */
+const ENUM_STRING_VALUES: Partial<Record<keyof ModularConfig, readonly string[]>> = {
+  skillPrompt: ["ask", "always", "never"],
+};
+
 /** Localized description + on/off help for one catalogue setting. */
 export function settingCopy(key: string, lang?: string): SettingCopy {
   const copy = stringsFor(lang).settings[key];
@@ -73,6 +78,16 @@ export function parseValue(
     const trimmed = raw.trim();
     if (!trimmed) {
       return { ok: false, error: s.errors.emptyNotAllowed(spec.key) };
+    }
+    // Enum-like string settings validate against their allowed values —
+    // a typo must not persist a mode the policy code has never heard of.
+    const allowed = ENUM_STRING_VALUES[spec.key];
+    if (allowed) {
+      const normVal = trimmed.toLowerCase();
+      if (!(allowed as readonly string[]).includes(normVal)) {
+        return { ok: false, error: s.errors.invalidChoice(spec.key, raw, allowed.join(" | ")) };
+      }
+      return { ok: true, value: normVal };
     }
     return { ok: true, value: trimmed };
   }

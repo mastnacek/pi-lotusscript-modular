@@ -31,5 +31,8 @@ export function emitTrace(state: PluginState, sink: TraceSink, event: TraceEvent
 
   state.traceTags.push(traceTag(event));
   sink.notify(traceLine(event, state.config.lang));
-  state.renderStatusline("clean");
+  // Re-render in the state the statusline already had: a checkpoint must add
+  // its icon to the tail, never claim a clean check that did not happen (or
+  // erase an LSP error the operator is looking at).
+  state.renderStatusline(state.statuslineState);
 }

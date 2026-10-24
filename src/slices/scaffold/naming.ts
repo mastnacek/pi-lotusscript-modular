@@ -20,8 +20,6 @@ const DIACRITICS_MAP: Record<string, string> = {
   ž: "z", ź: "z", ż: "z",
 };
 
-const MAX_ALIAS_LENGTH = 40;
-
 /** Strip diacritics → ASCII. */
 export function normalizeAscii(name: string): string {
   return name
@@ -66,7 +64,7 @@ export function suggestAlias(
   const capped = segs.map((s, i) => {
     const isLast = i === segs.length - 1;
     if (isLast && ["save", "mail", "ifx", "z", "do"].includes(s)) return s;
-    return capSegment(s, i === 0 ? 6 : 6);
+    return capSegment(s, 6);
   });
 
   const alias = (prefix + capped.join("_")).slice(0, 40);

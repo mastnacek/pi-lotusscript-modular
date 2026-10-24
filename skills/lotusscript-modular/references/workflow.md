@@ -71,11 +71,16 @@ file — the module exactly as Designer stores it: `Option …`/`Use …` header
 | Command / Tool | Purpose |
 | --- | --- |
 | `/ls status` | Show live plugin configuration |
-| `/ls config get\|set <key>` | Read/write a setting |
+| `/ls lang [cs\|en]` | Switch the UI language (persisted; never sniffed from the OS) |
+| `/ls lsp [on\|off]` | Toggle the whole-file compiler check |
+| `/ls config get\|set <key>` | Read/write a setting (`/ls <key> [value]` also works) |
+| `/ls --global <key> <value>` | Persist a setting to `~/.pi/agent/` instead of the project |
 | `/ls scaffold <agent\|library> [name]` | Create a compliant whole-file skeleton (see `scaffolding.md`) |
 | `/ls check <soubor.lss>` | Whole-file 9.0.1 compiler check |
 | `/ls score <soubor.lss>` | Scorecard + trend |
 | `/ls gotchas [query]` | Search the gotcha base |
+| `/ls audit [slozka]` | Rank procedures duplicated across `.lss` files (library candidates) |
 | `lotusscript_check` | Tool: whole-file 9.0.1 compiler diagnostics (+ error-code help) |
 | `lotusscript_scaffold` | Tool: generate agent/library whole-file skeletons |
 | `lotusscript_gotchas` | Tool: search / summary / propose new gotcha |
+| `lotusscript_library_audit` | Tool: duplicate-procedure audit + optional promotion plan |

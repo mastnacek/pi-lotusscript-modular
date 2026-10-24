@@ -32,9 +32,6 @@ export interface Strings {
   /** ZAPNUTO / ON — status report state words. */
   on: string;
   off: string;
-  /** Feminine forms for "LSP kontrola je ZAPNUTA" (cs grammar). */
-  onF: string;
-  offF: string;
 
   status: {
     title: string;
@@ -71,6 +68,7 @@ export interface Strings {
     numberExpected: (key: string, raw: string) => string;
     emptyNotAllowed: (key: string) => string;
     unknownKind: (kind: string) => string;
+    invalidChoice: (key: string, raw: string, allowed: string) => string;
   };
 
   lang: {
@@ -184,6 +182,7 @@ export interface Strings {
     subCheck: string;
     subScore: string;
     subGotchas: string;
+    subAudit: string;
     subConfig: string;
     subHelp: string;
     configGet: string;

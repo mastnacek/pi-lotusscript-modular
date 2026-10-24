@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { DEFAULT_CONFIG, loadConfig } from "../../src/shared/config.js";
 import { completeLsArguments } from "../../src/slices/settings/complete.js";
+import { stringsFor } from "../../src/shared/i18n.js";
 import { SETTING_SPECS, findSetting, parseValue, formatValue } from "../../src/slices/settings/catalogue.js";
 import { ensureTestDir, TEST_DIR } from "../helpers.js";
 
@@ -114,4 +115,35 @@ export async function phaseCommands(): Promise<void> {
   const okUnknown = findSetting("noSuchSetting") === undefined && findSetting("overwriteSourceLss") === undefined;
   console.log("9. unknown and retired settings are rejected:", okUnknown ? "PASS" : "FAIL");
   if (!okUnknown) throw new Error("unknown/retired setting was accepted");
+
+  // 10. `/ls audit` is discoverable: offered by completion and listed in help.
+  // `audit` takes a free-text folder, so its own menu entry is the leaf: the
+  // contract being tested is discoverability (present in the menu, matched by
+  // prefix), not a parameter picker.
+  const okAuditOffered =
+    labels.includes("audit") &&
+    (completeLsArguments("audi", cfg) ?? []).some((s) => s.label === "audit");
+  console.log("10. audit is offered in the /ls menu and prefix-filtered:", okAuditOffered ? "PASS" : "FAIL");
+  if (!okAuditOffered) throw new Error("audit missing from completions");
+  const helpText = stringsFor("cs").help.lines.join("\n");
+  const helpEn = stringsFor("en").help.lines.join("\n");
+  const okAuditHelp = helpText.includes("/ls audit") && helpEn.includes("/ls audit");
+  console.log("10b. audit appears in both help tables:", okAuditHelp ? "PASS" : "FAIL");
+  if (!okAuditHelp) throw new Error("audit missing from help");
+
+  // 11. Enum-like string settings reject a typo instead of persisting it.
+  const promptSpec = findSetting("skillPrompt")!;
+  const okPrompt =
+    (parseValue(promptSpec, "never") as { ok: true; value: string }).value === "never" &&
+    (parseValue(promptSpec, "ALWAYS") as { ok: true; value: string }).value === "always" &&
+    parseValue(promptSpec, "banana").ok === false;
+  console.log("11. skillPrompt validates ask|always|never:", okPrompt ? "PASS" : "FAIL");
+  if (!okPrompt) throw new Error("skillPrompt accepted an invalid mode");
+
+  // 12. A fully typed --global already yields the subcommand list (lazy menu).
+  const okGlobal =
+    (completeLsArguments("--global", cfg) ?? []).some((s) => s.label === "status") &&
+    (completeLsArguments("--global ", cfg) ?? []).some((s) => s.label === "status");
+  console.log("12. --global completes before and after the trailing space:", okGlobal ? "PASS" : "FAIL");
+  if (!okGlobal) throw new Error("--global stranded the picker");
 }

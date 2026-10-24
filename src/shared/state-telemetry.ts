@@ -12,7 +12,7 @@
 import type { ExtensionContext, Theme } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { HookName, HookTelemetry, ModularConfig } from "./types.js";
+import type { HookTelemetry, ModularConfig } from "./types.js";
 import { stringsFor } from "./i18n.js";
 
 export const TELEMETRY_WIDGET_KEY = "lotusscript-telemetry";
@@ -110,12 +110,3 @@ export function renderTelemetryPanel(
     { placement: "aboveEditor" }
   );
 }
-
-/** Removes the widget (config toggled off / shutdown path). */
-export function clearTelemetryPanel(ctx: ExtensionContext | null): void {
-  if (!ctx || !ctx.hasUI || typeof ctx.ui?.setWidget !== "function") return;
-  ctx.ui.setWidget(TELEMETRY_WIDGET_KEY, undefined);
-}
-
-/** Type re-export so callers (and tests) can name hook keys. */
-export type { HookName };

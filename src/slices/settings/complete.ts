@@ -33,6 +33,7 @@ function lsSubcommands(s: Strings): readonly Suggestion[] {
     { value: "check", description: c.subCheck, space: true },
     { value: "score", description: c.subScore, space: true },
     { value: "gotchas", description: c.subGotchas, space: true },
+    { value: "audit", description: c.subAudit, space: true },
     ...directSettingSubcommands(s).filter(
       (x) => x.value !== "enableLsp" 
     ),
@@ -183,15 +184,11 @@ export function completeLsArguments(
   const s = stringsFor(current.lang);
   const trimmed = prefix.trimStart();
 
-  // Support --global prefix
+  // Support --global prefix. A fully typed "--global" (with or without the
+  // trailing space) already yields the subcommand list — the engine closes
+  // the picker on Tab, so waiting for the space would strand the user.
   if (trimmed.startsWith("--global")) {
     const afterGlobal = trimmed.slice(8).trimStart();
-    const hasTrailingSpace = trimmed.length > 8 || /\s$/.test(prefix);
-
-    if (!hasTrailingSpace && afterGlobal === "") {
-      return annotateState(filter("", lsSubcommands(s), trimmed), current, s);
-    }
-
     const subCompletions = completeLsArgumentsClean(afterGlobal, current, s);
     if (!subCompletions) return null;
 

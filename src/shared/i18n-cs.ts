@@ -9,8 +9,6 @@ export const STRINGS_CS: Strings = {
   cmdDescription: "Správa modulárních LotusScript agentů, LSP a Gotchas báze",
   on: "ZAPNUTO",
   off: "VYPNUTO",
-  onF: "ZAPNUTA",
-  offF: "VYPNUTA",
 
   status: {
     title: "⚙️ [LotusScript Modular — Stav konfigurace]:",
@@ -50,6 +48,8 @@ export const STRINGS_CS: Strings = {
       `Hodnota pro '${key}' musí být kladné celé číslo (zadáno: '${raw}')`,
     emptyNotAllowed: (key) => `Hodnota pro '${key}' nesmí být prázdná`,
     unknownKind: (kind) => `Neznámý typ nastavení: ${kind}`,
+    invalidChoice: (key, raw, allowed) =>
+      `Neplatná hodnota pro '${key}': '${raw}'. Povolené: ${allowed}`,
   },
 
   lang: {
@@ -165,6 +165,7 @@ ${diagnostics}`,
     subCheck: "Zkontrolovat celý .lss soubor překladačem 9.0.1",
     subScore: "Zobrazit scorecard a trend hodnocení souboru",
     subGotchas: "Vyhledat v databázi LotusScript Gotchas (64 pravidel)",
+    subAudit: "Najít procedury duplikované mezi .lss soubory (kandidáti na knihovnu)",
     subConfig: "Zobrazit nebo změnit nastavení (get/set, legacy)",
     subHelp: "Zobrazit nápovědu příkazů",
     configGet: "Vypsat aktuální hodnotu nastavení",
@@ -306,6 +307,7 @@ ${diagnostics}`,
       "  /ls check <soubor.lss>          — Zkontrolovat celý .lss překladačem 9.0.1",
       "  /ls score <soubor.lss>          — Zobrazit scorecard a trend souboru",
       "  /ls gotchas [dotaz]             — Prohledat centrální bázi 64 gotchas",
+      "  /ls audit [složka]                — Najít duplikované procedury (kandidáti na knihovnu)",
     ],
   },
 };
