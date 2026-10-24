@@ -50,13 +50,13 @@ export async function lsCheck(state: PluginState, parts: LsParts, ctx: Extension
 
   if (!config.enableLsp) {
     ctx.ui.notify(`${s.check.lspDisabled}${scoreText}`, "warning");
-    state.renderStatusline("clean");
+    state.setRunState("clean");
     return;
   }
 
   if (lspRes?.ok) {
     ctx.ui.notify(s.check.compactClean(name, scoreText), "info");
-    state.renderStatusline("clean");
+    state.setRunState("clean");
     return;
   }
 
@@ -64,5 +64,5 @@ export async function lsCheck(state: PluginState, parts: LsParts, ctx: Extension
     [s.check.compactErrors(name, lspRes?.errorCount ?? 1), s.check.toolHint(target)].join("\n"),
     "warning"
   );
-  state.renderStatusline("error");
+  state.setRunState("error");
 }

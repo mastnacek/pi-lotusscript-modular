@@ -188,8 +188,12 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
     state.latestUiContext = ctx;
     state.syncConfig(ctx.cwd); // sets activeCwd — the detector keys off it
     projectDetector.reset(); // new session, new root: fingerprint is stale
-    state.countHook("session_start"); // also renders the telemetry panel
-    state.renderStatusline("idle");
+    state.countHook("session_start"); // also renders the HUD
+    // The plugin writes no footer status entry any more. Clear one left by a
+    // previous runtime: /reload keeps the footer data provider alive, so a
+    // stale `lotusscript: …` badge would otherwise linger and never update.
+    ctx.ui?.setStatus?.("lotusscript", undefined);
+    state.setRunState("idle");
     trace({ kind: "skill", detail: "lotusscript-modular" });
 
     // Entry-skill consent: the operator decides per project (like the shell
@@ -239,7 +243,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
 
   track(pi.on("turn_end", () => {
     state.countHook("turn_end");
-    state.renderStatusline("idle");
+    state.setRunState("idle");
   }));
 
   track(pi.on("agent_settled", async (_event, ctx: ExtensionContext) => {

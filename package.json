@@ -1,6 +1,6 @@
 {
   "name": "pi-lotusscript-modular",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Pi extension for whole-file LotusScript work (IBM Notes/Domino 9.0.1): compiler-oracle checks, scaffolding, gotcha registry, bounded project detection with an operator-consented entry-skill modal",
   "type": "module",
   "main": "index.ts",

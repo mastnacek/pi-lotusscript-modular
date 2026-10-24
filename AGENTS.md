@@ -59,9 +59,11 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 ## UX: one surface per fact (the HUD)
 
 Every live fact is rendered in ONE place: the HUD widget above the editor
-(`src/shared/state-hud.ts`). The status line carries a glyph-only badge
-(`🪷 LS 4/4 ✓`) and no counters; `emitTrace` updates the HUD instead of posting a
-chat toast; `/ls` handlers print a headline plus the tool that returns the full
+(`src/shared/state-hud.ts`). The plugin writes NOTHING to the footer/status
+line: `setRunState()` only records the state and re-renders the HUD, because a
+status entry renders as `<key>: <value>` (eldritch-footer's full preset printed
+`lotusscript: 🪷 LS 4/4 ✓`) — the same fact in a second, worse place.
+`emitTrace` updates the HUD instead of posting a chat toast; `/ls` handlers print a headline plus the tool that returns the full
 text instead of pushing tables or diagnostics into a transient toast. Before
 adding output, decide which single surface owns it — adding a second place for a
 number that already exists is a bug, not a feature.

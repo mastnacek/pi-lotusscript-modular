@@ -37,9 +37,8 @@ export function emitTrace(state: PluginState, event: TraceEvent): void {
     ok: event.ok,
   };
 
-  // Re-render in the state the status line already had: a checkpoint must add
-  // its icon to the HUD, never claim a clean check that did not happen (or
-  // erase an LSP error the operator is looking at).
-  state.renderStatusline(state.statuslineState);
+  // Only the trace row changes: the HUD's run-state line keeps whatever the
+  // last real check reported, so a checkpoint can never claim a clean check
+  // that did not happen (or erase an LSP error the operator is looking at).
   state.renderHud();
 }

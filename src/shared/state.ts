@@ -87,9 +87,10 @@ export interface PluginState {
   recordScorecard(filePath: string, scorecard: AgentScorecard): AgentScorecard | undefined;
   collectFileTokens(filePath: string): string[];
   buildGotchasBanner(filePath: string): string;
-  renderStatusline(state: HudState): void;
-  /** The state the statusline currently shows (so a trace never overwrites it). */
-  readonly statuslineState: HudState;
+  /** Record the run state and refresh the HUD (the only surface that shows it). */
+  setRunState(state: HudState): void;
+  /** The run state the HUD currently shows. */
+  readonly runState: HudState;
   /**
    * The last trace checkpoint, already localized by the trace slice at emit
    * time (`emitTrace` calls `traceLabel` itself). The kernel only renders it,
@@ -151,7 +152,7 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     ...capabilities,
     getConfig: () => config,
     getKbSearchCount: () => kbQueriesThisRun.length,
-    renderStatusline,
+    renderStatusline: setRunState,
     setLatestScorecard: (sc) => {
       latestScorecard = sc;
     },
@@ -159,25 +160,22 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     preflightBannerCache,
   });
 
-  let lastStatuslineState: HudState = "idle";
+  let lastRunState: HudState = "idle";
   let lastTrace: HudTrace | null = null;
 
   /**
-   * Status line: ONE glyph-only badge. Every number, state word and counter
-   * lives in the HUD above the editor, so nothing is displayed twice and
-   * nothing here needs translating.
+   * Record the run state and re-render the HUD.
+   *
+   * Deliberately writes NO footer/status entry: the HUD above the editor is the
+   * only surface that displays plugin state. A `setStatus("lotusscript", …)`
+   * badge used to live here, but the footer renders extension statuses as
+   * `<key>: <value>` (and eldritch-footer's full preset printed exactly that),
+   * so the badge showed up as `lotusscript: 🪷 LS 4/4 ✓` — the same fact in a
+   * second place, in a worse form.
    */
-  function renderStatusline(state: HudState = "idle"): void {
-    lastStatuslineState = state;
-    if (!latestUiContext || !latestUiContext.hasUI || !latestUiContext.ui?.theme) return;
-    const theme = latestUiContext.ui.theme;
-    const score = latestScorecard ? ` ${latestScorecard.score}/${latestScorecard.max}` : "";
-    const mark = { idle: "", checking: " …", clean: " ✓", error: " ⚠" }[state];
-    const color = { idle: "accent", checking: "warning", clean: "success", error: "error" } as const;
-    latestUiContext.ui.setStatus(
-      "lotusscript",
-      theme.fg(color[state], `🪷 LS${score}${mark}`)
-    );
+  function setRunState(state: HudState = "idle"): void {
+    lastRunState = state;
+    renderHud();
   }
 
   /** Icon sequence of the checkpoints already shown (ordering owned by the slice). */
@@ -189,7 +187,7 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
   function hudView(): HudView {
     return {
       telemetry,
-      state: lastStatuslineState,
+      state: lastRunState,
       score: latestScorecard ? { score: latestScorecard.score, max: latestScorecard.max } : null,
       kbQueries: kbQueriesThisRun.length,
       kbRequired: config.minKbSearchesPerRun,
@@ -217,8 +215,7 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
   function updateConfig(newConfig: ModularConfig, isGlobal = false, cwd?: string): void {
     config = newConfig;
     saveConfig(cwd || activeCwd, config, isGlobal);
-    renderStatusline("idle");
-    renderHud(); // showTelemetryPanel may have been toggled
+    setRunState("idle"); // also re-renders the HUD (showTelemetryPanel may have changed)
   }
 
   return {
@@ -236,8 +233,8 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     set activeCwd(cwd: string) {
       activeCwd = cwd;
     },
-    get statuslineState() {
-      return lastStatuslineState;
+    get runState() {
+      return lastRunState;
     },
     get lastTrace() {
       return lastTrace;
@@ -321,7 +318,7 @@ export function createPluginState(capabilities: PluginCapabilities): PluginState
     recordScorecard: insights.recordScorecard,
     collectFileTokens: insights.collectFileTokens,
     buildGotchasBanner: insights.buildGotchasBanner,
-    renderStatusline,
+    setRunState,
     countHook,
     renderHud,
     syncConfig,

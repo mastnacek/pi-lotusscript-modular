@@ -44,5 +44,5 @@ export async function lsAudit(
     [s.summary(result.duplicates, result.savedLines), s.toolHint(target)].join("\n"),
     "warning"
   );
-  state.renderStatusline("clean");
+  state.setRunState("clean");
 }

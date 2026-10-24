@@ -23,7 +23,7 @@ export interface SettledDeps {
 
 export async function handleAgentSettled(state: PluginState, ctx: ExtensionContext, deps: SettledDeps): Promise<void> {
   const { config } = state;
-  state.renderStatusline("idle");
+  state.setRunState("idle");
 
   const filePath = state.lastCheckedFile;
   if (!filePath || !fs.existsSync(filePath)) return;

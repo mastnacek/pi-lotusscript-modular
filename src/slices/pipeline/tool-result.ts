@@ -99,7 +99,7 @@ async function handleEditToolResult(
   try {
     return withNotice(await checkAndReport(state, event, ctx, deps, resolved), shapeNotice, event);
   } catch (err: unknown) {
-    state.renderStatusline("error");
+    state.setRunState("error");
     const msg = err instanceof Error ? err.message : String(err);
     return withNotice(
       {
@@ -163,7 +163,7 @@ async function checkAndReport(
   resolved: string
 ): Promise<ToolResultEventResultShape> {
   const { config } = state;
-  state.renderStatusline("checking");
+  state.setRunState("checking");
 
   // SPAI-008 automation: format the edited file BEFORE the check.
   let formatNotice = "";
@@ -180,13 +180,13 @@ async function checkAndReport(
   if (config.enableLsp) {
     lspResult = await deps.checkLotusScriptDiagnostics(resolved);
     if (lspResult.ok) {
-      state.renderStatusline("clean");
+      state.setRunState("clean");
     } else {
       lspNotice = `\n⚠️ LSP Diagnostics Errors/Warnings:\n${lspResult.diagnostics}`;
-      state.renderStatusline("error");
+      state.setRunState("error");
     }
   } else {
-    state.renderStatusline("clean");
+    state.setRunState("clean");
   }
 
   // SPAI-008 automation: attach lsp_explain help for the error codes so the

@@ -75,10 +75,10 @@ check("5b. switch off silences it", state.traceTags.length === 2 && state.lastTr
 // 6. A checkpoint must not overwrite the state the statusline already shows:
 //    an LSP error the operator is looking at survives a trace line.
 state.config = { ...state.config, showSkillTrace: true };
-state.renderStatusline("error");
-check("6. statusline records the state it rendered", state.statuslineState === "error");
+state.setRunState("error");
+check("6. run state is recorded for the HUD", state.runState === "error");
 emitTrace(state, { kind: "drift", detail: "lib_veba" });
-check("6b. a trace checkpoint preserves the error state", state.statuslineState === "error");
+check("6b. a trace checkpoint preserves the error state", state.runState === "error");
 check("6c. the checkpoint still reaches the HUD", state.lastTrace?.label === "drift knihovny");
 
 if (failures > 0) {
