@@ -13,9 +13,8 @@ vast majority of delays on forms". Verify anything you add against the KB:
 kb_search(collection: "lotus-notes", query: "<@function or topic>")
 ```
 
-Layers in that collection: IBM API reference (`com.ibm.designer…doc_*`),
-the Guirard book (`kapitola-01..13-*.html`; formulas = ch. 4, views = ch. 6,
-code = ch. 7), and ~850 community articles (`<Title>_<UNID>.html`).
+Layers in that collection (IBM API reference, Guirard book, community
+articles): `gotchas-index.md` §KB.
 
 ---
 

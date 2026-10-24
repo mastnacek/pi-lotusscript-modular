@@ -27,7 +27,7 @@ three layers — pick the query wording to hit the right one:
 
 Recipes: compile errors → search the exact message; “does X exist?” → search
 the bare name (an empty result is evidence); performance → the book chapters.
-Formula work → read `references/formula-language.md` first.
+Formula work → read `formula-language.md` first.
 
 | # | Trigger / when it bites | Rule (one-liner) |
 | --- | --- | --- |

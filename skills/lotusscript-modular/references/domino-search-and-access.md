@@ -82,8 +82,7 @@ Then confirm in the element itself. Report the 1–5 elements that matter.
 
 ## 5. Tooling notes for reading an export
 
-- Every `.lss`/`.dxl` is a **whole file** (the modular folder workflow is gone):
-  read it with offsets, or grep it — never look for `sub_*.lss` fragments.
+- Every `.lss`/`.dxl` is **one whole file**: read it with offsets, or grep it.
 - Language-server diagnostics are orientation only; a clean check does not mean
   the code is right in Designer (unknown identifiers pass), and a parser error
   can be a false positive of the grammar.

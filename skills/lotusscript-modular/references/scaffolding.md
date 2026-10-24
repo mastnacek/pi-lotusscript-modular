@@ -12,13 +12,12 @@ Definition of Done from the first check.
 - **New shared library** → `type: "library"` — Script Library skeleton (whole
   `.lss`) with version constant and sample public function.
 
-Those are the only two types. `procedure` and `modular` were retired with the
-modular workflow (2026-11): a new procedure is an anchored edit inside the
-existing whole `.lss`, and a modular folder must never be created.
+Those are the only two types: a new procedure is an anchored edit inside the
+existing whole `.lss`, and every script stays one file — a modular folder is
+never created.
 
 Never hand-write these skeletons when the scaffold tool exists — hand-written
-headers drift from the conventions (missing `%Include "lsconst.lss"`,
-missing `' Účel:`, wrong header order).
+headers drift from the conventions (missing `' Účel:`, wrong header order).
 
 ---
 
@@ -66,8 +65,7 @@ The tool never overwrites existing code.
 2. Declare globals/types in the file's declarations section, never inside
    procedure bodies (gotcha #38 for Option placement).
 3. Check the whole file: `lotusscript_check(path)` or `/ls check <file.lss>`.
-4. Verify the scorecard reaches the DoD (LSP clean, comments present, KB
-   consulted).
+4. Verify the scorecard reaches the DoD (LSP clean, KB consulted).
 5. On any compile error: search `lotusscript_gotchas` with the error text
    before changing code.
 
@@ -83,7 +81,7 @@ rule are documented in `plugin-internals.md` (section "Template Sources").
 ## 7. Naming Convention (alias derivation)
 
 The scaffold suggests the alias automatically per
-`references/naming-conventions.md`:
+`naming-conventions.md`:
 
 1. Display name → ASCII (diacritics stripped), camelCase split, lowercase
 2. Non-alphanumeric → `_`, collapse repeats

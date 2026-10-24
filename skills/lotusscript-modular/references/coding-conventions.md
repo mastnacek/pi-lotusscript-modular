@@ -3,8 +3,8 @@
 Coding standards for LotusScript on Notes/Domino 9.0.1. **None of this is
 linted** — the plugin only reports what the 9.0.1 compiler says plus whether the
 knowledge base was consulted. Treat these as the house style that keeps code
-reviewable and Designer-friendly: no line-length rule and no comment rule exist
-any more (both belonged to the deleted per-procedure file layout).
+reviewable and Designer-friendly: there is no line-length rule and no comment
+rule — the 9.0.1 compiler is the only arbiter.
 
 ---
 
@@ -57,15 +57,18 @@ Bezpečný postup: nech soubor bez `%Include` (scaffold default) a při vkládá
 Designeru přidej `%Include` jen tehdy, když kód `MB_*`/`PICKLIST_*` skutečně
 používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
 
+This is the only place where the `%Include` / `LSI_THREAD_*` rule is stated;
+other files link here.
+
 ---
 
-## Editing an existing .lss
+## 2. Editing an existing .lss
 
 1. **Module scope is flat.** Before modifying a procedure, scan the file's
    `(Declarations)` section (globals, `Type`, `Class`, `Const`) — it lives at
    the top of the same `.lss` file.
 2. **Adding a procedure:** insert it into the same file with an anchored edit,
-   following the coding conventions (`coding-conventions.md`). A `' Účel: ...`
+   following the coding conventions (section 4 for comments). A `' Účel: ...`
    comment above the declaration is the house style, not a lint rule.
 3. **Deleting a procedure:** remove it from the same file; nothing else needs
    syncing.
@@ -74,22 +77,20 @@ používá — a `Const LSI_THREAD_*` v tu chvíli smaž.
 
 ---
 
-## Pasting into Domino Designer 9.0.1
+## 3. Pasting into Designer
 
 - Tell the user to open the agent / script library in Domino Designer.
 - Copy the entire contents of the `.lss` file.
 - Paste into the Programmer's Pane (agent: into the script editor; library:
   into the library body).
+- Before the paste, remove the `Const LSI_THREAD_*` block from the copied text
+  (rule: section `%Include "lsconst.lss"` above; gotcha #37).
 - Save and recompile: **Ctrl+Shift+F9**.
-- When pasting into any Designer element, delete the scaffold's
-  `Const LSI_THREAD_*` block first — `LSPRVAL.LSS` is auto-included there and
-  the symbols would collide (rule and `%Include` table: section
-  `%Include "lsconst.lss"` above; gotcha #37). Deploy order for libraries:
-  `libraries-and-versioning.md` §4.
+- Deploy order when libraries are involved: `libraries-and-versioning.md` §4.
 
 ---
 
-## 2. Comments
+## 4. Comments
 
 ### Rules
 - **Only apostrophe `'`** — never `REM`
@@ -110,29 +111,32 @@ Function MojeFunkce(param1 As String) As Boolean
 	'**********************************************************************
 ```
 
+### Procedure comments (house style)
+
+1. Every `Sub`/`Function` carries a Czech purpose comment `' Účel: ...`.
+2. It sits **directly above the declaration** — that is where a reader looks.
+3. Size is not policed by tooling. The 9.0.1 compiler enforces the real ceiling
+   (`'Script structure too large'`, 32 KB of bytecode/data per procedure) and
+   `lotusscript_check` reports it as a diagnostic. Split for readability.
+
 ---
 
-## 3. Constants
+## 5. Constants
 
 - At the **top**, under the file header
 - **UPPERCASE** with underscores
 - Type suffix (`$` String, `%` Integer, `&` Long)
 
 ```lotusscript
-Const ERROR_EMAIL$ = "admin@firma.cz"
+Const ERROR_NOTIFY_EMAIL$ = "admin@firma.cz"
 Const MAX_ITEMS% = 1000
-
-' GetThreadInfo constants (required with Option Declare)
-Const LSI_THREAD_PROC = 1
-Const LSI_THREAD_MODULE = 10
 ```
 
-⚠️ `LSI_THREAD_*` is auto-included by Domino Designer — declaring it manually
-causes `Name previously declared` (see gotchas #37).
+`LSI_THREAD_*` constants: see section 1 (`%Include "lsconst.lss"`).
 
 ---
 
-## 4. Variable Declarations
+## 6. Variable Declarations
 
 - At the **beginning** of the procedure/function (never inside loops)
 - **Grouped** by type (Notes objects first, then primitives)
@@ -172,7 +176,7 @@ Compile error signature: `Unexpected: <name>; Expected: Identifier`.
 
 ---
 
-## 5. Error Handling
+## 7. Error Handling
 
 ### Handler skeleton
 ```lotusscript
@@ -187,7 +191,7 @@ Sub Initialize
 	Exit Sub  ' IMPORTANT - prevents fall-through into handler
 
 ErrorHandler:
-	Call SendErrorEmail(ERROR_NOTIFY_EMAIL)
+	Call SendErrorEmail(ERROR_NOTIFY_EMAIL$)
 	Exit Sub
 End Sub
 ```
@@ -232,21 +236,6 @@ Catch:
 
 ---
 
-## 6. Procedure Comments (House Style)
+## 8. Top traps
 
-1. Every `Sub`/`Function` carries a Czech purpose comment `' Účel: ...`.
-2. It sits **directly above the declaration** — that is where a reader looks,
-   and where the old linter used to look before the rule was retired.
-3. Size is not policed by tooling. The 9.0.1 compiler enforces the real ceiling
-   (`'Script structure too large'`, 32 KB of bytecode/data per procedure) and
-   `lotusscript_check` reports it as a diagnostic. Split for readability.
-
-
-## 7. Date/Time & Locale Hard Rules (short list)
-
-- Date fields in workflow apps **MUST include time** (gotcha #9).
-- `doc.Created` / `LastModified` return `Variant DATE`, not `NotesDateTime` (#7).
-- `CDat`, not `CDate` (#10). `UChr`, not `Chr`, for Unicode (#25).
-- `Format$(date, ...)` is locale-dependent (#21) — prefer explicit patterns.
-
-Full list: `references/gotchas-index.md` or `lotusscript_gotchas(action: "search", query: "...")`.
+Full list: `gotchas-index.md` or `lotusscript_gotchas(action: "search", query: "...")`.

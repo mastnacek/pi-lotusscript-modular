@@ -67,8 +67,7 @@ capture, version/changelog) are surfaced as nudges and debrief text, not as
 scorecard weight.
 
 Instant failure condition: creating a modular folder (`manifest.json`,
-`main.lss`, `sub_*.lss`, `*_compiled.lss`) — the modular workflow is gone and
-every `.lss` is a whole script.
+`main.lss`, `sub_*.lss`, `*_compiled.lss`) — every `.lss` is one whole script.
 
 Manual inspection: `/ls score <soubor.lss>` (scorecard + trend).
 

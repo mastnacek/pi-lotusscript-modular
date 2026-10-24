@@ -38,9 +38,8 @@ akci/sloupec", "změň popisek", "doplň hide-when", "uprav view", or hands over
 ## 3. DXL Agents
 
 Agents exported as `.dxl` (`<agent>` with `<code event="initialize">` etc.) are
-edited as DXL. Nothing is extracted or compiled out of a `.dxl` any more: the
-decompiler was removed on 2026-10-23 and with it every generated `.lss` next to
-it. Edit the DXL in place, or hand-write a whole `.lss` for the code.
+edited as DXL, in place. When the code needs its own file, hand-write a whole
+`.lss` for it.
 
 ---
 
@@ -54,10 +53,8 @@ the stripped doc, then process files.
 
 ## 5. Related Assets
 
-- Column/value/hide-when formulas: `references/formula-language.md`
+- Column/value/hide-when formulas: `formula-language.md`
 - Knowledge base: `kb_search(collection: "lotus-notes", query: "<topic>")` —
-  three layers: IBM 9.0.1 API reference (8 243 docs, incl. the DXL/DTD pages),
-  the Guirard *Performance basics* book (`kapitola-01..13-*.html`), ~850
-  community articles. Layers and recipes: `references/gotchas-index.md` §KB.
-- Full DXL form/view skill (legacy, richer examples):
+  layers and recipes: `gotchas-index.md` §KB.
+- Full DXL form/view skill (richer examples):
   `~/.claude/skills/notes-dxl/SKILL.md`
