@@ -8,7 +8,8 @@
  * stubborn model cannot loop forever; flags reset in beginRun() at
  * before_agent_start.
  *
- * Model-facing text stays English (language policy, SKILL.md §6).
+ * Model-facing text stays English (language policy,
+ * skills/lotusscript-modular/references/plugin-internals.md).
  */
 
 import type { AgentBeforeSettleEventResult } from "@earendil-works/pi-coding-agent";

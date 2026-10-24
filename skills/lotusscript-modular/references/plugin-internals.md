@@ -103,7 +103,7 @@ Manual inspection: `/ls score <soubor.lss>` (scorecard + trend).
    `minKbSearchesPerRun`.
 
 The loop is closed: **evaluate → detect gap → harness drafts gotcha → user
-approves → stored in `gotchas.md` → surfaced pre-flight next session.**
+approves → stored in `src/slices/gotchas/gotchas.md` → surfaced pre-flight next session.**
 
 ## Language Policy (hard rule)
 
