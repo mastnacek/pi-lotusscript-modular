@@ -8,7 +8,7 @@ Built using **Vertical Slice Architecture (VSA)** with interactive **Lazy Menus*
 
 ## Features
 
-- **Whole-File 9.0.1 Compiler Check:** `lotusscript_check` (and `/ls check <file.lss>`) compiles a `.lss` exactly as it is through the domino LSP oracle — no assembly, no strict probe — and attaches help pages for the LS-* error codes. The editor lane (pi-lens) runs the same whole-script compile on open/save/change, so IDE and tool diagnostics always agree.
+- **Whole-File 9.0.1 Compiler Check:** `lotusscript_check` (and `/ls check <file.lss>`) compiles a `.lss`/.lsa` — or an `@formula` `.fl`/`.formula` source — exactly as it is through the domino LSP oracle (no assembly, no strict probe), and attaches an error-code help page when the oracle has one (FORMULA-* pages carry EN/CZ text today; heading-only LS-* stubs are dropped instead of printed empty). The oracle reports the first error it hits, so a clean file is reached by fixing and re-running. The editor lane (pi-lens) runs the same whole-script compile on open/save/change, so IDE and tool diagnostics always agree.
 - **Auto-Check on Edit:** every `.lss` edit re-runs the whole-file check (compiler + scorecard) and injects the result into the conversation (`autoCheckOnEdit`). Nothing is compiled, assembled or generated behind the agent's back.
 - **LotusScript LSP Verification (Optional):** Automatically runs syntax checks via LotusScript LSP server upon compilation.
 - **Central Gotchas Registry (64 Rules):** Single source of truth for all LotusScript gotchas (built-in keywords as names, ForAll loop alias declarations, Const without 'As Type', ComputeWithForm side-effects, etc.). New gotchas are recorded centrally with interactive user approval.
@@ -63,7 +63,7 @@ Stored in `.pi/lotusscript-modular.json`:
 
 ## Tools for LLM
 
-- `lotusscript_check`: Whole-file 9.0.1 compiler diagnostics for a `.lss`/`.lsa` (checked exactly as it is) + error-code help pages.
+- `lotusscript_check`: Whole-file 9.0.1 compiler diagnostics for a `.lss`/`.lsa` script or a `.fl`/`.formula` formula (checked exactly as it is) + error-code help pages when a page exists.
 - `lotusscript_scaffold`: Generates compliant whole-file code skeletons (agent, library) with StringEnum-typed parameters; `target: "designer"` renders the paste-ready variant without `Const LSI_THREAD_*`.
 - `lotusscript_gotchas`: Search 64 gotchas, view summary, or add newly discovered gotchas to the central registry (interactive modal approval).
 - `lotusscript_library_audit`: Read-only duplicate-procedure audit across a folder of `.lss` files, ranked by saved lines, with an optional promotion plan.

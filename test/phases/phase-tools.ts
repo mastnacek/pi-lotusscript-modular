@@ -46,9 +46,20 @@ export async function phaseTools(): Promise<void> {
     !!tool &&
     /whole/i.test(tool.description) &&
     /no modular folder/i.test(tool.description) &&
+    /FORMULA-0x/.test(tool.description) &&
+    /first error/i.test(tool.description) &&
     !!tool.parameters?.properties?.path;
   console.log("1. lotusscript_check registered as a whole-file check:", okTool ? "PASS" : "FAIL");
   if (!okTool) throw new Error(`Tool: ${JSON.stringify(tool?.description)}`);
+
+  // 1b. The formula lane is real (the oracle maps .fl/.formula to its formula
+  //     compiler), so the schema must advertise it — otherwise no agent ever
+  //     checks an @formula source and the lane stays dead in practice.
+  const okFormula =
+    /@formula/i.test(tool?.description ?? "") &&
+    /formula/i.test(String(tool?.parameters?.properties?.path?.description ?? ""));
+  console.log("1b. the description advertises the @formula lane:", okFormula ? "PASS" : "FAIL");
+  if (!okFormula) throw new Error(`Tool: ${JSON.stringify(tool?.parameters)}`);
 
   // 2. A clean check reports 0 errors and names the file.
   const file = writeLss("ToolAgent.lss");

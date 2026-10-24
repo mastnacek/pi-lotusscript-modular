@@ -164,6 +164,24 @@ export function extractLspErrorCodes(diagnosticsText: string, cap = 3): string[]
 }
 
 /**
+ * Does an `lsp_explain` answer carry anything beyond its own heading?
+ *
+ * The oracle currently answers every `LS-0x…` code with a bare
+ * `# Diagnostic Code [LS-0xd028]` heading — it has an EN/CZ table for
+ * `FORMULA-0x…` codes only (notes-sys SPAI-006). Attaching that page prints
+ * `📚 Help for LS-0xd028:` followed by nothing but the code the caller already
+ * has, which reads as a broken feature rather than missing upstream data. A
+ * heading-only answer is therefore treated as "no page".
+ */
+export function hasExplainBody(text: string): boolean {
+  return text
+    .split("\n")
+    .filter((line) => !/^\s*#+/.test(line))
+    .join("")
+    .trim().length > 0;
+}
+
+/**
  * Auto-explain: fetch full lsp_explain help pages for up to 3 distinct error
  * codes found in a diagnostics text. Returns markdown, or "" when the MCP
  * lane is unavailable or no page adds value.
@@ -184,7 +202,7 @@ export async function explainLotusScriptCodes(
           arguments: { code },
         });
         const text = (res.result?.content?.[0]?.text ?? "").trim();
-        if (text && !/^No help entry/i.test(text)) {
+        if (text && !/^No help entry/i.test(text) && hasExplainBody(text)) {
           parts.push(`📚 Help for ${code}:\n${text}`);
         }
       }

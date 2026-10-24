@@ -4,8 +4,10 @@
  *
  * Whole-file workflow: every .lss/.lsa is checked exactly as it is by the
  * IBM Notes 9.0.1 compiler oracle — no modular folder, no assembly, no
- * strict probe. Cross-slice capabilities (lsp) arrive via ToolsDeps wired
- * in the composition root — slices never import each other (VSA).
+ * strict probe. The same oracle also compiles @formula sources (.fl /
+ * .formula), so the tool takes either and reports that lane's FORMULA-0x…
+ * codes. Cross-slice capabilities (lsp) arrive via ToolsDeps wired in the
+ * composition root — slices never import each other (VSA).
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -21,14 +23,17 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
   // Read state.config at execution time instead.
 
   const CheckParams = Type.Object({
-    path: Type.String({ description: "Path to the .lss/.lsa file to check (checked as a whole script, exactly as it is)" }),
+    path: Type.String({
+      description:
+        "Path to the file to check: a whole LotusScript .lss/.lsa script or a @formula .fl/.formula source (compiled as-is, exactly as it is)",
+    }),
   });
 
   pi.registerTool<typeof CheckParams, { ok: boolean; checkedPath?: string }>({
     name: "lotusscript_check",
     label: "Check LotusScript File",
     description:
-      "Check a whole LotusScript .lss/.lsa file with the IBM Notes 9.0.1 compiler oracle. The file is compiled exactly as it is — no modular folder, no assembly. Returns compiler diagnostics; on errors, help pages for the error codes are attached when enabled.",
+      "Check a whole LotusScript .lss/.lsa script, or a @formula .fl/.formula source, with the IBM Notes 9.0.1 compiler oracle (the same engine Designer uses). The file is compiled exactly as it is — no modular folder, no assembly. Returns compiler diagnostics (LS-0x… / FORMULA-0x… codes) plus the catalogue entries that describe them; on errors, help pages are attached when the oracle has one. The oracle reports the FIRST error it hits, so re-run after each fix until the file is clean.",
     parameters: CheckParams,
     async execute(_toolCallId: string, params: { path: string }) {
       const cfg = state.config;

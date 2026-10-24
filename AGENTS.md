@@ -9,8 +9,13 @@ domino LSP dropped module-aware checking on 2026-11, and this plugin's compile/m
 pipeline (`src/slices/parser/`, `compileAgent`, `sync-manifest`, `emitters`, `_compiled.lss`,
 `/ls compile|pack`) was deleted with it. No folder shape is supported any more: every
 `.lss` is a whole script. The model tools are `lotusscript_check` (whole-file compiler
-diagnostics), `lotusscript_scaffold` (agent/library skeletons only) and
-`lotusscript_gotchas`. The removed decompile pipeline is archived in
+diagnostics — it takes a `.lss`/`.lsa` script or a `.fl`/`.formula` formula, because the
+oracle has a formula lane; the oracle reports only the FIRST error, so a clean file is
+reached by fixing and re-running), `lotusscript_scaffold` (agent/library skeletons only)
+and `lotusscript_gotchas`. An `lsp_explain` page that is nothing but its own heading is
+DROPPED, not printed (`hasExplainBody` in `src/slices/lsp/mcp-client.ts`): the oracle
+ships EN/CZ pages for `FORMULA-0x…` only, and an empty `📚 Help for LS-…:` block reads as
+a broken feature instead of missing upstream data (notes-sys SPAI-006). The removed decompile pipeline is archived in
 `D:\01_programovani\pi\plugins\_archiv\lotusscript-dekompilace` — restore from there if it
 is ever wanted again, do not re-grow a second copy in `src/`.
 
