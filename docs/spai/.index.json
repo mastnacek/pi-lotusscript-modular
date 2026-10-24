@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 15:16:42",
+  "lastUpdated": "2026-10-24 16:49:37",
   "records": [
     {
       "id": "SPAI-001",
@@ -398,6 +398,22 @@
       "project": "pi-lotusscript-modular",
       "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
       "file": "2026-10-24-SPAI-026-forceproject-setting-ls-forceproject-onoff-i18n-cs.md"
+    },
+    {
+      "id": "SPAI-027",
+      "title": "Borrow worth-having ideas from NotesDominoExpert_V0.6.7.jsx into pi-lotusscript-modular: (1) target-Domino-version config key (`/ls config set dominoVersion`) injected into guidelines so advice can version-gate (oracle is fixed 9.0.1 but deployment target may be 12/14); (2) deterministic pre-check heuristic lane like the JSX `runCodeHeuristics` (missing Option Declare advisory, lookup-in-loop N+1 detector) feeding the scorecard as advisory items; (3) uncertainty-marking convention (\"🔬 Not verified:\") for rarely-documented APIs in the skill guidelines. Not adoptable: German-only UI (violates cs/en i18n contract), 14.5.1 KNOWN_LS_CLASSES hallucination-checker (redundant — the 9.0.1 compiler oracle already rejects unknown classes), direct Anthropic fetch architecture.",
+      "type": "Idea",
+      "status": "idea",
+      "symbol": "?",
+      "timestamp": "2026-10-24 16:49:37",
+      "tags": [
+        "plugin",
+        "ideas",
+        "notes-sys"
+      ],
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-027-borrow-worth-having-ideas-from-notesdominoexpert-v.md"
     }
   ]
 }

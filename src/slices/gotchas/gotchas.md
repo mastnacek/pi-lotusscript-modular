@@ -1350,3 +1350,59 @@ End Sub
 
 Praktické pravidlo: nové proměnné deklarovat hned v hlavě téhož subu/func,
 kde se používají — ne "u následujícího použití" uprostřed těla.
+
+---
+
+## Pasted VBA that only pretends to be LotusScript — recognize the wholesale markers
+
+A whole `.lss` can be VBA (Excel/Word macro code) with a LotusScript skin.
+Single-symbol traps have their own entries (`CDate`, `Err.Clear`, `Dir$`);
+check the file for the WHOLESALE markers first, because they tell you the
+*authoring language* was wrong, not just one call:
+
+```lotusscript
+Option Explicit            ' VBA — LotusScript has Option Declare
+Dim ws As Worksheet        ' Excel object model — nothing like it in Domino
+Set rng = ActiveWorkbook.Worksheets(1).Range("A1")
+ThisWorkbook.Cells(1, 1) = Selection.Value
+```
+
+Markers that indicate VBA, not LotusScript: `Option Explicit`,
+`ActiveWorkbook`, `ThisWorkbook`, `Worksheets(`, `Cells(`, `Range(`,
+`Selection.`, `MsgBox` with vbOKOnly-style named args, `With ... End With`
+used on Excel objects. With `Option Declare` these fail to compile
+(`Variable not declared`); without it they compile and fail at runtime with
+`Object variable not set` — which looks like a logic bug, not a language mix-up.
+
+Fix: replace the Excel object model with the Domino equivalent
+(NotesUIWorkspace.Prompt / NotesDatabase / NotesDocumentCollection), or reject
+the file and rewrite the intent in LotusScript.
+Verification: compile oracle — `Option Explicit` and undeclared Excel classes
+are rejected; KB `com.ibm.designer.domino.main.doc_*` (collection `lotus-notes`)
+has no such classes. See also the `CDate` / `Err.Clear` / `Dir$` entries.
+
+---
+
+## Hardcoded credentials in the source — invisible to the compiler, visible to everyone
+
+The oracle compiles a hardcoded password happily; no LSP diagnostic will ever
+flag it. Anyone with the design (or the `.lss` on disk, or a DXL export) reads
+it, and agents run server-side with whatever the constant grants.
+
+```lotusscript
+' WRONG — compiles clean, ships the secret
+Const PWD = "S3cr3t!"
+Call doc.ReplaceItemValue("HttpPassword", PWD)
+
+' CORRECT — read from an encrypted field, notes.ini or the environment
+Dim pwd As String
+pwd = session.GetEnvironmentString("IntegRestPassword")   ' notes.ini
+' or read an Readers/encrypted config document by key
+```
+
+Typical shapes to look for when reviewing: `(password|passwort|kennwort|heslo|pwd)`
+followed by `=` and a quoted literal; `CreateHTTPHeader`/basic-auth strings;
+connection strings with user+password inline.
+Verification: not compiler-detectable — this is a read-time review rule, not an
+LSP code; store credentials via notes.ini variables, encrypted config documents
+or the ID Vault.
