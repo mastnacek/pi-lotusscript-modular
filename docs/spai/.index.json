@@ -1,0 +1,165 @@
+{
+  "version": 1,
+  "lastUpdated": "2026-10-23 20:54:27",
+  "records": [
+    {
+      "id": "SPAI-001",
+      "title": "musim donutit modely makat spravne",
+      "type": "Todo",
+      "status": "cancelled",
+      "symbol": "z",
+      "timestamp": "2026-09-21 18:14:48",
+      "tags": [],
+      "priority": "high",
+      "project": "pi-lotusscript-modular",
+      "file": "2026-09-21-SPAI-001-musim-donutit-modely-makat-spravne.md"
+    },
+    {
+      "id": "SPAI-002",
+      "title": "[pi-lotusscript-modular] Kompletní upgrade pluginu + skillu na úroveň pi-plugin-dev/pi-herdr-plugin-dev. JAK: (1) dokončit scaffold slice — import v index.ts, /ls scaffold command + lotusscript_scaffold tool se StringEnum; (2) skill rozšířit na progressive disclosure — SKILL.md jako router + references/ (gotchas-index, coding-conventions, dxl-odp, class-map, workflow); (3) zachovat 42 gotchas z plugin catalogue jako autoritativní zdroj; (4) npm test, commit + push na GitHub.",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-09-24 11:37:35",
+      "tags": [],
+      "priority": "medium",
+      "deadline": "2026-09-24T11:37:35",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-09-24-SPAI-002-pi-lotusscript-modular-kompletni-upgrade-pluginu-s.md"
+    },
+    {
+      "id": "SPAI-003",
+      "title": "[pi-lotusscript-modular] Naming conventions: (1) references/naming-conventions.md — zapsat novou konvenci aliasů (ag_ lu_ button_ fld_ sfm_), segmenty, proč (rozpoznatelnost v grafu, bez diakritiky, stabilní odkazy); (2) scaffold: automaticky odvodit alias (bez diakritiky, lowercase, prefix dle typu) a po vytvoření vypsat hezký DESIGNER REGISTRATION notice (název, alias, účel, postup vložení do Designeru, Ctrl+Shift+F9) — CZ pro /ls command, EN pro tool; (3) SKILL.md disclosure tabulka + README; (4) testy, commit, push.",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-09-24 12:07:00",
+      "tags": [],
+      "priority": "medium",
+      "deadline": "2026-09-24T12:07:00",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-09-24-SPAI-003-pi-lotusscript-modular-naming-conventions-1-refere.md"
+    },
+    {
+      "id": "SPAI-004",
+      "title": "[pi-lotusscript-modular] Refactor fat composition root: index.ts 1515 řádků → slices. (1) PluginContext typ (config, scoreHistory, latestUiContext, unsubscribers, helpers); (2) src/slices/guards/ — shell/monolith guard tabulky + collectShellLikeSources + detekce dumpu; (3) src/slices/commands/ — /ls switch (412 řádků) do vlastního modulu; (4) index.ts = jen wiring, cíl <450 řádků; (5) zachovat 75/75 testů zelených, žádná změna chování; (6) commit + push.",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-09-24 12:18:18",
+      "tags": [],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-09-24-SPAI-004-pi-lotusscript-modular-refactor-fat-composition-ro.md"
+    },
+    {
+      "id": "SPAI-005",
+      "title": "Odstranit zbývající cross-slice importy (pipeline → scorecard/gotchas/parser/guards/lsp, tools → parser/lsp/gotchas/scaffold) přes deps objekty wireované v composition rootu — po vzoru commands/deps.ts a SettledDeps",
+      "type": "Todo",
+      "status": "done",
+      "symbol": "x",
+      "timestamp": "2026-10-16 09:22:45",
+      "tags": [
+        "vsa",
+        "refactor"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-16-SPAI-005-odstranit-zbyvajici-cross-slice-importy-pipeline-s.md"
+    },
+    {
+      "id": "SPAI-006",
+      "title": "Faze 1: jeden skill — sloucit obsah (reuse-ladder.md, object-model.md, kontextova tabulka v SKILL.md) konsolidace:",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-10-23 19:49:11",
+      "tags": [
+        "skill"
+      ],
+      "priority": "high",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-006-faze-1-jeden-skill-sloucit-obsah-reuse-laddermd-ob.md"
+    },
+    {
+      "id": "SPAI-007",
+      "title": "Faze 2: hook driftCheck — pri editaci .lss v projektu s knihovnou hlasit HTTP objekt / endpoint literaly / lokalni error-report (invariant z dneska) pravidla:",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-10-23 19:49:18",
+      "tags": [
+        "hook"
+      ],
+      "priority": "high",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-007-faze-2-hook-driftcheck-pri-editaci-lss-v-projektu-.md"
+    },
+    {
+      "id": "SPAI-008",
+      "title": "Faze 3: tool lotusscript_library_audit + /ls audit — deduplikace těl procedur, skóre \"hodné knihovny\", --plan se scaffoldem a migracnim checklistem knihovny:",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-10-23 19:49:18",
+      "tags": [
+        "tool"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-008-faze-3-tool-lotusscript-library-audit-ls-audit-ded.md"
+    },
+    {
+      "id": "SPAI-009",
+      "title": "Faze 4: prejmenovat plugin pi-lotusscript-modular -> pi-lotuscript (settings.json source, AGENTS.md, docs, README)",
+      "type": "Todo",
+      "status": "cancelled",
+      "symbol": ".",
+      "timestamp": "2026-10-23 19:49:18",
+      "tags": [
+        "rename"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-009-faze-4-prejmenovat-plugin-pi-lotusscript-modular-p.md"
+    },
+    {
+      "id": "SPAI-010",
+      "title": "Doplnit zbyvajici trace checkpointy: check (vysledek kontroly), gate (KB blokace), dod (souhrn v agent_settled)",
+      "type": "Todo",
+      "status": "todo",
+      "symbol": ".",
+      "timestamp": "2026-10-23 19:58:58",
+      "tags": [
+        "trace"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-010-doplnit-zbyvajici-trace-checkpointy-check-vysledek.md"
+    },
+    {
+      "id": "SPAI-011",
+      "title": "Model-callable tool lotusscript_library_audit s planem (navrzena knihovna, scaffold, dotcene soubory) knihovny:",
+      "type": "Todo",
+      "status": "done",
+      "symbol": ".",
+      "timestamp": "2026-10-23 20:08:24",
+      "tags": [
+        "tool"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-23-SPAI-011-model-callable-tool-lotusscript-library-audit-s-pl.md"
+    }
+  ]
+}

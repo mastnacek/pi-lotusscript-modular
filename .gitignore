@@ -3,7 +3,12 @@ dist/
 temp_modular_test/
 *.log
 .DS_Store
-docs/
+
+# Local-only archive of superseded planning docs (history keeps the originals).
+/docs/archive/
+
+# SPAI backlog is versioned; the vector cache is not (rebuildable, 450 KB of noise).
+docs/spai/.vectors.json
 
 .uma/
 runtime/
