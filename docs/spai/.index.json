@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 14:24:44",
+  "lastUpdated": "2026-10-24 14:55:51",
   "records": [
     {
       "id": "SPAI-001",
@@ -351,6 +351,53 @@
       "project": "pi-lotusscript-modular",
       "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
       "file": "2026-10-24-SPAI-023-stale-docs-after-the-skill-refactor-readmemd-l7681.md"
+    },
+    {
+      "id": "SPAI-024",
+      "title": "Session-start LSP lane probe (notes-sys domino-mcp via tools/list, ~120 ms) with HUD mark ✓/⚠/? instead of a permanent \"?\" — implemented in src/slices/lsp/mcp-client.ts probeLspLane #done",
+      "type": "Todo",
+      "status": "done",
+      "symbol": "x",
+      "timestamp": "2026-10-24 14:55:44",
+      "tags": [
+        "lsp",
+        "hud"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-024-session-start-lsp-lane-probe-notes-sys-domino-mcp-.md"
+    },
+    {
+      "id": "SPAI-025",
+      "title": "Skill trace emitted only when the skill is actually advertised or loaded (resources_discover answer / consent load), not unconditionally at session_start — implemented in index.ts #done",
+      "type": "Todo",
+      "status": "done",
+      "symbol": "x",
+      "timestamp": "2026-10-24 14:55:44",
+      "tags": [
+        "trace"
+      ],
+      "priority": "low",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-025-skill-trace-emitted-only-when-the-skill-is-actuall.md"
+    },
+    {
+      "id": "SPAI-026",
+      "title": "forceProject setting (+ /ls forceProject on|off, i18n cs/en, README) so an unusual layout or this plugin repo can be treated as a Domino project; enabled in .pi/lotusscript-modular.json here #done",
+      "type": "Todo",
+      "status": "done",
+      "symbol": "x",
+      "timestamp": "2026-10-24 14:55:44",
+      "tags": [
+        "project",
+        "settings"
+      ],
+      "priority": "medium",
+      "project": "pi-lotusscript-modular",
+      "projectPath": "D:/01_programovani/pi/plugins/pi-lotusscript-modular",
+      "file": "2026-10-24-SPAI-026-forceproject-setting-ls-forceproject-onoff-i18n-cs.md"
     }
   ]
 }
