@@ -8,6 +8,8 @@ import path from "node:path";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import { guardKbBeforeEdit } from "../../src/slices/guards/index.js";
 import { handleToolResult } from "../../src/slices/pipeline/tool-result.js";
+import { handleToolCall } from "../../src/slices/pipeline/tool-call.js";
+import { handleAgentSettled } from "../../src/slices/pipeline/settled.js";
 import { handleAgentBeforeSettle } from "../../src/slices/pipeline/before-settle.js";
 import { MUTATING_TOOL_NAMES } from "../../src/slices/pipeline/mutating-tools.js";
 import type { PipelineDeps } from "../../src/slices/pipeline/deps.js";
@@ -20,12 +22,19 @@ ${Array.from({ length: 320 }, (_, i) => `    Dim v${i} As Integer`).join("\n")}
 End Sub
 `;
 
-function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; checks: string[] } {
+function makeDeps(overrides: Partial<PipelineDeps> = {}): {
+  deps: PipelineDeps;
+  checks: string[];
+  traces: { kind: string; detail?: string; ok?: boolean }[];
+} {
   const checks: string[] = [];
+  const traces: { kind: string; detail?: string; ok?: boolean }[] = [];
   const deps: PipelineDeps = {
     mutatingToolNames: MUTATING_TOOL_NAMES,
     guardKbBeforeEdit,
-    trace: () => {},
+    trace: (event) => {
+      traces.push(event);
+    },
     projectSkillGuideline: () => null,
     readSkillNotice: () => null,
     observeVersionHeader: () => {},
@@ -47,7 +56,7 @@ function makeDeps(overrides: Partial<PipelineDeps> = {}): { deps: PipelineDeps; 
     promptGotchaReview: async () => ({ action: "cancel" }),
     ...overrides,
   };
-  return { deps, checks };
+  return { deps, checks, traces };
 }
 
 function editEvent(file: string): any {
@@ -74,7 +83,7 @@ export async function phasePipeline(): Promise<void> {
   const state = createTestState();
   state.config = { ...DEFAULT_CONFIG, enableLsp: true, enableScorecard: false };
   const file = writeLss("AutoCheck.lss");
-  const { deps, checks } = makeDeps();
+  const { deps, checks, traces } = makeDeps();
   const result = await handleToolResult(state, editEvent(file), mockCtx(), deps);
   const text = JSON.stringify(result?.content ?? []);
   const okAuto = checks.length === 1 && checks[0] === file && text.includes("Checked") && text.includes("whole script");
@@ -198,4 +207,32 @@ export async function phasePipeline(): Promise<void> {
   const okSkillOff = !JSON.stringify(offSkill?.content ?? []).includes("should-not-appear");
   console.log("14. injectProjectSkillHint=off suppresses the pointer:", okSkillOff ? "PASS" : "FAIL");
   if (!okSkillOff) throw new Error("skill pointer leaked past the setting");
+
+  // 15. Every stage leaves a visible checkpoint (SPAI-010).
+  const checkTrace = traces.some((t) => t.kind === "check" && t.ok === true && t.detail === "0 errors");
+  const gateState = createTestState();
+  gateState.config = { ...DEFAULT_CONFIG, enforceKbGate: true };
+  const { deps: gateDeps, traces: gateTraces } = makeDeps();
+  const gateResult = handleToolCall(
+    gateState,
+    { toolName: "edit", input: { path: path.join("C:/tmp", "Gate.lss") } } as any,
+    gateDeps,
+    "C:/tmp"
+  );
+  const gateTrace = !!gateResult?.block && gateTraces.some((t) => t.kind === "gate" && t.ok === false);
+
+  const dodState = createTestState();
+  dodState.config = { ...DEFAULT_CONFIG, enableScorecard: true, enableLsp: true };
+  dodState.lastCheckedFile = file;
+  const dodTraces: { kind: string; detail?: string; ok?: boolean }[] = [];
+  await handleAgentSettled(dodState, mockCtx(), {
+    checkLotusScriptDiagnostics: async () => ({ ok: true, diagnostics: "", errorCount: 0, warningCount: 0 }),
+    trendLabel: () => "=",
+    trace: (event) => dodTraces.push(event),
+  });
+  const dodTrace = dodTraces.some((t) => t.kind === "dod");
+
+  const okTraces = checkTrace && gateTrace && dodTrace;
+  console.log("15. check, gate and DoD each leave a visible checkpoint:", okTraces ? "PASS" : "FAIL");
+  if (!okTraces) throw new Error(`traces: ${JSON.stringify({ checkTrace, gateTrace, dodTrace })}`);
 }

@@ -19,6 +19,8 @@ import type { PluginState } from "../../shared/state.js";
 export interface SettledDeps {
   checkLotusScriptDiagnostics(filePath: string): Promise<LspCheckResult>;
   trendLabel(current: AgentScorecard, previous?: AgentScorecard): string;
+  /** Visible checkpoint sink (trace slice). UI only — never model context. */
+  trace(event: { kind: string; detail?: string; ok?: boolean }): void;
 }
 
 export async function handleAgentSettled(state: PluginState, ctx: ExtensionContext, deps: SettledDeps): Promise<void> {
@@ -46,12 +48,15 @@ export async function handleAgentSettled(state: PluginState, ctx: ExtensionConte
   const unmet = scorecard.items.filter((i) => !i.ok && !i.pending);
 
   if (unmet.length === 0) {
+    deps.trace({ kind: "dod", detail: `${scorecard.score}/${scorecard.max}` });
     if (ctx.hasUI) {
       const st = stringsFor(config.lang).settled;
       ctx.ui.notify(st.done(path.basename(filePath), st.score(scorecard.score, scorecard.max)), "info");
     }
     return;
   }
+
+  deps.trace({ kind: "dod", ok: false, detail: `${unmet.length} open` });
 
   // Debrief: deterministic "note to self" carried into the next turn.
   state.pendingDebriefs.push(

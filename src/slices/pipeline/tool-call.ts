@@ -49,6 +49,7 @@ export function handleToolCall(
     const kbGuard = deps.guardKbBeforeEdit(guardPath, state.kbConsulted, state.config.enforceKbGate);
     if (kbGuard) {
       state.telemetry.kbGateBlocks++;
+      deps.trace({ kind: "gate", ok: false, detail: path.basename(guardPath) });
       return kbGuard;
     }
   }

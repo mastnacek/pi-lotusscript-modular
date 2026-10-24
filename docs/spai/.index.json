@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 14:12:10",
+  "lastUpdated": "2026-10-24 14:18:12",
   "records": [
     {
       "id": "SPAI-001",
@@ -293,8 +293,8 @@
       "id": "SPAI-020",
       "title": "lotusscript_scaffold: add parameter target: \"designer\" so the scaffold for a Designer paste skips the Const LSI_THREAD_* block; then the %Include/LSI rule can leave the prose and live in the tool. Blocked-by/related: coding-conventions.md §1",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 14:12:10",
       "tags": [
         "skill",
@@ -341,8 +341,8 @@
       "id": "SPAI-023",
       "title": "Stale docs after the skill refactor: README.md L76/81/82 and FILE-MAP.md L46/54/57 still list workflow.md, lotus-class-index.md and the '64-entry index'; history prose remains in src/slices/pipeline/guidelines.ts:60 and src/slices/scorecard/compute.ts:143",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 14:12:10",
       "tags": [
         "docs"

@@ -128,6 +128,7 @@ export default function lotusscriptModularExtension(pi: ExtensionAPI) {
   const settledDeps: SettledDeps = {
     checkLotusScriptDiagnostics,
     trendLabel,
+    trace: (event) => trace(event as TraceEvent),
   };
 
   // Pipeline slice wiring: tool_call / tool_result / guideline handlers reach

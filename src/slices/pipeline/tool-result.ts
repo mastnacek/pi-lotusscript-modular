@@ -189,6 +189,15 @@ async function checkAndReport(
     state.setRunState("clean");
   }
 
+  // Checkpoint: the whole-file verdict, so the operator sees what the check said.
+  if (config.enableLsp && lspResult) {
+    deps.trace({
+      kind: "check",
+      ok: lspResult.ok,
+      detail: lspResult.ok ? "0 errors" : `${lspResult.errorCount} error(s)`,
+    });
+  }
+
   // SPAI-008 automation: attach lsp_explain help for the error codes so the
   // agent gets the fix guidance without an extra MCP round-trip.
   let explainNotice = "";
