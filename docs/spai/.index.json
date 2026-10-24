@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "lastUpdated": "2026-10-24 14:24:37",
+  "lastUpdated": "2026-10-24 14:24:44",
   "records": [
     {
       "id": "SPAI-001",
@@ -309,8 +309,8 @@
       "id": "SPAI-021",
       "title": "Attach gotcha trigger regexes to lotusscript_check results: after a diagnostic, match its error text against trigger patterns in the gotcha catalogue and surface the matching entries directly in the tool result",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 14:12:10",
       "tags": [
         "gotchas",
@@ -325,8 +325,8 @@
       "id": "SPAI-022",
       "title": "Language policy violation: naming-conventions — translate naming-conventions.md and coding-conventions.md sections 1, 4, 5 (plus Czech code samples/comments where they are instructions) to English; keep ' Účel:' markers and Czech examples as data",
       "type": "Todo",
-      "status": "todo",
-      "symbol": ".",
+      "status": "done",
+      "symbol": "x",
       "timestamp": "2026-10-24 14:12:10",
       "tags": [
         "skill",
