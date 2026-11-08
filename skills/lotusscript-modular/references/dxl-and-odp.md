@@ -58,3 +58,36 @@ the stripped doc, then process files.
   layers and recipes: `gotchas-index.md` §KB.
 - Full DXL form/view skill (richer examples):
   `~/.claude/skills/notes-dxl/SKILL.md`
+
+---
+
+## 6. Validating before Designer import — the DXL import oracle
+
+The 9.0.1 compiler oracle refuses `.dxl` by name, so DXL design exports get a
+**second, empirical oracle**: the file is imported into the sandbox database
+(`env/com-sandbox/data/AgentRunner.nsf`) with the real `NotesDXLImporter`
+through the headless LotusScript lane — no Notes client, no ID file.
+
+`lotusscript_check(path)` routes there automatically for `.dxl`, ODP design
+elements, and any file whose *content* sniffs as DXL (extension does not
+matter). Verdict semantics:
+
+| Result | Meaning |
+|---|---|
+| `OK … imported=N` | the importer accepted the file — Designer will too |
+| `ERR [err 4522]` | importer raised: malformed DXL, Designer would reject |
+| `ERR 0 no note imported` | silent no-op (e.g. a `<form>` missing required DTD attributes) — treated as a failure, never a pass |
+
+The imported note is removed afterwards; repeated checks leave no garbage.
+
+Standalone use (any agent with a shell tool, no pi plugin needed):
+
+```
+python D:/01_programovani/LN_REA/docs/re/dxltests/dxl_check.py <file> [file…]
+# → {"ok": bool, "results": [{file, status, err, errText, imported, items}]}
+```
+
+Overrides: `DOMINO_DXL_PY32` (32-bit python driving lsrun.py),
+`DOMINO_DXL_ORACLE` (the driver script). Bulk RE variants live beside it:
+`dxl_matrix.lss` + `dxl_matrix.py` (imports a whole manifest and re-exports
+each note as normalization evidence).

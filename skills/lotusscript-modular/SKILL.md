@@ -1,6 +1,6 @@
 ---
 name: lotusscript-modular
-description: LotusScript and IBM Notes/Domino 9.0.1 development as whole .lss/.dxl files — writing, editing, scaffolding, checking with the 9.0.1 compiler oracle, designing script libraries, verifying the Notes object model, and finding the existing Domino element before building a new one. Use for any LotusScript, @formula, agent, view/form action, script library, or Notes application question.
+description: LotusScript and IBM Notes/Domino 9.0.1 development as whole .lss/.dxl files — writing, editing, scaffolding, checking with the 9.0.1 compiler oracle (LotusScript/@formula) and the DXL import oracle (design exports), designing script libraries, verifying the Notes object model, and finding the existing Domino element before building a new one. Use for any LotusScript, @formula, agent, view/form action, script library, or Notes application question.
 ---
 
 # LotusScript whole-file workflow
@@ -16,6 +16,10 @@ Every `.lss` is one whole file, edited in place with anchored edits. Never creat
    Pasting into Designer: references/coding-conventions.md, section "Pasting into Designer".
 3. After each edit: `lotusscript_check(path)` until 0 errors. On an error, run
    `lotusscript_gotchas(action: "search", query: "<exact error text>")` before changing code.
+   DXL sources (.dxl, ODP elements, or DXL content under any extension) get the
+   empirical import verdict automatically: the file is imported into the sandbox
+   DB with the real NotesDXLImporter — OK means Designer accepts it, an importer
+   error (e.g. 4522) means Designer would reject it (references/dxl-and-odp.md §6).
 4. Record the change in the `VERZE`/`CHANGELOG` header.
 5. Newly found trap → `lotusscript_gotchas(action: "add")` (the user approves).
 6. The harness grades LSP-clean and KB-consulted. Never self-report a score.
