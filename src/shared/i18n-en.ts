@@ -256,12 +256,12 @@ ${diagnostics}`,
       off: "Off — do not inject the reminder",
     },
     enforceKbGate: {
-      description: "Hard-block .lss/.dxl edits until the lotus-notes knowledge base is queried this session",
+      description: "Hard-block .lss/.dxl and ODP DXL element (.form/.view/.lsa/…) edits until the lotus-notes knowledge base is queried this session",
       on: "On — reject edits until kb_search has run",
       off: "Off — only remind via the prompt, never block",
     },
     verifyKbBeforeSettle: {
-      description: "Require lotus-notes KB queries before the agent settles after mutating .lss/.dxl sources",
+      description: "Require lotus-notes KB queries before the agent settles after mutating .lss/.dxl sources, including ODP DXL elements (.form/.view/.lsa/…)",
       on: "On — inject one verification turn when a run mutated LotusScript sources without enough kb_search calls",
       off: "Off — no settle-time verification",
     },
@@ -296,7 +296,7 @@ ${diagnostics}`,
     },
     injectProjectSkillHint: {
       description:
-        "Point the agent at the entry skill when the working directory holds Domino sources (.lss/.dxl/.fl/.ls)",
+        "Point the agent at the entry skill when the working directory holds Domino sources (.lss/.dxl/.fl/.ls, incl. ODP .form/.view/.lsa/…)",
       on: "On — SKILL.md path in the system prompt and in the .lss read banner",
       off: "Off — nothing reminds the agent; it must find the skill on its own",
     },

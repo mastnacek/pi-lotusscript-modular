@@ -3,6 +3,9 @@
   "enableLsp": true,
   "autoCheckOnEdit": true,
   "autoFormatOnSave": true,
+  "versioningCheck": true,
+  "driftCheck": true,
+  "showSkillTrace": true,
   "autoExplainLspCodes": true,
   "enforceKbPrompt": true,
   "enforceKbGate": true,
@@ -15,5 +18,7 @@
   "injectPreflightGotchas": true,
   "autoDraftRecurringGotchas": true,
   "showTelemetryPanel": true,
+  "injectProjectSkillHint": true,
+  "skillPrompt": "never",
   "forceProject": true
 }

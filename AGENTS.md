@@ -24,7 +24,7 @@ is ever wanted again, do not re-grow a second copy in `src/`.
 - `src/shared/`           kernel: `types.ts`, `config.ts`, `paths.ts`, `i18n.ts` + `i18n-cs.ts`/`i18n-en.ts`, `state.ts` + `state-insights.ts`/`state-hud.ts` (no slice imports)
 - `src/slices/project/`   bounded project detection → entry-skill hint AND the lotus consent modal (`skillPrompt`); `resources.ts` is the only skill advertisement
 - `src/slices/pipeline/`  event translation: tool_call, tool_result, settled, before_settle, guidelines, read-banner, recurring-gotcha
-- `src/slices/guards/`    KB edit gate for `.lss`/`.dxl`
+- `src/slices/guards/`    KB edit gate for `.lss`/`.dxl` and ODP DXL elements (`.form`/`.view`/`.lsa`/… — `src/shared/paths.ts` recognises DXL by extension set or content sniff of the `http://www.lotus.com/dxl` namespace)
 - `src/slices/lsp/`       MCP client for notes-sys `domino-mcp.exe` (whole-file diagnostics, explain, format)
 - `src/slices/gotchas/`   canonical 64 LotusScript gotchas registry, search, seed-sync & append
 - `src/slices/scaffold/`  whole-file templates, alias derivation, `template.lss`

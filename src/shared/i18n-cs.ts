@@ -256,12 +256,12 @@ ${diagnostics}`,
       off: "Vypnuto — nevkládat připomínku",
     },
     enforceKbGate: {
-      description: "Tvrdě blokovat úpravy .lss/.dxl, dokud se v této session neproběhne dotaz do lotus-notes znalostní báze",
+      description: "Tvrdě blokovat úpravy .lss/.dxl a ODP DXL prvků (.form/.view/.lsa/…), dokud se v této session neproběhne dotaz do lotus-notes znalostní báze",
       on: "Zapnuto — zamítat úpravy, dokud neproběhne kb_search",
       off: "Vypnuto — pouze připomínat v promptu, neblokovat",
     },
     verifyKbBeforeSettle: {
-      description: "Před ukončením běhu vyžadovat dotazy do lotus-notes KB, pokud běh měnil .lss/.dxl zdroje",
+      description: "Před ukončením běhu vyžadovat dotazy do lotus-notes KB, pokud běh měnil .lss/.dxl zdroje včetně ODP DXL prvků (.form/.view/.lsa/…)",
       on: "Zapnuto — vložit jedno ověřovací kolo, když běh změnil LotusScript zdroje bez dostatečného počtu kb_search",
       off: "Vypnuto — bez ověření před ukončením",
     },
@@ -296,7 +296,7 @@ ${diagnostics}`,
     },
     injectProjectSkillHint: {
       description:
-        "Ukázat agentovi na entry skill, když pracovní složka obsahuje Domino zdroje (.lss/.dxl/.fl/.ls)",
+        "Ukázat agentovi na entry skill, když pracovní složka obsahuje Domino zdroje (.lss/.dxl/.fl/.ls, i ODP .form/.view/.lsa/…)",
       on: "Zapnuto — odkaz na SKILL.md v systémovém promptu i v banneru při čtení .lss",
       off: "Vypnuto — skill se nepřipomíná, agent ho musí najít sám",
     },

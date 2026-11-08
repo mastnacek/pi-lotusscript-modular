@@ -121,10 +121,12 @@ export function detectLotusScriptProject(
       }
       if (!entry.isFile()) continue;
 
-      const kind = kindOf(entry.name);
+      const absolute = path.join(dir, entry.name);
+      // Full path on purpose: ambiguous extensions (.lsa/.xml) are
+      // content-sniffed, which needs a resolvable path.
+      const kind = kindOf(absolute);
       if (!kind) continue;
 
-      const absolute = path.join(dir, entry.name);
       fingerprint.hasLotusScript = true;
       fingerprint.kind = kind;
       fingerprint.sampleFile = path.relative(root, absolute) || entry.name;

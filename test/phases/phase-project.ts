@@ -28,7 +28,8 @@ import { buildPromptGuidelines } from "../../src/slices/pipeline/guidelines.js";
 import { DEFAULT_CONFIG } from "../../src/shared/config.js";
 import * as paths from "../../src/shared/paths.js";
 import type { ProjectFingerprint } from "../../src/shared/types.js";
-import { ensureTestDir, TEST_DIR } from "../helpers.js";
+import { ensureTestDir, TEST_DIR, writeLss } from "../helpers.js";
+import { phasePaths } from "./phase-paths.js";
 
 function workDir(name: string): string {
   const dir = path.join(TEST_DIR, name);
@@ -132,15 +133,8 @@ export async function phaseProject(): Promise<void> {
     JSON.stringify({ before, stillCached, afterReset })
   );
 
-  // 9. Path protocol: .ls is evidence only, never a whole-file script.
-  const okPaths =
-    paths.isLotusScriptSource("A.lss") &&
-    !paths.isLotusScriptSource("Legacy.ls") &&
-    paths.isLooseScript("Legacy.ls") &&
-    paths.isFormulaSource("button.fl") &&
-    paths.isDxlSource("Form.dxl") &&
-    !paths.isLotusScriptOrDxl("button.fl");
-  assert("9. evidence extensions stay out of the compile/gate protocol", okPaths);
+  // 9-9d moved to phase-paths.ts (path protocol + ODP conventions).
+  phasePaths();
 
   // 10. The shipped skill resolves, so the hint can never point at a dead path.
   const skillPath = getEntrySkillPath();
