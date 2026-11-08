@@ -28,7 +28,8 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
   const CheckParams = Type.Object({
     path: Type.String({
       description:
-        "Path to the file to check: a whole LotusScript .lss/.lsa script or a @formula .fl/.formula source (compiled as-is, exactly as it is)",
+        "Path to the file to check: a whole LotusScript .lss/.lsa script, a @formula .fl/.formula source, or a DXL design export (.dxl, an ODP design element, or DXL content under any extension — validated with the real NotesDXLImporter)",
+      
     }),
   });
 
@@ -39,7 +40,7 @@ export function registerCompileTools(pi: ExtensionAPI, state: PluginState, deps:
     name: "lotusscript_check",
     label: "Check LotusScript File",
     description:
-      "Check a whole LotusScript .lss/.lsa script, or a @formula .fl/.formula source, with the IBM Notes 9.0.1 compiler oracle (the same engine Designer uses). The file is compiled exactly as it is — no modular folder, no assembly. Returns compiler diagnostics (LS-0x… / FORMULA-0x… codes) plus the catalogue entries that describe them; on errors, help pages are attached when the oracle has one. The oracle reports the FIRST error it hits, so re-run after each fix until the file is clean.",
+      "Check a whole LotusScript .lss/.lsa script, or a @formula .fl/.formula source, with the IBM Notes 9.0.1 compiler oracle (the same engine Designer uses). The file is compiled exactly as it is — no modular folder, no assembly. Returns compiler diagnostics (LS-0x… / FORMULA-0x… codes) plus the catalogue entries that describe them; on errors, help pages are attached when the oracle has one. The oracle reports the FIRST error it hits, so re-run after each fix until the file is clean. DXL sources (.dxl, ODP design elements, or DXL content under any extension) take the empirical import lane instead: the file is imported into the sandbox database with the real NotesDXLImporter (headless LS lane, no client/ID) — OK means the importer accepted it, an importer error (e.g. 4522) means Designer would reject it.",
     parameters: CheckParams,
     async execute(_toolCallId: string, params: { path: string }) {
       const cfg = state.config;

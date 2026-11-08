@@ -13,6 +13,7 @@ import { phaseCommands } from "./phases/phase-commands.js";
 import { phaseTools } from "./phases/phase-tools.js";
 import { phaseProject } from "./phases/phase-project.js";
 import { phaseExtension } from "./phases/phase-extension.js";
+import { phaseDxl } from "./phases/phase-dxl.js";
 
 async function runTest(): Promise<void> {
   console.log("=== LotusScript whole-file workflow (VSA layout) ===");
@@ -23,6 +24,7 @@ async function runTest(): Promise<void> {
   await phaseTools();
   await phaseProject();
   await phaseExtension();
+  await phaseDxl();
 
   console.log("=== All whole-file workflow tests passed ===");
 }

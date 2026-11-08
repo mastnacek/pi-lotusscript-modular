@@ -1,7 +1,9 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { isDxlSource, looksLikeDxl } from "../../shared/paths.js";
 import type { LspCheckResult } from "../../shared/types.js";
+import { checkDxlImport } from "./dxl-check.js";
 import { DEFAULT_MCP_SERVER, mcpServerCommand } from "./mcp-client.js";
 
 export { DEFAULT_MCP_SERVER };
@@ -42,6 +44,12 @@ export async function checkLotusScriptDiagnostics(
   serverScriptPath: string = DEFAULT_MCP_SERVER,
   timeoutMs = 30000
 ): Promise<LspCheckResult> {
+  // DXL sources never reach the compiler oracle (it refuses them by name);
+  // they get the empirical import verdict from the sandbox DXL lane instead.
+  // The content sniff also catches DXL exports saved under an unrelated
+  // extension — the import oracle works on absolute paths, not names.
+  if (isDxlSource(filePath) || looksLikeDxl(filePath)) return checkDxlImport(filePath);
+
   const first = await checkOnce(filePath, serverScriptPath, timeoutMs);
   if (!/timed out/i.test(first.diagnostics)) return first;
 
